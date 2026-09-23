@@ -71,7 +71,9 @@ def block_features(
     ds["lst_c"] = lst_blocks.assign_coords(x=ds.x, y=ds.y)
 
     df = ds.to_dataframe().reset_index()
-    ny, nx = ds.sizes["y"], ds.sizes["x"]
-    df["row"] = np.repeat(np.arange(ny), nx)
-    df["col"] = np.tile(np.arange(nx), ny)
-    return df
+    # Derive grid indices from coordinates, not row order (to_dataframe does not promise one).
+    # Row 0 = northernmost block.
+    step = abs(float(ds.x[1] - ds.x[0])) if ds.sizes["x"] > 1 else 1.0
+    df["row"] = np.rint((df.y.max() - df.y) / step).astype(int)
+    df["col"] = np.rint((df.x - df.x.min()) / step).astype(int)
+    return df.sort_values(["row", "col"]).reset_index(drop=True)
