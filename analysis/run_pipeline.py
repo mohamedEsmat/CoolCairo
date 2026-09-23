@@ -11,7 +11,11 @@ import time
 
 from coolcairo.config import EXPORT_DIR, load_config
 from coolcairo.export import grid_origin, grid_shape, write_district
-from coolcairo.interventions import full_adoption_summary, plausibility_warnings
+from coolcairo.interventions import (
+    cool_roof_surface_delta,
+    full_adoption_summary,
+    plausibility_warnings,
+)
 from coolcairo.model import fit, training_rows
 from coolcairo.pipeline import build_blocks, display_subset
 
@@ -26,9 +30,11 @@ def main() -> None:
     train = training_rows(blocks, cfg["min_building_coverage"])
     result = fit(train, cfg["cv_tile_size"], cfg["cv_folds"])
     print(json.dumps(result.to_dict(), indent=2))
-    for w in plausibility_warnings(result):
+    roof_delta = cool_roof_surface_delta(cfg, result)
+    print(f"Cool roof: {roof_delta:+.2f} C per unit block area ({cfg['cool_roof']['method']})")
+    for w in plausibility_warnings(cfg, result):
         print("WARNING:", w)
-    print(full_adoption_summary(result, train).round(2))
+    print(full_adoption_summary(cfg, result, train).round(2))
 
     disp_blocks, disp_buildings = display_subset(cfg, blocks, buildings)
     rows, cols = grid_shape(disp_blocks)
@@ -43,9 +49,12 @@ def main() -> None:
         blocks=disp_blocks,
         buildings=disp_buildings,
         fit=result,
+        cool_roof_delta_c=roof_delta,
+        cool_roof_method=cfg["cool_roof"]["method"],
         provenance={
             "lst": "Landsat 8/9 C2 L2 ST_B10, summer median",
-            "materials": "Sentinel-2 L2A interim 3-class rules (EnMAP pending)",
+            "materials": "Sentinel-2 L2A interim 4-class rules (EnMAP pending)",
+            "cool_roof": "Wang, Huang & Li 2020, GRL 47, e2020GL087853 (see aoi.yaml)",
             "buildings": "OpenStreetMap",
         },
     )

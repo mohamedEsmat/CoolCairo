@@ -81,5 +81,8 @@ namespace CoolCairo
         public float r2SpatialCv;
         public float maeSpatialCv;
         public int nBlocks;
+        // Surface temperature change per unit block area converted from dark to cool roof.
+        public float coolRoofDeltaC;
+        public string coolRoofMethod;
     }
 }

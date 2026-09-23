@@ -11,7 +11,12 @@ from coolcairo.blocks import block_features
 from coolcairo.classify import Material, classify_sentinel2
 from coolcairo.config import geobox_for, load_config
 from coolcairo.export import grid_origin, grid_shape, write_district
-from coolcairo.interventions import cool_roof_delta, plausibility_warnings, tree_delta
+from coolcairo.interventions import (
+    cool_roof_delta,
+    cool_roof_surface_delta,
+    plausibility_warnings,
+    tree_delta,
+)
 from coolcairo.model import FEATURES, fit, spatial_groups
 
 
@@ -73,9 +78,10 @@ def test_fit_recovers_coefficients_and_intervention_signs():
     result = fit(_synthetic_blocks(), cv_tile_size=1000, cv_folds=5)
     assert result.coefficients["dark_roof_frac"] == pytest.approx(5, abs=0.3)
     assert result.r2_spatial_cv > 0.8
-    assert cool_roof_delta(result, 0.1) == pytest.approx(-0.5, abs=0.05)
+    fitted_roof = -result.coefficients["dark_roof_frac"]
+    assert cool_roof_delta(fitted_roof, 0.1) == pytest.approx(-0.5, abs=0.05)
     assert tree_delta(result, 0.1) == pytest.approx(-1.1, abs=0.1)
-    assert plausibility_warnings(result) == []
+    assert plausibility_warnings(load_config(), result) == []
 
 
 def test_spatial_groups_share_tiles():
@@ -97,7 +103,7 @@ def test_export_roundtrip(tmp_path):
     out = write_district(
         tmp_path / "d.json", name="t", crs="EPSG:32636", origin=grid_origin(blocks, 90),
         block_size=90, rows=rows, cols=cols, blocks=blocks, buildings=buildings,
-        fit=result, provenance={},
+        fit=result, cool_roof_delta_c=-4.64, cool_roof_method="literature", provenance={},
     )
     data = json.loads((tmp_path / "d.json").read_text())
     assert data["blocks"]["valid"] == [1, 1, 1, 0]  # Row 0 is south after the flip.
@@ -118,3 +124,14 @@ def test_bright_soil_is_separated_from_bright_concrete():
     s2 = xr.Dataset({b: ("x", [s[b] for s in samples.values()]) for b in samples["soil"]})
     got = [Material(int(v)) for v in classify_sentinel2(cfg, s2).values]
     assert got == [Material.BRIGHT, Material.SOIL, Material.DARK, Material.VEGETATION]
+
+
+def test_literature_cool_roof_is_cooling_and_switchable():
+    cfg = load_config()
+    result = fit(_synthetic_blocks(), 1000, 5)
+    assert cfg["cool_roof"]["method"] == "literature"
+    assert cool_roof_surface_delta(cfg, result) == pytest.approx(-8.0 * (0.70 - 0.12))
+    regression = {**cfg["cool_roof"], "method": "regression"}
+    regression_cfg = type(cfg)({**cfg.raw, "cool_roof": regression})
+    assert cool_roof_surface_delta(regression_cfg, result) == pytest.approx(
+        -result.coefficients["dark_roof_frac"])

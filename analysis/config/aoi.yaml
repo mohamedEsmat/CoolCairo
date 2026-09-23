@@ -45,6 +45,26 @@ s2_classification:
   # any footprint, over the model area, 2023-2025 summer composite (analysis 23 Sep 2026).
   bsi_soil_min: 0.137
 
+# Cool-roof effect. "literature" (default) or "regression" (use -coef(dark_roof_frac) once the
+# fitted coefficient is physically plausible, e.g. after EnMAP classification).
+# Interim Sentinel-2 data gives a negative dark-roof coefficient (dark roofs look cooler, likely
+# building shadow), so the fitted value cannot be used; see CLAUDE.md fallbacks.
+cool_roof:
+  method: literature
+  # Roof surface temperature change per unit roof albedo increase (K). Wang, Huang & Li (2020),
+  # "Where Are White Roofs More Effective in Cooling the Surface?", Geophysical Research Letters
+  # 47, e2020GL087853: JJA daily-mean values mostly -8 to -4 K, with the Arabian Peninsula and
+  # Mediterranean among the most sensitive regions. -8 K is the top of that range. It is a daily
+  # mean, so it is conservative for Landsat's ~10:30 daytime overpass.
+  dts_per_albedo: -8.0
+  # Dark roof / pavement baseline albedo, as used for Cairo in "The impact of increasing urban
+  # surface albedo on outdoor air and surface temperatures during summer in newly developed
+  # areas", Scientific Reports (2025), doi:10.1038/s41598-025-08574-2 (0.12 -> 0.50 pavement
+  # gave up to 12.94 C lower surface temperature at peak sun: an upper-bound cross-check).
+  albedo_before: 0.12
+  # Cool-roof albedo of Wang et al. (2020) Case 4.
+  albedo_after: 0.70
+
 # Building heights: OSM `height` -> OSM `building:levels` x storey height -> fallback.
 storey_height_m: 3.2
 default_levels: 5  # Replaced by Google Open Buildings 2.5D heights when that loader is added.

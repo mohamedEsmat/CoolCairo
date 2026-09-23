@@ -10,16 +10,31 @@ from __future__ import annotations
 
 import pandas as pd
 
+from coolcairo.config import Config
 from coolcairo.model import FitResult
 
 
-def cool_roof_delta(fit: FitResult, dark_roof_converted: pd.Series | float) -> pd.Series | float:
-    """Delta LST (deg C) when this share of block area changes from dark roof to bright roof.
+def cool_roof_surface_delta(cfg: Config, fit: FitResult) -> float:
+    """Surface temperature change (deg C) of one unit of block area going from dark to cool roof.
 
-    With bright surfaces as the reference category, that change is exactly
-    `-dark_roof_converted` on `dark_roof_frac` with `roof_frac` unchanged.
+    "literature": dTs/d(albedo) x (albedo_after - albedo_before), from config with sources.
+    "regression": -coef(dark_roof_frac); bright roofs are the model's reference.
+    A Landsat pixel's LST is close to the area-weighted mean of its surfaces' temperatures, so a
+    block's change is this value times the share of block area converted.
     """
-    return -fit.coefficients["dark_roof_frac"] * dark_roof_converted
+    cr = cfg["cool_roof"]
+    if cr["method"] == "literature":
+        return cr["dts_per_albedo"] * (cr["albedo_after"] - cr["albedo_before"])
+    if cr["method"] == "regression":
+        return -fit.coefficients["dark_roof_frac"]
+    raise ValueError(f"Unknown cool_roof.method {cr['method']!r}")
+
+
+def cool_roof_delta(
+    roof_surface_delta: float, dark_roof_converted: pd.Series | float
+) -> pd.Series | float:
+    """Delta LST (deg C) when this share of block area changes from dark roof to cool roof."""
+    return roof_surface_delta * dark_roof_converted
 
 
 def tree_delta(fit: FitResult, ground_planted: pd.Series | float) -> pd.Series | float:
@@ -28,26 +43,29 @@ def tree_delta(fit: FitResult, ground_planted: pd.Series | float) -> pd.Series |
     return (c["veg_frac"] - c["dark_ground_frac"]) * ground_planted
 
 
-def full_adoption_summary(fit: FitResult, blocks: pd.DataFrame) -> pd.DataFrame:
+def full_adoption_summary(cfg: Config, fit: FitResult, blocks: pd.DataFrame) -> pd.DataFrame:
     """Per-block Delta LST if every dark roof were coated / 25% of dark ground were planted.
 
     These are the "Delta T per intervention type" figures for the report. The 25% planting
     cap reflects that streets cannot be fully covered by canopy.
     """
+    roof_delta = cool_roof_surface_delta(cfg, fit)
     return pd.DataFrame(
         {
-            "cool_roof_all_dark_roofs": cool_roof_delta(fit, blocks.dark_roof_frac),
+            "cool_roof_all_dark_roofs": cool_roof_delta(roof_delta, blocks.dark_roof_frac),
             "trees_25pct_dark_ground": tree_delta(fit, 0.25 * blocks.dark_ground_frac),
         }
     ).describe()
 
 
-def plausibility_warnings(fit: FitResult) -> list[str]:
+def plausibility_warnings(cfg: Config, fit: FitResult) -> list[str]:
     """Sign checks. A failure here triggers the literature-coefficient fallback in CLAUDE.md."""
     c = fit.coefficients
     warnings = []
     if c["dark_roof_frac"] <= 0:
-        warnings.append("Dark roofs do not raise LST vs bright roofs: cool-roof effect unusable.")
+        note = "literature value in use" if cfg["cool_roof"]["method"] == "literature" else (
+            "cool-roof effect UNUSABLE: set cool_roof.method to literature")
+        warnings.append(f"Fitted dark roofs do not raise LST vs bright roofs ({note}).")
     if c["veg_frac"] >= c["dark_ground_frac"]:
         warnings.append("Vegetation is not cooler than dark ground: tree effect unusable.")
     return warnings

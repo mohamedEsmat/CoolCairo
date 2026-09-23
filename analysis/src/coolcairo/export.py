@@ -92,6 +92,8 @@ def write_district(
     blocks: pd.DataFrame,
     buildings: gpd.GeoDataFrame,
     fit: FitResult,
+    cool_roof_delta_c: float,
+    cool_roof_method: str,
     provenance: dict[str, str],
 ) -> dict:
     c = fit.coefficients
@@ -117,6 +119,9 @@ def write_district(
             "r2SpatialCv": fit.r2_spatial_cv,
             "maeSpatialCv": fit.mae_spatial_cv,
             "nBlocks": fit.n_blocks,
+            # Surface temperature change per unit block area converted dark -> cool roof.
+            "coolRoofDeltaC": cool_roof_delta_c,
+            "coolRoofMethod": cool_roof_method,
         },
         "provenance": provenance,
     }

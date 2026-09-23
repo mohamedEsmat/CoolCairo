@@ -37,7 +37,7 @@ namespace CoolCairo
             var m = _d.model;
             float roofConverted = _coolRoofShare[block] * b.darkRoofFrac[block];
             float groundPlanted = _treeShare[block] * MaxTreeShareOfDarkGround * b.darkGroundFrac[block];
-            return -m.darkRoofFrac * roofConverted + (m.vegFrac - m.darkGroundFrac) * groundPlanted;
+            return m.coolRoofDeltaC * roofConverted + (m.vegFrac - m.darkGroundFrac) * groundPlanted;
         }
 
         public float Lst(int block) => BaselineLst(block) + DeltaLst(block);
