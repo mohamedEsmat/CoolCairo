@@ -72,6 +72,9 @@ cool_roof:
   # "regression" only replaces the dark-roof term; pale roofs are the model's reference
   # category, so their effect always comes from the literature values above.
 
-# Building heights: OSM `height` -> OSM `building:levels` x storey height -> fallback.
+# Building heights: OSM `height` -> OSM `building:levels` x storey height
+#   -> Google Open Buildings 2.5D Temporal 2023 (median inside footprint) -> default.
 storey_height_m: 3.2
-default_levels: 5  # Replaced by Google Open Buildings 2.5D heights when that loader is added.
+default_levels: 5
+# Minimum Open Buildings pixels (4 m) with height inside a footprint to trust its median.
+open_buildings_min_pixels: 3

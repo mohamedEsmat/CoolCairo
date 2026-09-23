@@ -39,7 +39,7 @@ Headless run: `cd analysis && uv run python run_pipeline.py`. Unity: menu **Cool
 - **Cool roof uses literature values** (`cool_roof.method: literature` in `aoi.yaml`): −8 K roof surface temperature per unit albedo (Wang, Huang & Li 2020, GRL 47, e2020GL087853, top of the JJA daily-mean range) × albedo 0.12 → 0.70 = **−4.64 °C per unit block area of dark roof coated**. Conservative for a 10:30 overpass. **Pale roofs are coatable too**: weathered gray concrete albedo 0.25 (ACPA R&T Update 3.05, Table 1: 0.20–0.30) → 0.70 = **−3.60 °C per unit area**. The cool-roof tool coats all roofs in a block; full adoption averages −1.0 °C per block. Reason: with soil separated, spatial-CV R² = 0.15 but the fitted dark-roof coefficient is still negative (dark roofs look cooler), suspected building shadow in Sentinel-2 "dark" roof pixels. Switch to `regression` if EnMAP fixes the sign. Trees remain data-derived. **R² reported with spatial CV** (1 km tiles, GroupKFold). Linear so Unity computes ΔT as a weighted sum.
 - **Cool roof** = moving block area from dark roof to bright roof → ΔT = −coef(dark_roof) × share. Data-derived; literature values used as a sanity check only. **Trees** = dark ground → vegetation, capped at 25% of dark ground. **Shade structures are cut** (not in the model).
 - **UI language: "surface temperature" / "land surface temperature"** everywhere, never "air temperature".
-- **Building heights**: OSM `height` → `building:levels` × 3.2 m → Google Open Buildings 2.5D (TODO) → default 5 storeys.
+- **Building heights**: OSM `height` → `building:levels` × 3.2 m → **Google Open Buildings 2.5D Temporal 2023** (median of 4 m pixels inside the footprint; public GCS tiles listed in `analysis/config/open_buildings_tiles.txt`, no account) → default 5 storeys. Coverage: 74% Open Buildings, 25% default, 1% OSM. Validated against 165 OSM-tagged buildings: bias −1.4 m, MAE 6.2 m, r = 0.60. Adding real heights raised spatial-CV R² from 0.15 to 0.25.
 - **Target: WebGL primary**, Windows desktop build as an offline backup for the video and live demo (same project, no extra code). Brotli + decompression fallback so static hosts work.
 - **Validation imagery**: no PlanetScope access → use Google Earth / Esri World Imagery for the 20-roof spot check.
 
@@ -70,6 +70,7 @@ Stream via STAC from Microsoft Planetary Computer (anonymous, no key). Cached to
 | Landsat C2 L2 (Planetary Computer) | Thermal | Working |
 | Sentinel-2 L2A (Planetary Computer) | NDVI, interim classes | Working |
 | OpenStreetMap (osmnx) | Footprints and heights | Working |
+| Google Open Buildings 2.5D Temporal (public GCS) | Building heights | Working |
 | Google Earth / Esri imagery | Visual validation | No PlanetScope access |
 
 ## Milestones

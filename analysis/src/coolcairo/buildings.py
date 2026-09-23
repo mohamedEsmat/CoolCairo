@@ -27,9 +27,9 @@ def _to_float(value: object) -> float:
 def fetch_buildings(cfg: Config, bbox_wgs84: list[float]) -> gpd.GeoDataFrame:
     """Footprints in the project CRS with a `height_m` column and its provenance.
 
-    Height order: OSM `height` -> OSM `building:levels` x storey height -> config default.
-    Most Cairo buildings have no height tag, so `height_source` is reported in the notebook.
-    TODO: insert Google Open Buildings 2.5D heights before the config default.
+    Height order here: OSM `height` -> OSM `building:levels` x storey height -> config default.
+    Most Cairo buildings have no height tag; pipeline.load_buildings then replaces "default"
+    heights with Google Open Buildings 2.5D estimates where available.
     """
     min_lon, min_lat, max_lon, max_lat = bbox_wgs84
     raw = ox.features_from_bbox((min_lon, min_lat, max_lon, max_lat), tags={"building": True})

@@ -12,7 +12,7 @@ import geopandas as gpd
 import pandas as pd
 import xarray as xr
 
-from coolcairo import stac
+from coolcairo import openbuildings, stac
 from coolcairo.blocks import block_features, height_raster
 from coolcairo.buildings import fetch_buildings, footprint_mask
 from coolcairo.classify import classify_sentinel2
@@ -46,7 +46,8 @@ def load_sentinel2(cfg: Config) -> xr.Dataset:
     )
 
 
-def load_buildings(cfg: Config) -> gpd.GeoDataFrame:
+def load_osm_buildings(cfg: Config) -> gpd.GeoDataFrame:
+    """OSM footprints with OSM-only heights (cached)."""
     path = DATA_DIR / "buildings.gpkg"
     if path.exists():
         return gpd.read_file(path)
@@ -54,6 +55,20 @@ def load_buildings(cfg: Config) -> gpd.GeoDataFrame:
     path.parent.mkdir(parents=True, exist_ok=True)
     gdf.to_file(path, driver="GPKG")
     return gdf
+
+
+def load_open_buildings_heights(cfg: Config) -> xr.DataArray:
+    return _cached_array(DATA_DIR / "ob_height_m.nc", lambda: openbuildings.height_mosaic(cfg))
+
+
+def load_buildings(cfg: Config) -> gpd.GeoDataFrame:
+    """Footprints with heights: OSM tags, then Open Buildings 2.5D, then the config default."""
+    osm = load_osm_buildings(cfg)
+    ob = openbuildings.footprint_heights(
+        osm, load_open_buildings_heights(cfg), cfg["open_buildings_min_pixels"]
+    )
+    default = cfg["default_levels"] * cfg["storey_height_m"]
+    return openbuildings.apply_heights(osm, ob, default)
 
 
 def build_blocks(cfg: Config) -> tuple[pd.DataFrame, xr.DataArray, gpd.GeoDataFrame]:

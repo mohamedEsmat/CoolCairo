@@ -141,3 +141,23 @@ def test_literature_cool_roof_is_cooling_and_switchable():
     reg = cool_roof_surface_deltas(type(cfg)({**cfg.raw, "cool_roof": regression}), result)
     assert reg.dark == pytest.approx(-result.coefficients["dark_roof_frac"])
     assert reg.pale == lit.pale  # Pale roofs are the model's reference: always literature.
+
+
+def test_open_buildings_fill_only_default_heights():
+    from coolcairo.openbuildings import apply_heights, footprint_heights
+
+    # 4 m grid, 10 x 10 pixels, origin (0, 40). Left half 12 m buildings, right half no data.
+    h = np.full((10, 10), np.nan)
+    h[:, :5] = 12.0
+    heights = xr.DataArray(
+        h, dims=("y", "x"), coords={"y": 40 - 2 - np.arange(10) * 4.0, "x": 2 + np.arange(10) * 4.0}
+    )
+    buildings = gpd.GeoDataFrame(
+        {"height_m": [16.0, 30.0, 16.0], "height_source": ["default", "osm_height", "default"]},
+        geometry=[box(0, 0, 16, 16), box(0, 20, 16, 36), box(24, 0, 40, 16)],
+    )
+    ob = footprint_heights(buildings, heights, min_pixels=3)
+    assert ob.iloc[0] == pytest.approx(12.0) and np.isnan(ob.iloc[2])
+    out = apply_heights(buildings, ob, default_height=16.0)
+    assert out.height_source.tolist() == ["open_buildings", "osm_height", "default"]
+    assert out.height_m.tolist() == [12.0, 30.0, 16.0]  # OSM tag is never overridden.

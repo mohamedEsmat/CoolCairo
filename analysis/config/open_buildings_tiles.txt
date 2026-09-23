@@ -1,0 +1,10 @@
+# Google Open Buildings 2.5D Temporal v1, 2023 tiles intersecting model_aoi (aoi.yaml).
+# Derived with coolcairo.openbuildings.find_tiles() from urls/EGY_2023.txt in the HDX zip:
+# https://data.humdata.org/dataset/google-open-buildings-temporal
+# Regenerate if model_aoi changes.
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/14584_2023_06_30/tile_j4OvIkwqrm8.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/14584_2023_06_30/tile_ZEIX66sm0PA.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/14584_2023_06_30/tile_MBuNW8Pr9PQ.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/14584_2023_06_30/tile_6FL8Lbra8o8.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/14584_2023_06_30/tile_tHlWsPh3T9o.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/14584_2023_06_30/tile_Kczw4h18a0s.tif
