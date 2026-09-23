@@ -51,6 +51,7 @@ namespace CoolCairo
         public float[] lstC;
         public float[] vegFrac;
         public float[] darkRoofFrac;
+        public float[] paleRoofFrac;
         public float[] darkGroundFrac;
         public float[] soilFrac;
         public float[] roofFrac;
@@ -81,8 +82,9 @@ namespace CoolCairo
         public float r2SpatialCv;
         public float maeSpatialCv;
         public int nBlocks;
-        // Surface temperature change per unit block area converted from dark to cool roof.
-        public float coolRoofDeltaC;
+        // Surface temperature change per unit block area coated, by starting roof type.
+        public float coolRoofDarkDeltaC;
+        public float coolRoofPaleDeltaC;
         public string coolRoofMethod;
     }
 }

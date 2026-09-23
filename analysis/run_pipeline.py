@@ -12,7 +12,7 @@ import time
 from coolcairo.config import EXPORT_DIR, load_config
 from coolcairo.export import grid_origin, grid_shape, write_district
 from coolcairo.interventions import (
-    cool_roof_surface_delta,
+    cool_roof_surface_deltas,
     full_adoption_summary,
     plausibility_warnings,
 )
@@ -30,8 +30,9 @@ def main() -> None:
     train = training_rows(blocks, cfg["min_building_coverage"])
     result = fit(train, cfg["cv_tile_size"], cfg["cv_folds"])
     print(json.dumps(result.to_dict(), indent=2))
-    roof_delta = cool_roof_surface_delta(cfg, result)
-    print(f"Cool roof: {roof_delta:+.2f} C per unit block area ({cfg['cool_roof']['method']})")
+    roof = cool_roof_surface_deltas(cfg, result)
+    print(f"Cool roof per unit block area coated: dark {roof.dark:+.2f} C, "
+          f"pale {roof.pale:+.2f} C ({cfg['cool_roof']['method']})")
     for w in plausibility_warnings(cfg, result):
         print("WARNING:", w)
     print(full_adoption_summary(cfg, result, train).round(2))
@@ -49,7 +50,7 @@ def main() -> None:
         blocks=disp_blocks,
         buildings=disp_buildings,
         fit=result,
-        cool_roof_delta_c=roof_delta,
+        cool_roof=roof,
         cool_roof_method=cfg["cool_roof"]["method"],
         provenance={
             "lst": "Landsat 8/9 C2 L2 ST_B10, summer median",

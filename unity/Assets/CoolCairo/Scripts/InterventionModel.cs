@@ -13,7 +13,7 @@ namespace CoolCairo
         public const float MaxTreeShareOfDarkGround = 0.25f;
 
         readonly DistrictData _d;
-        readonly float[] _coolRoofShare;  // 0..1 of the block's dark roof area coated.
+        readonly float[] _coolRoofShare;  // 0..1 of the block's roofs (dark and pale) coated.
         readonly float[] _treeShare;      // 0..1 of the plantable dark ground planted.
 
         public event Action Changed;
@@ -35,19 +35,21 @@ namespace CoolCairo
             if (!IsValid(block)) return 0f;
             var b = _d.blocks;
             var m = _d.model;
-            float roofConverted = _coolRoofShare[block] * b.darkRoofFrac[block];
+            float coated = _coolRoofShare[block];
+            float roof = coated * (m.coolRoofDarkDeltaC * b.darkRoofFrac[block]
+                                   + m.coolRoofPaleDeltaC * b.paleRoofFrac[block]);
             float groundPlanted = _treeShare[block] * MaxTreeShareOfDarkGround * b.darkGroundFrac[block];
-            return m.coolRoofDeltaC * roofConverted + (m.vegFrac - m.darkGroundFrac) * groundPlanted;
+            return roof + (m.vegFrac - m.darkGroundFrac) * groundPlanted;
         }
 
         public float Lst(int block) => BaselineLst(block) + DeltaLst(block);
 
-        // Dark-roof share of the roof area after coating, for colouring roofs.
+        // Dark-roof share of the uncoated roof area, for colouring roofs.
         public float DarkRoofShareOfRoofs(int block)
         {
             var b = _d.blocks;
             if (b.roofFrac[block] <= 0f) return 0f;
-            return b.darkRoofFrac[block] * (1f - _coolRoofShare[block]) / b.roofFrac[block];
+            return b.darkRoofFrac[block] / b.roofFrac[block];
         }
 
         public void Apply(Intervention kind, int block, float amount)

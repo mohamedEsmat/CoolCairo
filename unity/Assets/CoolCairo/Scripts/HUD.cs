@@ -42,14 +42,15 @@ namespace CoolCairo
                 var b = d.blocks;
                 GUILayout.Label(
                     $"Block {h}: surface temp {m.BaselineLst(h):0.0} °C → {m.Lst(h):0.0} °C\n" +
-                    $"{b.darkRoofFrac[h]:P0} dark roof · {b.darkGroundFrac[h]:P0} dark ground · {b.vegFrac[h]:P0} vegetation · {b.soilFrac[h]:P0} bare soil");
+                    $"{b.darkRoofFrac[h]:P0} dark roof · {b.paleRoofFrac[h]:P0} pale roof · {b.darkGroundFrac[h]:P0} dark ground · {b.vegFrac[h]:P0} vegetation · {b.soilFrac[h]:P0} bare soil");
             }
 
             GUILayout.FlexibleSpace();
             GUILayout.Label(
                 $"<size=10>Land surface temperature, block-level ({d.blockSize:0} m). " +
                 $"Model spatial-CV R² {d.model.r2SpatialCv:0.00}, MAE {d.model.maeSpatialCv:0.0} °C, n={d.model.nBlocks}. " +
-                $"Cool roofs: {d.model.coolRoofDeltaC:0.0} °C per coated area ({d.model.coolRoofMethod}).</size>",
+                $"Cool roofs per coated area: dark {d.model.coolRoofDarkDeltaC:0.0} °C, " +
+                $"pale {d.model.coolRoofPaleDeltaC:0.0} °C ({d.model.coolRoofMethod}).</size>",
                 Rich());
             GUILayout.EndArea();
 

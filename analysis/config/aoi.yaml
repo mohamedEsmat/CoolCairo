@@ -61,9 +61,16 @@ cool_roof:
   # surface albedo on outdoor air and surface temperatures during summer in newly developed
   # areas", Scientific Reports (2025), doi:10.1038/s41598-025-08574-2 (0.12 -> 0.50 pavement
   # gave up to 12.94 C lower surface temperature at peak sun: an upper-bound cross-check).
-  albedo_before: 0.12
+  # Within the weathered-asphalt range 0.10-0.15 of the ACPA table below.
+  albedo_dark_roof: 0.12
+  # Pale (weathered gray concrete) roof albedo: midpoint of 0.20-0.30 for weathered gray
+  # portland cement concrete, American Concrete Pavement Association, "Albedo: A Measure of
+  # Pavement Surface Reflectance", R&T Update 3.05 (2002), Table 1 (field measurements).
+  albedo_pale_roof: 0.25
   # Cool-roof albedo of Wang et al. (2020) Case 4.
   albedo_after: 0.70
+  # "regression" only replaces the dark-roof term; pale roofs are the model's reference
+  # category, so their effect always comes from the literature values above.
 
 # Building heights: OSM `height` -> OSM `building:levels` x storey height -> fallback.
 storey_height_m: 3.2

@@ -18,6 +18,7 @@ import pandas as pd
 from shapely.geometry import Polygon
 from shapely.geometry.polygon import orient
 
+from coolcairo.interventions import CoolRoofDeltas
 from coolcairo.model import FitResult
 
 SCHEMA_VERSION = 1
@@ -39,6 +40,7 @@ def _block_arrays(blocks: pd.DataFrame, rows: int, cols: int) -> dict[str, list]
         "lstC": column("lst_c"),
         "vegFrac": column("veg_frac"),
         "darkRoofFrac": column("dark_roof_frac"),
+        "paleRoofFrac": column("pale_roof_frac"),
         "darkGroundFrac": column("dark_ground_frac"),
         "soilFrac": column("soil_frac"),
         "roofFrac": column("roof_frac"),
@@ -92,7 +94,7 @@ def write_district(
     blocks: pd.DataFrame,
     buildings: gpd.GeoDataFrame,
     fit: FitResult,
-    cool_roof_delta_c: float,
+    cool_roof: CoolRoofDeltas,
     cool_roof_method: str,
     provenance: dict[str, str],
 ) -> dict:
@@ -119,8 +121,9 @@ def write_district(
             "r2SpatialCv": fit.r2_spatial_cv,
             "maeSpatialCv": fit.mae_spatial_cv,
             "nBlocks": fit.n_blocks,
-            # Surface temperature change per unit block area converted dark -> cool roof.
-            "coolRoofDeltaC": cool_roof_delta_c,
+            # Surface temperature change per unit block area coated, by starting roof type.
+            "coolRoofDarkDeltaC": cool_roof.dark,
+            "coolRoofPaleDeltaC": cool_roof.pale,
             "coolRoofMethod": cool_roof_method,
         },
         "provenance": provenance,

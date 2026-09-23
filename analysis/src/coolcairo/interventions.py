@@ -8,33 +8,49 @@ All temperatures are land SURFACE temperature (LST) as seen by Landsat, not air 
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pandas as pd
 
 from coolcairo.config import Config
 from coolcairo.model import FitResult
 
 
-def cool_roof_surface_delta(cfg: Config, fit: FitResult) -> float:
-    """Surface temperature change (deg C) of one unit of block area going from dark to cool roof.
+@dataclass(frozen=True)
+class CoolRoofDeltas:
+    """Surface temperature change (deg C) per unit of block area coated, by starting roof type."""
 
-    "literature": dTs/d(albedo) x (albedo_after - albedo_before), from config with sources.
-    "regression": -coef(dark_roof_frac); bright roofs are the model's reference.
+    dark: float
+    pale: float
+
+
+def cool_roof_surface_deltas(cfg: Config, fit: FitResult) -> CoolRoofDeltas:
+    """Per-unit-area effect of coating dark and pale roofs.
+
+    Literature: dTs/d(albedo) x (albedo_after - albedo_before), from config with sources.
+    "regression" replaces only the dark term with -coef(dark_roof_frac); pale roofs are the
+    model's reference category, so the model has no pale-roof term to use.
     A Landsat pixel's LST is close to the area-weighted mean of its surfaces' temperatures, so a
-    block's change is this value times the share of block area converted.
+    block's change is these values times the share of block area coated.
     """
     cr = cfg["cool_roof"]
+    pale = cr["dts_per_albedo"] * (cr["albedo_after"] - cr["albedo_pale_roof"])
     if cr["method"] == "literature":
-        return cr["dts_per_albedo"] * (cr["albedo_after"] - cr["albedo_before"])
-    if cr["method"] == "regression":
-        return -fit.coefficients["dark_roof_frac"]
-    raise ValueError(f"Unknown cool_roof.method {cr['method']!r}")
+        dark = cr["dts_per_albedo"] * (cr["albedo_after"] - cr["albedo_dark_roof"])
+    elif cr["method"] == "regression":
+        dark = -fit.coefficients["dark_roof_frac"]
+    else:
+        raise ValueError(f"Unknown cool_roof.method {cr['method']!r}")
+    return CoolRoofDeltas(dark=dark, pale=pale)
 
 
 def cool_roof_delta(
-    roof_surface_delta: float, dark_roof_converted: pd.Series | float
+    deltas: CoolRoofDeltas,
+    dark_roof_coated: pd.Series | float,
+    pale_roof_coated: pd.Series | float,
 ) -> pd.Series | float:
-    """Delta LST (deg C) when this share of block area changes from dark roof to cool roof."""
-    return roof_surface_delta * dark_roof_converted
+    """Delta LST (deg C) when these shares of block area are coated with a cool roof."""
+    return deltas.dark * dark_roof_coated + deltas.pale * pale_roof_coated
 
 
 def tree_delta(fit: FitResult, ground_planted: pd.Series | float) -> pd.Series | float:
@@ -44,15 +60,17 @@ def tree_delta(fit: FitResult, ground_planted: pd.Series | float) -> pd.Series |
 
 
 def full_adoption_summary(cfg: Config, fit: FitResult, blocks: pd.DataFrame) -> pd.DataFrame:
-    """Per-block Delta LST if every dark roof were coated / 25% of dark ground were planted.
+    """Per-block Delta LST if every roof were coated / 25% of dark ground were planted.
 
     These are the "Delta T per intervention type" figures for the report. The 25% planting
     cap reflects that streets cannot be fully covered by canopy.
     """
-    roof_delta = cool_roof_surface_delta(cfg, fit)
+    deltas = cool_roof_surface_deltas(cfg, fit)
     return pd.DataFrame(
         {
-            "cool_roof_all_dark_roofs": cool_roof_delta(roof_delta, blocks.dark_roof_frac),
+            "cool_roof_all_roofs": cool_roof_delta(
+                deltas, blocks.dark_roof_frac, blocks.pale_roof_frac
+            ),
             "trees_25pct_dark_ground": tree_delta(fit, 0.25 * blocks.dark_ground_frac),
         }
     ).describe()

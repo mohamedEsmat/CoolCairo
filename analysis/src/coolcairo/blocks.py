@@ -62,6 +62,11 @@ def block_features(
         "bright_frac": frac(material == Material.BRIGHT),
         "roof_frac": frac(is_roof),
         "dark_roof_frac": frac(is_roof & (material == Material.DARK)),
+        # Pale roofs: bright or soil-like pixels inside a footprint (dusty concrete roofs).
+        # Not a model feature (roof_frac minus dark/vegetated roofs); used for cool-roof coating.
+        "pale_roof_frac": frac(
+            is_roof & ((material == Material.BRIGHT) | (material == Material.SOIL))
+        ),
         "dark_ground_frac": frac(~is_roof & (material == Material.DARK)),
         # Soil-like pixels inside a mapped footprint are dusty roofs, so only ground counts.
         "soil_frac": frac(~is_roof & (material == Material.SOIL)),

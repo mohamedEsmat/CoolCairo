@@ -18,6 +18,7 @@ namespace CoolCairo
         [SerializeField] Color darkSurface = new Color(0.22f, 0.22f, 0.24f);
         [SerializeField] Color vegetation = new Color(0.33f, 0.55f, 0.27f);
         [SerializeField] Color soil = new Color(0.84f, 0.70f, 0.49f);
+        [SerializeField] Color coolRoof = new Color(0.97f, 0.98f, 1f);
         [SerializeField] Color wall = new Color(0.72f, 0.69f, 0.64f);
         [SerializeField] Color noData = new Color(0.5f, 0.5f, 0.5f);
 
@@ -119,6 +120,7 @@ namespace CoolCairo
                 {
                     // Block-level statement: roofs in this block are X% dark. Not per-roof truth.
                     roof = Color.Lerp(brightSurface, darkSurface, Model.DarkRoofShareOfRoofs(block));
+                    roof = Color.Lerp(roof, coolRoof, Model.Share(Intervention.CoolRoof, block));
                     walls = wall;
                 }
                 Fill(colors, _buildings.RoofStart[i], _buildings.RoofCount[i], roof);

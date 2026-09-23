@@ -12,8 +12,9 @@ from coolcairo.classify import Material, classify_sentinel2
 from coolcairo.config import geobox_for, load_config
 from coolcairo.export import grid_origin, grid_shape, write_district
 from coolcairo.interventions import (
+    CoolRoofDeltas,
     cool_roof_delta,
-    cool_roof_surface_delta,
+    cool_roof_surface_deltas,
     plausibility_warnings,
     tree_delta,
 )
@@ -51,6 +52,7 @@ def test_block_fractions():
     )
     nw = df[(df.row == 0) & (df.col == 0)].iloc[0]
     assert nw.dark_roof_frac == pytest.approx(1.0)
+    assert nw.pale_roof_frac == pytest.approx(0.0)
     assert nw.mean_height_m == pytest.approx(12.0)
     assert nw.lst_c == pytest.approx(40.0)
     assert df.dark_frac.sum() == pytest.approx(1.0)
@@ -78,8 +80,9 @@ def test_fit_recovers_coefficients_and_intervention_signs():
     result = fit(_synthetic_blocks(), cv_tile_size=1000, cv_folds=5)
     assert result.coefficients["dark_roof_frac"] == pytest.approx(5, abs=0.3)
     assert result.r2_spatial_cv > 0.8
-    fitted_roof = -result.coefficients["dark_roof_frac"]
-    assert cool_roof_delta(fitted_roof, 0.1) == pytest.approx(-0.5, abs=0.05)
+    deltas = CoolRoofDeltas(dark=-result.coefficients["dark_roof_frac"], pale=-3.0)
+    assert cool_roof_delta(deltas, 0.1, 0.0) == pytest.approx(-0.5, abs=0.05)
+    assert cool_roof_delta(deltas, 0.1, 0.2) == pytest.approx(-1.1, abs=0.05)
     assert tree_delta(result, 0.1) == pytest.approx(-1.1, abs=0.1)
     assert plausibility_warnings(load_config(), result) == []
 
@@ -95,7 +98,7 @@ def test_export_roundtrip(tmp_path):
         "row": [0, 0, 1, 1], "col": [0, 1, 0, 1],
         "x": [45.0, 135.0, 45.0, 135.0], "y": [135.0, 135.0, 45.0, 45.0],
         "lst_c": [40.0, np.nan, 42.0, 43.0],
-        **{f: [0.1] * 4 for f in FEATURES}, "roof_frac": [0.5] * 4,
+        **{f: [0.1] * 4 for f in FEATURES}, "pale_roof_frac": [0.3] * 4, "roof_frac": [0.5] * 4,
     })
     buildings = gpd.GeoDataFrame({"height_m": [9.0]}, geometry=[box(10, 10, 40, 30)])
     result = fit(_synthetic_blocks(), 1000, 5)
@@ -103,7 +106,8 @@ def test_export_roundtrip(tmp_path):
     out = write_district(
         tmp_path / "d.json", name="t", crs="EPSG:32636", origin=grid_origin(blocks, 90),
         block_size=90, rows=rows, cols=cols, blocks=blocks, buildings=buildings,
-        fit=result, cool_roof_delta_c=-4.64, cool_roof_method="literature", provenance={},
+        fit=result, cool_roof=CoolRoofDeltas(-4.64, -3.6), cool_roof_method="literature",
+        provenance={},
     )
     data = json.loads((tmp_path / "d.json").read_text())
     assert data["blocks"]["valid"] == [1, 1, 1, 0]  # Row 0 is south after the flip.
@@ -130,8 +134,10 @@ def test_literature_cool_roof_is_cooling_and_switchable():
     cfg = load_config()
     result = fit(_synthetic_blocks(), 1000, 5)
     assert cfg["cool_roof"]["method"] == "literature"
-    assert cool_roof_surface_delta(cfg, result) == pytest.approx(-8.0 * (0.70 - 0.12))
+    lit = cool_roof_surface_deltas(cfg, result)
+    assert lit.dark == pytest.approx(-8.0 * (0.70 - 0.12))
+    assert lit.pale == pytest.approx(-8.0 * (0.70 - 0.25))
     regression = {**cfg["cool_roof"], "method": "regression"}
-    regression_cfg = type(cfg)({**cfg.raw, "cool_roof": regression})
-    assert cool_roof_surface_delta(regression_cfg, result) == pytest.approx(
-        -result.coefficients["dark_roof_frac"])
+    reg = cool_roof_surface_deltas(type(cfg)({**cfg.raw, "cool_roof": regression}), result)
+    assert reg.dark == pytest.approx(-result.coefficients["dark_roof_frac"])
+    assert reg.pale == lit.pale  # Pale roofs are the model's reference: always literature.
