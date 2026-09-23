@@ -1,0 +1,46 @@
+# Single source of truth for geography, dates and thresholds.
+# Every script reads this file via coolcairo.config.load_config(); nothing is hardcoded elsewhere.
+
+# Projected CRS for all analysis: WGS 84 / UTM zone 36N (Cairo sits at ~31.2 E).
+crs: "EPSG:32636"
+
+# Analysis pixel size (m). Landsat and EnMAP are native 30 m; Sentinel-2 is resampled onto this grid.
+pixel_size: 30
+# Block size (m). 90 m = 3x3 analysis pixels, close to Landsat's 100 m native thermal resolution.
+# Blocks are the unit of every number shown to the user.
+block_size: 90
+
+# Display district: what the Unity app renders. Kept small for WebGL (target < ~3000 buildings).
+# Nasr City, ~2 x 2 km around Abbas El Akkad / International Garden. Verify on a basemap before M1.
+display_aoi:
+  name: "Nasr City"
+  bbox_wgs84: [31.325, 30.050, 31.346, 30.068]  # [min_lon, min_lat, max_lon, max_lat]
+
+# Model area: larger area used only to fit the regression, so the model sees thousands of
+# blocks with real variation in materials and vegetation (east Cairo: Heliopolis, Nasr City, Abbassia).
+model_aoi:
+  bbox_wgs84: [31.26, 30.00, 31.40, 30.12]
+
+# Only blocks that are actually urban are used to fit the model (drops open desert).
+min_building_coverage: 0.10
+
+# Scene selection: summer daytime, several years, median composite (more robust than one scene).
+dates:
+  years: [2023, 2024, 2025]
+  months: [6, 7, 8]
+max_cloud_cover: 10
+
+# Spatial cross-validation tile size (m). Blocks inside the same tile never straddle train/test.
+cv_tile_size: 1000
+cv_folds: 5
+
+# Interim Sentinel-2 classification thresholds (replaced by EnMAP classes when data arrives).
+# Classes: vegetation, dark (asphalt, dark roofs), bright (light concrete, pale roofs, bare soil).
+s2_classification:
+  ndvi_vegetation: 0.30
+  # Mean visible reflectance (B02, B03, B04) separating dark from bright surfaces.
+  brightness_dark_max: 0.14
+
+# Building heights: OSM `height` -> OSM `building:levels` x storey height -> fallback.
+storey_height_m: 3.2
+default_levels: 5  # Replaced by Google Open Buildings 2.5D heights when that loader is added.
