@@ -8,7 +8,7 @@ import xarray as xr
 from shapely.geometry import box
 
 from coolcairo.blocks import block_features
-from coolcairo.classify import Material
+from coolcairo.classify import Material, classify_sentinel2
 from coolcairo.config import geobox_for, load_config
 from coolcairo.export import grid_origin, grid_shape, write_district
 from coolcairo.interventions import cool_roof_delta, plausibility_warnings, tree_delta
@@ -57,12 +57,14 @@ def _synthetic_blocks(n: int = 400, seed: int = 0) -> pd.DataFrame:
         "veg_frac": rng.uniform(0, 0.3, n),
         "dark_roof_frac": rng.uniform(0, 0.3, n),
         "dark_ground_frac": rng.uniform(0, 0.3, n),
+        "soil_frac": rng.uniform(0, 0.2, n),
         "roof_frac": rng.uniform(0.3, 0.6, n),
         "mean_height_m": rng.uniform(6, 30, n),
         "x": rng.uniform(0, 10_000, n),
         "y": rng.uniform(0, 10_000, n),
     })
     df["lst_c"] = (45 - 8 * df.veg_frac + 5 * df.dark_roof_frac + 3 * df.dark_ground_frac
+                   + 6 * df.soil_frac
                    - 0.05 * df.mean_height_m + rng.normal(0, 0.2, n))
     return df
 
@@ -101,3 +103,18 @@ def test_export_roundtrip(tmp_path):
     assert data["blocks"]["valid"] == [1, 1, 1, 0]  # Row 0 is south after the flip.
     assert out["buildings"]["blockIndex"] == [0]
     assert out["buildings"]["vertexCount"] == [4]
+
+
+def test_bright_soil_is_separated_from_bright_concrete():
+    cfg = load_config()
+    def px(b02, b03, b04, b08, b11):
+        return {"B02": b02, "B03": b03, "B04": b04, "B08": b08, "B11": b11}
+    samples = {
+        "concrete": px(0.22, 0.23, 0.24, 0.27, 0.30),  # BSI ~ 0.05
+        "soil": px(0.18, 0.22, 0.27, 0.30, 0.42),      # BSI ~ 0.18
+        "asphalt": px(0.08, 0.09, 0.10, 0.12, 0.15),
+        "grass": px(0.04, 0.08, 0.05, 0.40, 0.20),
+    }
+    s2 = xr.Dataset({b: ("x", [s[b] for s in samples.values()]) for b in samples["soil"]})
+    got = [Material(int(v)) for v in classify_sentinel2(cfg, s2).values]
+    assert got == [Material.BRIGHT, Material.SOIL, Material.DARK, Material.VEGETATION]

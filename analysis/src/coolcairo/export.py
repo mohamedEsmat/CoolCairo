@@ -40,6 +40,7 @@ def _block_arrays(blocks: pd.DataFrame, rows: int, cols: int) -> dict[str, list]
         "vegFrac": column("veg_frac"),
         "darkRoofFrac": column("dark_roof_frac"),
         "darkGroundFrac": column("dark_ground_frac"),
+        "soilFrac": column("soil_frac"),
         "roofFrac": column("roof_frac"),
         "meanHeightM": column("mean_height_m"),
     }
@@ -110,6 +111,7 @@ def write_district(
             "vegFrac": c["veg_frac"],
             "darkRoofFrac": c["dark_roof_frac"],
             "darkGroundFrac": c["dark_ground_frac"],
+            "soilFrac": c["soil_frac"],
             "roofFrac": c["roof_frac"],
             "meanHeightM": c["mean_height_m"],
             "r2SpatialCv": fit.r2_spatial_cv,

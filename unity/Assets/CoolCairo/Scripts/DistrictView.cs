@@ -17,6 +17,7 @@ namespace CoolCairo
         [SerializeField] Color brightSurface = new Color(0.86f, 0.83f, 0.76f);
         [SerializeField] Color darkSurface = new Color(0.22f, 0.22f, 0.24f);
         [SerializeField] Color vegetation = new Color(0.33f, 0.55f, 0.27f);
+        [SerializeField] Color soil = new Color(0.84f, 0.70f, 0.49f);
         [SerializeField] Color wall = new Color(0.72f, 0.69f, 0.64f);
         [SerializeField] Color noData = new Color(0.5f, 0.5f, 0.5f);
 
@@ -137,8 +138,12 @@ namespace CoolCairo
                                     * InterventionModel.MaxTreeShareOfDarkGround * bl.darkGroundFrac[i];
             float veg = Mathf.Clamp01((bl.vegFrac[i] + plantedFromDark) / ground);
             float dark = Mathf.Clamp01((bl.darkGroundFrac[i] - plantedFromDark) / ground);
-            var c = Color.Lerp(brightSurface, darkSurface, dark);
-            return Color.Lerp(c, vegetation, veg);
+            float sand = Mathf.Clamp01(bl.soilFrac[i] / ground);
+            // Mix the ground shares; bright paved ground fills whatever share is left.
+            float bright = Mathf.Max(0f, 1f - veg - dark - sand);
+            var c = brightSurface * bright + darkSurface * dark + soil * sand + vegetation * veg;
+            c.a = 1f;
+            return c;
         }
 
         static void Fill(Color32[] colors, int start, int count, Color c)

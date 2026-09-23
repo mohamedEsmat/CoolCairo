@@ -35,11 +35,15 @@ cv_tile_size: 1000
 cv_folds: 5
 
 # Interim Sentinel-2 classification thresholds (replaced by EnMAP classes when data arrives).
-# Classes: vegetation, dark (asphalt, dark roofs), bright (light concrete, pale roofs, bare soil).
+# Classes: vegetation, dark (asphalt, dark roofs), bright (light concrete, pale roofs), soil.
 s2_classification:
   ndvi_vegetation: 0.30
   # Mean visible reflectance (B02, B03, B04) separating dark from bright surfaces.
   brightness_dark_max: 0.14
+  # Bare Soil Index above which a bright pixel is soil. Chosen as the best single threshold
+  # (75% balanced accuracy) between pixels inside OSM footprints and open ground > 300 m from
+  # any footprint, over the model area, 2023-2025 summer composite (analysis 23 Sep 2026).
+  bsi_soil_min: 0.137
 
 # Building heights: OSM `height` -> OSM `building:levels` x storey height -> fallback.
 storey_height_m: 3.2

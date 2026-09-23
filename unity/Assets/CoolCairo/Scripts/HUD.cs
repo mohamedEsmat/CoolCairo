@@ -42,7 +42,7 @@ namespace CoolCairo
                 var b = d.blocks;
                 GUILayout.Label(
                     $"Block {h}: surface temp {m.BaselineLst(h):0.0} °C → {m.Lst(h):0.0} °C\n" +
-                    $"{b.darkRoofFrac[h]:P0} dark roof · {b.darkGroundFrac[h]:P0} dark ground · {b.vegFrac[h]:P0} vegetation");
+                    $"{b.darkRoofFrac[h]:P0} dark roof · {b.darkGroundFrac[h]:P0} dark ground · {b.vegFrac[h]:P0} vegetation · {b.soilFrac[h]:P0} bare soil");
             }
 
             GUILayout.FlexibleSpace();

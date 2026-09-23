@@ -63,6 +63,8 @@ def block_features(
         "roof_frac": frac(is_roof),
         "dark_roof_frac": frac(is_roof & (material == Material.DARK)),
         "dark_ground_frac": frac(~is_roof & (material == Material.DARK)),
+        # Soil-like pixels inside a mapped footprint are dusty roofs, so only ground counts.
+        "soil_frac": frac(~is_roof & (material == Material.SOIL)),
         "mean_height_m": block_mean(roof_heights, fine_factor).fillna(0.0),
         "ndvi_mean": block_mean(ndvi, fine_factor),
     }

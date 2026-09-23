@@ -52,6 +52,7 @@ namespace CoolCairo
         public float[] vegFrac;
         public float[] darkRoofFrac;
         public float[] darkGroundFrac;
+        public float[] soilFrac;
         public float[] roofFrac;
         public float[] meanHeightM;
     }
@@ -74,6 +75,7 @@ namespace CoolCairo
         public float vegFrac;
         public float darkRoofFrac;
         public float darkGroundFrac;
+        public float soilFrac;
         public float roofFrac;
         public float meanHeightM;
         public float r2SpatialCv;

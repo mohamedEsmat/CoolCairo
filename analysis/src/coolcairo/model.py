@@ -4,10 +4,12 @@ A linear model is used on purpose: its coefficients are the whole model, so the 
 compute the effect of an intervention as a weighted sum with no runtime solving, and every
 coefficient is visible in the report.
 
-Feature design (fractions of block area; bright non-roof surface is the reference category):
+Feature design (fractions of block area; bright paved ground is the reference category):
   veg_frac          vegetation
   dark_roof_frac    dark roofs     -> cool roof = move share from dark roof to bright roof
   dark_ground_frac  dark ground    -> street trees = move share from dark ground to vegetation
+  soil_frac         bare soil / sand on the ground (hot by day in Cairo; kept separate so it
+                    does not contaminate the bright-surface reference)
   roof_frac         building coverage
   mean_height_m     mean roof height (shading / canyon effect)
 """
@@ -22,7 +24,9 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import GroupKFold
 
-FEATURES = ["veg_frac", "dark_roof_frac", "dark_ground_frac", "roof_frac", "mean_height_m"]
+FEATURES = [
+    "veg_frac", "dark_roof_frac", "dark_ground_frac", "soil_frac", "roof_frac", "mean_height_m",
+]
 TARGET = "lst_c"
 
 
