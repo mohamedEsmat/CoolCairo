@@ -97,6 +97,8 @@ def write_district(
     cool_roof: CoolRoofDeltas,
     cool_roof_method: str,
     provenance: dict[str, str],
+    sources: list[dict] | None = None,
+    preview_bbox_wgs84: list[float] | None = None,
 ) -> dict:
     c = fit.coefficients
     payload = {
@@ -127,6 +129,9 @@ def write_district(
             "coolRoofMethod": cool_roof_method,
         },
         "provenance": provenance,
+        # Satellite scenes used, re-verified against the archive by the app at startup.
+        "sources": sources or [],
+        "previewBbox": preview_bbox_wgs84 or [],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")

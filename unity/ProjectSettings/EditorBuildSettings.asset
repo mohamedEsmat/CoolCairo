@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/CoolCairo/Intro.unity
+    guid: 4236b13d583fb8b4aa74bb02dda08f9e
+  - enabled: 1
     path: Assets/CoolCairo/Main.unity
     guid: 1141765f15368d541be5379979b98817
   m_configObjects: {}

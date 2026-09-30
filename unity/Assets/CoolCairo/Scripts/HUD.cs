@@ -11,7 +11,7 @@ namespace CoolCairo
 
         public static bool PointerOverPanel { get; private set; }
 
-        Rect _panel = new Rect(12, 12, 320, 330);
+        Rect _panel = new Rect(12, 12, 340, 340);
 
         void OnGUI()
         {
@@ -21,7 +21,11 @@ namespace CoolCairo
 
             var d = district.Data;
             var m = district.Model;
+            GUILayout.BeginHorizontal();
             GUILayout.Label($"<b>CoolCairo — {d.name}</b>", Rich());
+            if (GUILayout.Button("◀ Globe", GUILayout.Width(70)))
+                UnityEngine.SceneManagement.SceneManager.LoadScene(0); // Intro is build index 0.
+            GUILayout.EndHorizontal();
 
             GUILayout.Label("View");
             int mode = GUILayout.Toolbar((int)district.Mode, new[] { "Materials", "Surface heat" });

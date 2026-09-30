@@ -29,6 +29,24 @@ LANDSAT_QA_REJECT_MASK = 0b11111
 S2_SCL_REJECT = [0, 1, 3, 8, 9, 10]
 S2_BANDS = ["B02", "B03", "B04", "B08", "B11", "B12"]
 
+LANDSAT_COLLECTION = "landsat-c2-l2"
+LANDSAT_QUERY = {"platform": {"in": ["landsat-8", "landsat-9"]}}
+S2_COLLECTION = "sentinel-2-l2a"
+
+# How each satellite's archive preview is rendered by the Planetary Computer data API.
+# Landsat is shown as thermal (what we use it for), Sentinel-2 as true colour.
+PREVIEW_QUERY = {
+    LANDSAT_COLLECTION: "assets=lwir11&rescale=44000,52000&colormap_name=inferno",
+    S2_COLLECTION: "assets=visual&asset_bidx=visual%7C1%2C2%2C3&nodata=0",
+}
+SATELLITE_NAMES = {
+    "landsat-8": "Landsat 8",
+    "landsat-9": "Landsat 9",
+    "Sentinel-2A": "Sentinel-2A",
+    "Sentinel-2B": "Sentinel-2B",
+    "Sentinel-2C": "Sentinel-2C",
+}
+
 
 def _client() -> pystac_client.Client:
     return pystac_client.Client.open(STAC_URL, modifier=planetary_computer.sign_inplace)
@@ -65,9 +83,7 @@ def landsat_lst(cfg: Config, geobox: GeoBox, bbox_wgs84: list[float]) -> xr.Data
     atmosphere-corrected, and it is the product the literature compares against.
     Native thermal resolution is 100 m; the 30 m values are resampled by USGS.
     """
-    items = search(
-        cfg, "landsat-c2-l2", bbox_wgs84, {"platform": {"in": ["landsat-8", "landsat-9"]}}
-    )
+    items = search(cfg, LANDSAT_COLLECTION, bbox_wgs84, LANDSAT_QUERY)
     if not items:
         raise RuntimeError("No Landsat scenes matched the date window and cloud limit.")
     ds = odc.stac.load(
@@ -100,7 +116,7 @@ def _s2_offsets(items: list[pystac.Item], times: np.ndarray) -> xr.DataArray:
 
 def sentinel2_composite(cfg: Config, geobox: GeoBox, bbox_wgs84: list[float]) -> xr.Dataset:
     """Median summer surface reflectance (0-1) for the bands used in classification and NDVI."""
-    items = search(cfg, "sentinel-2-l2a", bbox_wgs84)
+    items = search(cfg, S2_COLLECTION, bbox_wgs84)
     if not items:
         raise RuntimeError("No Sentinel-2 scenes matched the date window and cloud limit.")
     ds = odc.stac.load(
@@ -126,3 +142,31 @@ def ndvi(s2: xr.Dataset) -> xr.DataArray:
     result = (s2.B08 - s2.B04) / (s2.B08 + s2.B04)
     result.name = "ndvi"
     return result
+
+
+def scene_inventory(cfg: Config, bbox_wgs84: list[float]) -> list[dict]:
+    """Every archive scene the analysis used, grouped by satellite.
+
+    The desktop app re-queries these exact scene IDs from the archive at startup, so its
+    "downloaded / completed" status reflects the real inputs of the analysis.
+    """
+    per_platform: dict[str, list[pystac.Item]] = {}
+    for collection, query in ((LANDSAT_COLLECTION, LANDSAT_QUERY), (S2_COLLECTION, None)):
+        for item in search(cfg, collection, bbox_wgs84, query):
+            per_platform.setdefault(item.properties["platform"], []).append(item)
+
+    sources = []
+    for platform in sorted(per_platform, key=lambda p: list(SATELLITE_NAMES).index(p)):
+        items = sorted(per_platform[platform], key=lambda i: i.datetime)
+        collection = items[0].collection_id
+        sources.append({
+            "satellite": SATELLITE_NAMES[platform],
+            "collection": collection,
+            "use": "Surface temperature" if collection == LANDSAT_COLLECTION
+            else "Surface materials, vegetation",
+            "sceneIds": [i.id for i in items],
+            "firstDate": items[0].datetime.date().isoformat(),
+            "lastDate": items[-1].datetime.date().isoformat(),
+            "previewQuery": PREVIEW_QUERY[collection],
+        })
+    return sources

@@ -21,6 +21,8 @@ namespace CoolCairo
         public BlockArrays blocks;
         public BuildingArrays buildings;
         public ModelCoefficients model;
+        public SourceInfo[] sources;     // Satellite scenes the analysis used.
+        public float[] previewBbox;      // [min_lon, min_lat, max_lon, max_lat] for archive previews.
 
         public int BlockCount => rows * cols;
 
@@ -67,6 +69,18 @@ namespace CoolCairo
         public float[] heightM;
         public int[] blockIndex;
         public float[] xz;
+    }
+
+    [Serializable]
+    public class SourceInfo
+    {
+        public string satellite;     // e.g. "Landsat 9"
+        public string collection;    // Planetary Computer STAC collection id
+        public string use;           // What the analysis used it for
+        public string[] sceneIds;
+        public string firstDate;
+        public string lastDate;
+        public string previewQuery;  // Data API rendering parameters for the preview image
     }
 
     [Serializable]

@@ -18,6 +18,7 @@ from coolcairo.interventions import (
 )
 from coolcairo.model import fit, training_rows
 from coolcairo.pipeline import build_blocks, display_subset
+from coolcairo.stac import scene_inventory
 
 
 def main() -> None:
@@ -56,8 +57,10 @@ def main() -> None:
             "lst": "Landsat 8/9 C2 L2 ST_B10, summer median",
             "materials": "Sentinel-2 L2A interim 4-class rules (EnMAP pending)",
             "cool_roof": "Wang, Huang & Li 2020, GRL 47, e2020GL087853 (see aoi.yaml)",
-            "buildings": "OpenStreetMap",
+            "buildings": "OpenStreetMap footprints, Google Open Buildings 2.5D heights",
         },
+        sources=scene_inventory(cfg, cfg["model_aoi"]["bbox_wgs84"]),
+        preview_bbox_wgs84=cfg["model_aoi"]["bbox_wgs84"],
     )
     print(f"[{time.time() - t0:.0f}s] display: {rows}x{cols} blocks, "
           f"{len(disp_buildings)} buildings -> export/district.json")

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -45,9 +46,80 @@ namespace CoolCairo.EditorTools
             var buildingMat = EnsureMaterial("Buildings", "CoolCairo/VertexColorLit");
             var groundMat = EnsureMaterial("Ground", "Universal Render Pipeline/Unlit");
             BuildScene(buildingMat, groundMat);
+            BuildIntroScene();
+            EditorBuildSettings.scenes = new[]
+            {
+                new EditorBuildSettingsScene(IntroScenePath, true), // Index 0: app entry.
+                new EditorBuildSettingsScene(ScenePath, true),
+            };
             ConfigurePlayer();
             AssetDatabase.SaveAssets();
             Debug.Log("CoolCairo setup complete.");
+        }
+
+        const string IntroScenePath = Root + "/Intro.unity";
+        const string EarthTexture = Root + "/Globe/BlueMarble_2004-07_5400.jpg";
+
+        static void BuildIntroScene()
+        {
+            // Keep the full 5400 px NASA Blue Marble (Unity would downscale to 2048 by default).
+            var importer = (TextureImporter)AssetImporter.GetAtPath(EarthTexture);
+            importer.maxTextureSize = 8192;
+            importer.wrapModeU = TextureWrapMode.Repeat;
+            importer.wrapModeV = TextureWrapMode.Clamp;
+            importer.anisoLevel = 4;
+            importer.SaveAndReimport();
+
+            var earthMat = EnsureMaterial("Earth", "Universal Render Pipeline/Unlit");
+            earthMat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(EarthTexture));
+            var satMat = EnsureMaterial("Satellite", "Universal Render Pipeline/Unlit");
+            satMat.SetColor("_BaseColor", new Color(0.45f, 0.9f, 1f));
+            var markerMat = EnsureMaterial("Marker", "Universal Render Pipeline/Unlit");
+            EditorUtility.SetDirty(earthMat);
+            EditorUtility.SetDirty(satMat);
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var camGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
+            camGo.tag = "MainCamera";
+            var cam = camGo.GetComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.01f, 0.015f, 0.03f);
+            cam.nearClipPlane = 0.001f;
+            cam.farClipPlane = 50f;
+            var globeCam = camGo.AddComponent<GlobeCamera>();
+
+            var earth = new GameObject("Earth", typeof(MeshFilter), typeof(MeshRenderer), typeof(Globe));
+            earth.GetComponent<MeshRenderer>().sharedMaterial = earthMat;
+
+            var sats = new GameObject("Satellites").AddComponent<SatelliteOrbits>();
+
+            var intro = new GameObject("Intro").AddComponent<IntroController>();
+            Assign(intro, "districtJson", AssetDatabase.LoadAssetAtPath<TextAsset>(DataAsset));
+            Assign(intro, "globeCamera", globeCam);
+            Assign(intro, "satellites", sats);
+            Assign(intro, "satelliteMaterial", satMat);
+            Assign(intro, "markerMaterial", markerMat);
+
+            EditorSceneManager.SaveScene(scene, IntroScenePath);
+        }
+
+        [MenuItem("CoolCairo/Build Windows desktop app")]
+        public static void BuildWindows()
+        {
+            bool dev = System.Environment.GetCommandLineArgs().Contains("-devbuild");
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+            {
+                scenes = new[] { IntroScenePath, ScenePath },
+                locationPathName = dev ? "Builds/WindowsDev/CoolCairo.exe" : "Builds/Windows/CoolCairo.exe",
+                target = BuildTarget.StandaloneWindows64,
+                // `-devbuild` on the command line: development player (on-screen errors, full logs).
+                options = dev ? BuildOptions.Development : BuildOptions.None,
+            });
+            Debug.Log($"Build {report.summary.result}: {report.summary.totalSize / (1024 * 1024)} MB, " +
+                      $"{report.summary.totalErrors} errors -> {report.summary.outputPath}");
+            if (Application.isBatchMode && report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
+                EditorApplication.Exit(1);
         }
 
         static UniversalRenderPipelineAsset EnsurePipeline()
@@ -113,7 +185,6 @@ namespace CoolCairo.EditorTools
             Assign(hud, "brush", brush);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         }
 
         static void Assign(Object target, string field, Object value)
@@ -133,6 +204,12 @@ namespace CoolCairo.EditorTools
             PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.WebGL.dataCaching = true;
             PlayerSettings.stripEngineCode = true;
+            // Desktop app (primary target): windowed 1600x900, resizable.
+            PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
+            PlayerSettings.defaultScreenWidth = 1600;
+            PlayerSettings.defaultScreenHeight = 900;
+            PlayerSettings.resizableWindow = true;
+            PlayerSettings.runInBackground = true;
         }
     }
 }
