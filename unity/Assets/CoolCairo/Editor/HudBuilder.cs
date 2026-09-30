@@ -116,7 +116,7 @@ namespace CoolCairo.EditorTools
 
             Divider(side.transform);
             Section(side.transform, "ABOUT THE MODEL");
-            Label(side.transform, HudStyle.ModelText, "", 12, HudStyle.Muted, wrap: true, height: 110);
+            Label(side.transform, HudStyle.ModelText, "", 12, HudStyle.Muted, wrap: true, height: 200);
         }
 
         static void BuildKpis(Transform root)

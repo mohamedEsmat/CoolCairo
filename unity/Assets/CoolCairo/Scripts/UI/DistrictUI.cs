@@ -303,6 +303,10 @@ namespace CoolCairo
             var h = d.hyperspectral;
             if (h != null && h.available == 1)
                 text += $"\nHyperspectral EnMAP ({h.acquired}) explains heat at R² {h.r2Hyperspectral:0.00} vs {h.r2Multispectral:0.00} with Sentinel-2.";
+            // Satellites measure surfaces, not air; give the air effect only as a cited city-wide range.
+            text += "\n<b>Surface ≠ air temperature.</b> Studies suggest city-wide cool roofs lower air temperature by " +
+                    "~0.1–0.33 °C per +0.1 roof albedo (Santamouris 2014, cited in Wang et al. 2020); the effect on air " +
+                    "is smaller than on surfaces and spreads beyond the district.";
             return text;
         }
 
