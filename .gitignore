@@ -24,3 +24,6 @@ unity/.vscode/
 .DS_Store
 Thumbs.db
 .env
+
+# osmnx / Overpass download cache
+analysis/cache/
