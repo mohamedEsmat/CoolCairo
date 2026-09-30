@@ -22,8 +22,9 @@ namespace CoolCairo
         [SerializeField] Color wall = new Color(0.72f, 0.69f, 0.64f);
         [SerializeField] Color noData = new Color(0.5f, 0.5f, 0.5f);
 
-        [Header("Heat scale")]
-        [SerializeField] Gradient heatRamp;
+        // Built in code, not serialized: a serialized Gradient is initialised by Unity to plain
+        // white, which silently turned the whole heat view white.
+        Gradient heatRamp;
 
         public DistrictData Data { get; private set; }
         public InterventionModel Model { get; private set; }
@@ -38,7 +39,7 @@ namespace CoolCairo
 
         void Awake()
         {
-            if (heatRamp == null || heatRamp.colorKeys.Length < 2) heatRamp = DefaultHeatRamp();
+            heatRamp = DefaultHeatRamp();
             Data = DistrictData.FromJson(districtJson.text);
             Model = new InterventionModel(Data);
             Model.Changed += Refresh;
