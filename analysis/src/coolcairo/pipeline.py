@@ -12,7 +12,7 @@ import geopandas as gpd
 import pandas as pd
 import xarray as xr
 
-from coolcairo import openbuildings, population, stac
+from coolcairo import enmap, openbuildings, population, stac
 from coolcairo.blocks import block_features, height_raster
 from coolcairo.buildings import fetch_buildings, footprint_mask
 from coolcairo.classify import classify_sentinel2
@@ -66,6 +66,14 @@ def load_population(cfg: Config) -> xr.DataArray:
     return _cached_array(
         DATA_DIR / "population_30m.nc",
         lambda: population.population_on_grid(cfg, geobox_for(cfg, "model_aoi")),
+    )
+
+
+def load_enmap(cfg: Config) -> xr.DataArray:
+    """EnMAP reflectance (wavelength, y, x) on the 30 m model grid (primary scene)."""
+    return _cached_array(
+        DATA_DIR / "enmap_30m.nc",
+        lambda: enmap.reflectance_on_grid(geobox_for(cfg, "model_aoi")),
     )
 
 

@@ -187,3 +187,36 @@ def test_block_population_is_summed_not_averaged():
         population=xr.DataArray(np.full((3, 3), 10.0), dims=("y", "x"), coords=lst.coords),
     )
     assert df.population.iloc[0] == pytest.approx(90.0)
+
+
+def test_separability_labels_pure_roofs_and_far_open_ground():
+    from coolcairo.separability import BUILT, OPEN, labels_30m
+
+    roof = np.zeros((90, 90), dtype=np.uint8)
+    roof[:3, :3] = 1          # one fully covered 30 m pixel in the corner
+    labels = labels_30m(roof, np.zeros((30, 30)), ndvi_max=0.3)
+    assert labels[0, 0] == BUILT
+    assert labels[1, 1] == -1          # near the building: neither pure roof nor far ground
+    assert labels[29, 29] == OPEN      # > 300 m away, not vegetated
+
+
+def test_simulated_sentinel2_averages_enmap_bands_in_passband():
+    from coolcairo.enmap import simulate_sentinel2
+
+    wl = np.array([460.0, 500.0, 600.0])
+    refl = xr.DataArray(np.stack([np.full((2, 2), v) for v in (0.1, 0.3, 0.9)]),
+                        dims=("wavelength", "y", "x"), coords={"wavelength": wl})
+    s2 = simulate_sentinel2(refl)
+    assert float(s2.B02[0, 0]) == pytest.approx(0.2)  # mean of 460 and 500 nm, 600 excluded
+
+
+def test_heat_r2_ranks_informative_features_higher():
+    from coolcairo.separability import heat_r2
+
+    rng = np.random.default_rng(1)
+    n = 600
+    signal = rng.normal(size=(n, 3))
+    lst = 40 + signal @ np.array([2.0, -1.0, 0.5]) + rng.normal(0, 0.3, n)
+    groups = np.arange(n) // 20
+    r2 = heat_r2({"informative": signal, "noise": rng.normal(size=(n, 3))}, lst, groups, folds=5)
+    assert r2["informative"] > 0.9 and r2["noise"] < 0.1
