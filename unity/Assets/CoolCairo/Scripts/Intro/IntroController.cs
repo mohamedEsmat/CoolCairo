@@ -18,7 +18,7 @@ namespace CoolCairo
         [SerializeField] SatelliteOrbits satellites;
         [SerializeField] Material satelliteMaterial;
         [SerializeField] Material markerMaterial;
-        [SerializeField] Material starMaterial;      // CoolCairo/VertexColorUnlit
+        [SerializeField] Material flyInMaterial;     // CoolCairo/FadeTexture
         [SerializeField] string districtScene = "Main";
 
         // "Coming soon" cities stay greyed out, but with a dark outline and a label backdrop so
@@ -52,6 +52,12 @@ namespace CoolCairo
         // Survives returning from the district, so the archive sync runs once per app launch.
         static List<SourceSync> s_syncs;
 
+        // Camera distance (globe radius 1) where the fast approach ends and the slow descent onto
+        // the Sentinel-2 close-up begins. FlyInImage is fully faded in by this distance.
+        public const float ApproachDistance = 1.12f;
+        FlyInImage _flyIn;
+        bool _showFlyInCaption;
+
         Phase _phase;
         DistrictData _data;
         AsyncOperation _districtLoad;
@@ -67,8 +73,10 @@ namespace CoolCairo
             _districtLoad = SceneManager.LoadSceneAsync(districtScene);
             _districtLoad.allowSceneActivation = false;
             satellites.Create(_data.sources.Select(s => s.satellite).ToList(), satelliteMaterial);
-            new GameObject("Stars", typeof(StarField)).GetComponent<StarField>().Init(starMaterial);
             CreateMarkers();
+            _flyIn = new GameObject("FlyInImage", typeof(MeshFilter), typeof(MeshRenderer)).AddComponent<FlyInImage>();
+            _flyIn.Init(_data.flyIn, flyInMaterial, globeCamera);
+            StartCoroutine(_flyIn.Download());
 
             if (s_syncs != null) EnterGlobe(immediate: true);
             else StartCoroutine(LoadingSequence());
@@ -119,8 +127,13 @@ namespace CoolCairo
             _phase = Phase.FlyIn;
             globeCamera.UserControl = false;
             satellites.SetVisible(false);
-            yield return globeCamera.FlyTo(city.Lat, city.Lon, 1.004f, 2.6f);
-            for (float t = 0f; t < 1f; t += Time.deltaTime / 0.5f)
+            // Stage 1: fast approach over the Blue Marble to just above the city.
+            yield return globeCamera.FlyTo(city.Lat, city.Lon, ApproachDistance, 2.0f);
+            // Stage 2: slow descent; the Sentinel-2 close-up is fully visible from the start of it.
+            _showFlyInCaption = _flyIn != null && _flyIn.Ready;
+            yield return globeCamera.FlyTo(city.Lat, city.Lon, 1.006f, 3.0f);
+            yield return new WaitForSeconds(0.4f);
+            for (float t = 0f; t < 1f; t += Time.deltaTime / 0.6f)
             {
                 _fadeToBlack = t;
                 yield return null;
@@ -216,6 +229,9 @@ namespace CoolCairo
             EnsureStyles();
             if (_phase == Phase.Loading || _overlayAlpha > 0f) DrawLoading(_overlayAlpha);
             if (_phase == Phase.Globe && _overlayAlpha <= 0f) DrawGlobeUI();
+            if (_showFlyInCaption && _data.flyIn != null)
+                GUI.Label(new Rect(28, Screen.height - 44, 700, 24),
+                          $"Sentinel-2  ·  {_data.flyIn.date}  ·  10 m resolution  ·  Contains modified Copernicus Sentinel data [{_data.flyIn.date.Substring(0, 4)}]", _subtitle);
             if (_fadeToBlack > 0f) Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0, 0, 0, _fadeToBlack));
         }
 

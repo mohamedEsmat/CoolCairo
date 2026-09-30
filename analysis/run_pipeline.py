@@ -21,7 +21,7 @@ from coolcairo.interventions import (
 )
 from coolcairo.model import fit, training_rows
 from coolcairo.pipeline import build_blocks, display_subset, hyperspectral_summary
-from coolcairo.stac import scene_inventory
+from coolcairo.stac import fly_in_image, scene_inventory
 
 
 def main() -> None:
@@ -74,6 +74,7 @@ def main() -> None:
         sources=scene_inventory(cfg, cfg["model_aoi"]["bbox_wgs84"])
         + ([enmap.archive_source(hyper["sceneId"])] if hyper else []),
         hyperspectral=hyper,
+        fly_in=fly_in_image(cfg),
         preview_bbox_wgs84=cfg["model_aoi"]["bbox_wgs84"],
     )
     print(f"[{time.time() - t0:.0f}s] display: {rows}x{cols} blocks, "

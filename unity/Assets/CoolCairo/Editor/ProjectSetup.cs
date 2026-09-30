@@ -75,7 +75,7 @@ namespace CoolCairo.EditorTools
             var satMat = EnsureMaterial("Satellite", "Universal Render Pipeline/Unlit");
             satMat.SetColor("_BaseColor", new Color(0.45f, 0.9f, 1f));
             var markerMat = EnsureMaterial("Marker", "Universal Render Pipeline/Unlit");
-            var starMat = EnsureMaterial("Stars", "CoolCairo/VertexColorUnlit");
+            var flyInMat = EnsureMaterial("FlyIn", "CoolCairo/FadeTexture");
             EditorUtility.SetDirty(earthMat);
             EditorUtility.SetDirty(satMat);
 
@@ -85,7 +85,7 @@ namespace CoolCairo.EditorTools
             camGo.tag = "MainCamera";
             var cam = camGo.GetComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.01f, 0.015f, 0.03f);
+            cam.backgroundColor = SpaceColor;
             cam.nearClipPlane = 0.001f;
             cam.farClipPlane = 50f;
             var globeCam = camGo.AddComponent<GlobeCamera>();
@@ -101,9 +101,23 @@ namespace CoolCairo.EditorTools
             Assign(intro, "satellites", sats);
             Assign(intro, "satelliteMaterial", satMat);
             Assign(intro, "markerMaterial", markerMat);
-            Assign(intro, "starMaterial", starMat);
+            Assign(intro, "flyInMaterial", flyInMat);
+            AddStars(Vector3.zero, 40f);
 
             EditorSceneManager.SaveScene(scene, IntroScenePath);
+        }
+
+        static readonly Color SpaceColor = new Color(0.01f, 0.015f, 0.03f);
+
+        static void AddStars(Vector3 centre, float radius)
+        {
+            var go = new GameObject("Stars", typeof(MeshFilter), typeof(MeshRenderer));
+            go.transform.position = centre;
+            var stars = go.AddComponent<StarField>();
+            Assign(stars, "material", EnsureMaterial("Stars", "CoolCairo/VertexColorUnlit"));
+            var so = new SerializedObject(stars);
+            so.FindProperty("radius").floatValue = radius;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         [MenuItem("CoolCairo/Build Windows desktop app")]
@@ -167,7 +181,12 @@ namespace CoolCairo.EditorTools
             cam.farClipPlane = 20000f;
             cam.nearClipPlane = 1f;
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.93f, 0.92f, 0.89f);
+            cam.backgroundColor = SpaceColor;
+
+            // Stars around the district, centred on it and far enough to stay behind the
+            // orbit camera's maximum distance (5 km).
+            var data = DistrictData.FromJson(AssetDatabase.LoadAssetAtPath<TextAsset>(DataAsset).text);
+            AddStars(new Vector3(data.cols * data.blockSize / 2f, 0f, data.rows * data.blockSize / 2f), 9000f);
 
             var districtGo = new GameObject("District");
             var view = districtGo.AddComponent<DistrictView>();

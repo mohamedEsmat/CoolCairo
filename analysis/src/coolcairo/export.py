@@ -102,6 +102,7 @@ def write_district(
     sources: list[dict] | None = None,
     preview_bbox_wgs84: list[float] | None = None,
     hyperspectral: dict | None = None,
+    fly_in: dict | None = None,
 ) -> dict:
     c = fit.coefficients
     payload = {
@@ -139,6 +140,8 @@ def write_district(
         "previewBbox": preview_bbox_wgs84 or [],
         # EnMAP result shown in the app; "available": 0 when EnMAP was not processed.
         "hyperspectral": hyperspectral or {"available": 0},
+        # Sentinel-2 image the app fades in during the globe fly-in (see stac.fly_in_image).
+        "flyIn": fly_in or {},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")

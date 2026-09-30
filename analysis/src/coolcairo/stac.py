@@ -170,3 +170,33 @@ def scene_inventory(cfg: Config, bbox_wgs84: list[float]) -> list[dict]:
             "previewQuery": PREVIEW_QUERY[collection],
         })
     return sources
+
+
+FLY_IN_HALF_SIZE_DEG = 0.12  # ~24 km box: fills the view at the end of the globe fly-in.
+
+
+def fly_in_image(cfg: Config) -> dict:
+    """Sharp true-colour image for the last part of the globe fly-in (Blue Marble is ~7 km/px).
+
+    The clearest Sentinel-2 scene in the date window whose footprint fully covers a box around
+    the display district; the app downloads it from the Planetary Computer data API.
+    """
+    min_lon, min_lat, max_lon, max_lat = cfg["display_aoi"]["bbox_wgs84"]
+    cx, cy = (min_lon + max_lon) / 2, (min_lat + max_lat) / 2
+    h = FLY_IN_HALF_SIZE_DEG
+    box = [round(cx - h, 5), round(cy - h, 5), round(cx + h, 5), round(cy + h, 5)]
+    def covers(item: pystac.Item) -> bool:
+        w, s, e, n = item.bbox
+        return w <= box[0] and s <= box[1] and e >= box[2] and n >= box[3]
+
+    items = [i for i in search(cfg, S2_COLLECTION, box) if covers(i)]
+    if not items:
+        raise RuntimeError("No single Sentinel-2 scene covers the fly-in box.")
+    best = min(items, key=lambda i: (i.properties["eo:cloud_cover"], -i.datetime.timestamp()))
+    return {
+        "collection": S2_COLLECTION,
+        "item": best.id,
+        "date": best.datetime.date().isoformat(),
+        "bbox": box,
+        "query": PREVIEW_QUERY[S2_COLLECTION],
+    }

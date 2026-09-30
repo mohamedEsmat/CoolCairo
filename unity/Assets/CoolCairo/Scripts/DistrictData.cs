@@ -24,6 +24,7 @@ namespace CoolCairo
         public SourceInfo[] sources;     // Satellite scenes the analysis used.
         public float[] previewBbox;      // [min_lon, min_lat, max_lon, max_lat] for archive previews.
         public HyperspectralInfo hyperspectral;
+        public FlyInInfo flyIn;          // Sentinel-2 close-up for the globe fly-in.
 
         public int BlockCount => rows * cols;
 
@@ -84,6 +85,16 @@ namespace CoolCairo
         public string lastDate;
         public string previewQuery;  // Data API rendering parameters for the preview image
         public string itemUrl;       // If set, verify by fetching this STAC item (DLR / EnMAP)
+    }
+
+    [Serializable]
+    public class FlyInInfo
+    {
+        public string collection;
+        public string item;
+        public string date;
+        public float[] bbox;         // [min_lon, min_lat, max_lon, max_lat]
+        public string query;         // Data API rendering parameters
     }
 
     // EnMAP result (analysis notebook 05): how much better hyperspectral spectra explain
