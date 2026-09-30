@@ -72,6 +72,20 @@ namespace CoolCairo
         public float Share(Intervention kind, int block) =>
             kind == Intervention.CoolRoof ? _coolRoofShare[block] : _treeShare[block];
 
+        // District mean surface temperature over valid blocks, before or after interventions.
+        public float MeanLst(bool withInterventions = true)
+        {
+            float sum = 0f;
+            int n = 0;
+            for (int i = 0; i < _d.BlockCount; i++)
+            {
+                if (!IsValid(i)) continue;
+                sum += withInterventions ? Lst(i) : BaselineLst(i);
+                n++;
+            }
+            return n == 0 ? 0f : sum / n;
+        }
+
         // District mean delta LST over valid blocks.
         public float MeanDelta()
         {

@@ -130,7 +130,7 @@ namespace CoolCairo.EditorTools
             h.spacing = 12;
             h.childControlWidth = h.childControlHeight = true;
             h.childForceExpandWidth = h.childForceExpandHeight = true;
-            Kpi(box, HudStyle.KpiDelta, "SURFACE TEMPERATURE CHANGE");
+            Kpi(box, HudStyle.KpiDelta, "AVERAGE BLOCK SURFACE TEMP.");
             Kpi(box, HudStyle.KpiExposure, "HEAT EXPOSURE");
             Kpi(box, HudStyle.KpiResidents, "RESIDENTS IN COOLED BLOCKS");
         }

@@ -58,6 +58,13 @@ namespace CoolCairo
             (_deltaValue, _deltaSub) = Kpi(HudStyle.KpiDelta);
             (_exposureValue, _exposureSub) = Kpi(HudStyle.KpiExposure);
             (_residentsValue, _residentsSub) = Kpi(HudStyle.KpiResidents);
+            // Values shrink to fit the card rather than being cut off ("44.8 → 44.0 °C").
+            foreach (var value in new[] { _deltaValue, _exposureValue, _residentsValue })
+            {
+                value.enableAutoSizing = true;
+                value.fontSizeMin = 18;
+                value.fontSizeMax = 32;
+            }
             _legendTitle = Find<TextMeshProUGUI>(HudStyle.LegendTitle);
             _legendMin = Find<TextMeshProUGUI>(HudStyle.LegendMin);
             _legendMax = Find<TextMeshProUGUI>(HudStyle.LegendMax);
@@ -137,10 +144,14 @@ namespace CoolCairo
         void RefreshKpis()
         {
             var model = district.Model;
-            float delta = model.MeanDelta();
-            _deltaValue.text = $"{Minus(delta, "0.00")} °C";
-            _deltaValue.color = delta < -0.005f ? HudStyle.Good : HudStyle.Text;
-            _deltaSub.text = $"district mean · {Enumerable.Range(0, district.Data.BlockCount).Count(model.IsValid)} blocks";
+            // Before -> after, so the change reads as real temperatures, not an abstract delta.
+            float before = model.MeanLst(false), after = model.MeanLst(), delta = after - before;
+            int blocks = Enumerable.Range(0, district.Data.BlockCount).Count(model.IsValid);
+            bool changed = delta < -0.005f;
+            _deltaValue.text = changed ? $"{before:0.0} → {after:0.0} °C" : $"{before:0.0} °C";
+            _deltaValue.color = changed ? HudStyle.Good : HudStyle.Text;
+            _deltaSub.text = changed ? $"{Minus(delta, "0.00")} °C · average of {blocks} blocks"
+                                     : $"today · average of {blocks} blocks";
 
             float baseRisk = model.TotalExposure(false), nowRisk = model.TotalExposure();
             float pct = baseRisk > 0f ? 100f * (nowRisk - baseRisk) / baseRisk : 0f;
