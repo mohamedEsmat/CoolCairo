@@ -98,7 +98,8 @@ def test_export_roundtrip(tmp_path):
         "row": [0, 0, 1, 1], "col": [0, 1, 0, 1],
         "x": [45.0, 135.0, 45.0, 135.0], "y": [135.0, 135.0, 45.0, 45.0],
         "lst_c": [40.0, np.nan, 42.0, 43.0],
-        **{f: [0.1] * 4 for f in FEATURES}, "pale_roof_frac": [0.3] * 4, "roof_frac": [0.5] * 4,
+        **{f: [0.1] * 4 for f in FEATURES},
+        "pale_roof_frac": [0.3] * 4, "population": [100.0] * 4, "roof_frac": [0.5] * 4,
     })
     buildings = gpd.GeoDataFrame({"height_m": [9.0]}, geometry=[box(10, 10, 40, 30)])
     result = fit(_synthetic_blocks(), 1000, 5)
@@ -161,3 +162,28 @@ def test_open_buildings_fill_only_default_heights():
     out = apply_heights(buildings, ob, default_height=16.0)
     assert out.height_source.tolist() == ["open_buildings", "osm_height", "default"]
     assert out.height_m.tolist() == [12.0, 30.0, 16.0]  # OSM tag is never overridden.
+
+
+def test_heat_exposure_counts_only_degrees_above_reference():
+    from coolcairo.population import heat_exposure
+
+    lst = np.array([40.0, 45.0, 50.0])
+    people = np.array([100.0, 100.0, 10.0])
+    assert heat_exposure(lst, people, 44.0).tolist() == [0.0, 100.0, 60.0]
+
+
+def test_block_population_is_summed_not_averaged():
+    coords = _fine_grid(9)
+    lst = xr.DataArray(np.full((3, 3), 40.0), dims=("y", "x"),
+                       coords={"y": np.arange(3)[::-1] * 30.0 + 15, "x": np.arange(3) * 30.0 + 15})
+    df = block_features(
+        material=xr.DataArray(
+            np.full((9, 9), Material.BRIGHT, dtype=np.uint8), dims=("y", "x"), coords=coords
+        ),
+        roof=xr.DataArray(np.zeros((9, 9), dtype=np.uint8), dims=("y", "x"), coords=coords),
+        heights=np.zeros((9, 9)),
+        ndvi=xr.DataArray(np.zeros((9, 9)), dims=("y", "x"), coords=coords),
+        lst=lst, fine_factor=9, lst_factor=3,
+        population=xr.DataArray(np.full((3, 3), 10.0), dims=("y", "x"), coords=lst.coords),
+    )
+    assert df.population.iloc[0] == pytest.approx(90.0)

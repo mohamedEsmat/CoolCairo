@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace CoolCairo
 {
-    public enum ViewMode { Materials, Heat }
+    public enum ViewMode { Materials, Heat, Risk }
 
     // Loads district.json, builds the buildings mesh and the block-level ground overlay,
     // and recolours both whenever the view mode or interventions change.
@@ -24,13 +24,14 @@ namespace CoolCairo
 
         // Built in code, not serialized: a serialized Gradient is initialised by Unity to plain
         // white, which silently turned the whole heat view white.
-        Gradient heatRamp;
+        Gradient heatRamp, riskRamp;
 
         public DistrictData Data { get; private set; }
         public InterventionModel Model { get; private set; }
         public ViewMode Mode { get; private set; } = ViewMode.Heat;
         public float HeatMin { get; private set; }
         public float HeatMax { get; private set; }
+        public float RiskMax { get; private set; }  // Person-degrees at the top of the risk scale.
 
         public event Action Loaded;
 
@@ -40,10 +41,12 @@ namespace CoolCairo
         void Awake()
         {
             heatRamp = DefaultHeatRamp();
+            riskRamp = DefaultRiskRamp();
             Data = DistrictData.FromJson(districtJson.text);
             Model = new InterventionModel(Data);
             Model.Changed += Refresh;
             ComputeHeatRange();
+            ComputeRiskRange();
             BuildGround();
             BuildBuildings();
             gameObject.AddComponent<TreeLayer>().Init(this, buildingMaterial);
@@ -58,6 +61,21 @@ namespace CoolCairo
         }
 
         public Color HeatColor(float lst) => heatRamp.Evaluate(Mathf.InverseLerp(HeatMin, HeatMax, lst));
+
+        public Color RiskColor(float exposure) => riskRamp.Evaluate(Mathf.Clamp01(exposure / RiskMax));
+
+        void ComputeRiskRange()
+        {
+            var values = new System.Collections.Generic.List<float>();
+            for (int i = 0; i < Data.BlockCount; i++)
+            {
+                float e = Model.Exposure(i, withInterventions: false);
+                if (e > 0f) values.Add(e);
+            }
+            values.Sort();
+            // Fixed to the baseline, so the colours visibly drop as interventions are painted.
+            RiskMax = values.Count == 0 ? 1f : Mathf.Max(1f, values[(int)(0.98f * (values.Count - 1))]);
+        }
 
         void ComputeHeatRange()
         {
@@ -118,6 +136,11 @@ namespace CoolCairo
                     roof = Model.IsValid(block) ? HeatColor(Model.Lst(block)) : noData;
                     walls = roof * 0.85f;
                 }
+                else if (Mode == ViewMode.Risk)
+                {
+                    roof = Model.IsValid(block) ? RiskColor(Model.Exposure(block)) : noData;
+                    walls = roof * 0.85f;
+                }
                 else
                 {
                     // Block-level statement: roofs in this block are X% dark. Not per-roof truth.
@@ -135,6 +158,7 @@ namespace CoolCairo
         {
             if (!Model.IsValid(i)) return noData;
             if (Mode == ViewMode.Heat) return HeatColor(Model.Lst(i));
+            if (Mode == ViewMode.Risk) return RiskColor(Model.Exposure(i));
 
             var bl = Data.blocks;
             float ground = Mathf.Max(1e-4f, 1f - bl.roofFrac[i]);
@@ -154,6 +178,23 @@ namespace CoolCairo
         {
             Color32 c32 = c;
             for (int k = start; k < start + count; k++) colors[k] = c32;
+        }
+
+        static Gradient DefaultRiskRamp()
+        {
+            // Pale (no excess heat or no residents) -> orange -> deep purple (most person-degrees).
+            // Distinct from the temperature ramp so the two views are never confused.
+            var g = new Gradient();
+            g.SetKeys(
+                new[]
+                {
+                    new GradientColorKey(new Color(0.96f, 0.95f, 0.92f), 0f),
+                    new GradientColorKey(new Color(0.98f, 0.62f, 0.27f), 0.4f),
+                    new GradientColorKey(new Color(0.80f, 0.20f, 0.30f), 0.7f),
+                    new GradientColorKey(new Color(0.33f, 0.07f, 0.40f), 1f),
+                },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
+            return g;
         }
 
         static Gradient DefaultHeatRamp()

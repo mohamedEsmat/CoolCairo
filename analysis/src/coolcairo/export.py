@@ -45,6 +45,7 @@ def _block_arrays(blocks: pd.DataFrame, rows: int, cols: int) -> dict[str, list]
         "soilFrac": column("soil_frac"),
         "roofFrac": column("roof_frac"),
         "meanHeightM": column("mean_height_m"),
+        "population": column("population"),
     }
 
 
@@ -96,6 +97,7 @@ def write_district(
     fit: FitResult,
     cool_roof: CoolRoofDeltas,
     cool_roof_method: str,
+    heat_reference_c: float = 0.0,
     provenance: dict[str, str],
     sources: list[dict] | None = None,
     preview_bbox_wgs84: list[float] | None = None,
@@ -127,6 +129,8 @@ def write_district(
             "coolRoofDarkDeltaC": cool_roof.dark,
             "coolRoofPaleDeltaC": cool_roof.pale,
             "coolRoofMethod": cool_roof_method,
+            # Heat exposure = residents x max(0, LST - heatReferenceC), person-degrees.
+            "heatReferenceC": heat_reference_c,
         },
         "provenance": provenance,
         # Satellite scenes used, re-verified against the archive by the app at startup.

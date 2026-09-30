@@ -195,7 +195,7 @@ namespace CoolCairo
             Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.02f, 0.03f, 0.06f, 0.55f));
 
             const float w = 720f;
-            int rows = s_syncs.Count + 2;
+            int rows = s_syncs.Count + 3;
             float h = 190f + rows * 64f;
             var panel = new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h);
             Fill(panel, new Color(0.04f, 0.06f, 0.1f, 0.88f));
@@ -209,6 +209,8 @@ namespace CoolCairo
 
             foreach (var s in s_syncs) SourceRow(s);
             StaticRow("EnMAP", "Hyperspectral surface materials", "Access pending", new Color(0.6f, 0.6f, 0.65f));
+            StaticRow("WorldPop 2024", $"Residents per block (census counts mapped onto satellite-detected buildings)  ·  " +
+                      $"{_data.blocks.population.Where(p => p > 0).Sum():N0} residents in the district", "✓ Ready", Good);
             bool ready = _districtLoad.progress >= 0.9f;
             StaticRow("Nasr City district",
                 $"{_data.BlockCount} blocks · {_data.buildings.count:N0} buildings · model R² {_data.model.r2SpatialCv:0.00}",

@@ -58,6 +58,7 @@ namespace CoolCairo
         public float[] soilFrac;
         public float[] roofFrac;
         public float[] meanHeightM;
+        public float[] population;   // Residents per block (WorldPop 2024).
     }
 
     [Serializable]
@@ -100,5 +101,7 @@ namespace CoolCairo
         public float coolRoofDarkDeltaC;
         public float coolRoofPaleDeltaC;
         public string coolRoofMethod;
+        // Heat exposure = residents x max(0, LST - heatReferenceC), in person-degrees.
+        public float heatReferenceC;
     }
 }

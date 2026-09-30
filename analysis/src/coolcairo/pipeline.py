@@ -12,7 +12,7 @@ import geopandas as gpd
 import pandas as pd
 import xarray as xr
 
-from coolcairo import openbuildings, stac
+from coolcairo import openbuildings, population, stac
 from coolcairo.blocks import block_features, height_raster
 from coolcairo.buildings import fetch_buildings, footprint_mask
 from coolcairo.classify import classify_sentinel2
@@ -61,6 +61,14 @@ def load_open_buildings_heights(cfg: Config) -> xr.DataArray:
     return _cached_array(DATA_DIR / "ob_height_m.nc", lambda: openbuildings.height_mosaic(cfg))
 
 
+def load_population(cfg: Config) -> xr.DataArray:
+    """Residents per 30 m pixel over the model area (WorldPop)."""
+    return _cached_array(
+        DATA_DIR / "population_30m.nc",
+        lambda: population.population_on_grid(cfg, geobox_for(cfg, "model_aoi")),
+    )
+
+
 def load_buildings(cfg: Config) -> gpd.GeoDataFrame:
     """Footprints with heights: OSM tags, then Open Buildings 2.5D, then the config default."""
     osm = load_osm_buildings(cfg)
@@ -89,6 +97,7 @@ def build_blocks(cfg: Config) -> tuple[pd.DataFrame, xr.DataArray, gpd.GeoDataFr
         lst=lst,
         fine_factor=cfg.block_size // FINE_RESOLUTION,
         lst_factor=cfg.block_factor,
+        population=load_population(cfg).assign_coords(x=lst.x, y=lst.y),
     )
     return blocks, material, buildings
 

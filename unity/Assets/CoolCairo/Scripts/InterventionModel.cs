@@ -85,5 +85,39 @@ namespace CoolCairo
             }
             return n == 0 ? 0f : sum / n;
         }
+
+        // Heat exposure (heat risk): residents x degrees above the reference surface temperature.
+        // Mirrors coolcairo.population.heat_exposure.
+        public float Residents(int block) => IsValid(block) ? Math.Max(0f, _d.blocks.population[block]) : 0f;
+
+        public float Exposure(int block, bool withInterventions = true)
+        {
+            if (!IsValid(block)) return 0f;
+            float lst = withInterventions ? Lst(block) : BaselineLst(block);
+            return Residents(block) * Math.Max(0f, lst - _d.model.heatReferenceC);
+        }
+
+        public float TotalExposure(bool withInterventions = true)
+        {
+            float sum = 0f;
+            for (int i = 0; i < _d.BlockCount; i++) sum += Exposure(i, withInterventions);
+            return sum;
+        }
+
+        public float TotalResidents()
+        {
+            float sum = 0f;
+            for (int i = 0; i < _d.BlockCount; i++) sum += Residents(i);
+            return sum;
+        }
+
+        // Residents living in blocks whose surface temperature the interventions lowered.
+        public float ResidentsInCooledBlocks()
+        {
+            float sum = 0f;
+            for (int i = 0; i < _d.BlockCount; i++)
+                if (DeltaLst(i) < -0.01f) sum += Residents(i);
+            return sum;
+        }
     }
 }

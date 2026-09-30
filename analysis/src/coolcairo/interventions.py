@@ -14,6 +14,7 @@ import pandas as pd
 
 from coolcairo.config import Config
 from coolcairo.model import FitResult
+from coolcairo.population import heat_exposure
 
 
 @dataclass(frozen=True)
@@ -87,3 +88,30 @@ def plausibility_warnings(cfg: Config, fit: FitResult) -> list[str]:
     if c["veg_frac"] >= c["dark_ground_frac"]:
         warnings.append("Vegetation is not cooler than dark ground: tree effect unusable.")
     return warnings
+
+
+def heat_reference_c(cfg: Config, urban_blocks: pd.DataFrame) -> float:
+    """Reference surface temperature for heat exposure (see `heat_reference` in config)."""
+    if cfg["heat_reference"] != "urban_median":
+        raise ValueError(f"Unknown heat_reference {cfg['heat_reference']!r}")
+    return float(urban_blocks.lst_c.median())
+
+
+def exposure_reduction_summary(
+    cfg: Config, fit: FitResult, blocks: pd.DataFrame, reference_c: float
+) -> pd.Series:
+    """District heat exposure (person-degrees) now, and after coating every roof or planting
+    25% of dark ground. The report's "heat risk reduced by X%" figures come from here."""
+    deltas = cool_roof_surface_deltas(cfg, fit)
+    roof = cool_roof_delta(deltas, blocks.dark_roof_frac, blocks.pale_roof_frac)
+    trees = tree_delta(fit, 0.25 * blocks.dark_ground_frac)
+    base = heat_exposure(blocks.lst_c, blocks.population, reference_c).sum()
+    after_roofs = heat_exposure(blocks.lst_c + roof, blocks.population, reference_c).sum()
+    after_trees = heat_exposure(blocks.lst_c + trees, blocks.population, reference_c).sum()
+    return pd.Series({
+        "residents": blocks.population.sum(),
+        "reference_c": reference_c,
+        "exposure_person_degC": base,
+        "cool_roofs_all_pct": 100 * (after_roofs - base) / base if base else 0.0,
+        "trees_25pct_pct": 100 * (after_trees - base) / base if base else 0.0,
+    })

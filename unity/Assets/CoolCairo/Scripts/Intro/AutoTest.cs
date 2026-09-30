@@ -46,10 +46,10 @@ namespace CoolCairo
                     int block = Random.Range(0, district.Data.BlockCount);
                     var kind = i % 2 == 0 ? Intervention.CoolRoof : Intervention.Trees;
                     model.Apply(kind, block, Random.Range(-0.5f, 1f));
-                    if (i % 50 == 0) district.SetMode(district.Mode == ViewMode.Heat ? ViewMode.Materials : ViewMode.Heat);
+                    if (i % 50 == 0) district.SetMode((ViewMode)(i / 50 % 3)); // Materials, Heat, Risk.
                     yield return null;
                 }
-                Log($"painted; mean dT {model.MeanDelta():0.00}; back to globe");
+                Log($"painted; mean dT {model.MeanDelta():0.00}; exposure {model.TotalExposure(false):0} -> {model.TotalExposure():0}; back to globe");
                 SceneManager.LoadScene(0);
                 yield return null;
             }

@@ -46,6 +46,7 @@ Headless run: `cd analysis && uv run python run_pipeline.py`. Unity: menu **Cool
 - **Cool roof** = moving block area from dark roof to bright roof → ΔT = −coef(dark_roof) × share. Data-derived; literature values used as a sanity check only. **Trees** = dark ground → vegetation, capped at 25% of dark ground. **Shade structures are cut** (not in the model).
 - **UI language: "surface temperature" / "land surface temperature"** everywhere, never "air temperature".
 - **Building heights**: OSM `height` → `building:levels` × 3.2 m → **Google Open Buildings 2.5D Temporal 2023** (median of 4 m pixels inside the footprint; public GCS tiles listed in `analysis/config/open_buildings_tiles.txt`, no account) → default 5 storeys. Coverage: 74% Open Buildings, 25% default, 1% OSM. Validated against 165 OSM-tagged buildings: bias −1.4 m, MAE 6.2 m, r = 0.60. Adding real heights raised spatial-CV R² from 0.15 to 0.25.
+- **Heat risk (30 Sep)** = heat exposure = residents × max(0, LST − reference) in person·°C. Residents: WorldPop Global2 R2025A 100 m constrained 2024 (CC BY 4.0), resampled by area-weighted density (totals preserved within 0.3%) and summed per block. Reference: median LST of urban training blocks (45.7 °C). Display district: 95,141 residents, 6,460 person·°C; coating all roofs −41%, trees on 25% of dark ground −24%. Screening indicator only: no vulnerability factors. Unity "Heat risk" view mirrors `population.heat_exposure`.
 - **Target: Windows desktop app** (changed 30 Sep; the hackathon names no required format). WebGL stays possible from the same project but is no longer the deliverable. Judges download an .exe, so the pitch video carries more weight.
 - **App flow (30 Sep)**: `Intro.unity` (build index 0) → loading screen that queries the real archive (Planetary Computer STAC search by the exact scene IDs in `district.json` `sources`) and downloads a live preview crop of the model area per satellite, marking each ✓ Completed; offline falls back to prepared data and says so → MENA globe (NASA Blue Marble, public domain) with city markers, only Nasr City live, others "coming soon" → fly-in → `Main.unity` district. The loading screen never claims live analysis: the analysis is precomputed.
 - **Validation imagery**: no PlanetScope access → use Google Earth / Esri World Imagery for the 20-roof spot check.
@@ -78,6 +79,7 @@ Stream via STAC from Microsoft Planetary Computer (anonymous, no key). Cached to
 | Sentinel-2 L2A (Planetary Computer) | NDVI, interim classes | Working |
 | OpenStreetMap (osmnx) | Footprints and heights | Working |
 | Google Open Buildings 2.5D Temporal (public GCS) | Building heights | Working |
+| WorldPop Global2 R2025A (data.worldpop.org) | Residents per block, heat exposure | Working |
 | Google Earth / Esri imagery | Visual validation | No PlanetScope access |
 
 ## Milestones

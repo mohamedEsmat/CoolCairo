@@ -78,3 +78,11 @@ storey_height_m: 3.2
 default_levels: 5
 # Minimum Open Buildings pixels (4 m) with height inside a footprint to trust its median.
 open_buildings_min_pixels: 3
+
+# Heat risk = heat exposure = residents x degrees C above a reference surface temperature.
+worldpop:
+  # WorldPop Global2 R2025A, 100 m, constrained, 2024 (middle of the LST period). CC BY 4.0.
+  url: "https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2024/EGY/v1/100m/constrained/egy_pop_2024_CN_100m_R2025A_v1.tif"
+# Reference: median summer LST of the urban training blocks in the model area, i.e. heat
+# exposure counts only degrees above what is typical for built-up east Cairo.
+heat_reference: urban_median

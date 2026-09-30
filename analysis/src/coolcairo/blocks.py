@@ -41,11 +41,13 @@ def block_features(
     lst: xr.DataArray,
     fine_factor: int,
     lst_factor: int,
+    population: xr.DataArray | None = None,
 ) -> pd.DataFrame:
     """One row per block.
 
-    `material`, `roof`, `heights` and `ndvi` share the fine (10 m) grid; `lst` is on the 30 m
-    grid. `fine_factor` and `lst_factor` are how many pixels of each span one block edge.
+    `material`, `roof`, `heights` and `ndvi` share the fine (10 m) grid; `lst` and
+    `population` (residents per pixel) are on the 30 m grid. `fine_factor` and `lst_factor`
+    are how many pixels of each span one block edge.
     """
     is_roof = roof.astype(bool)
     valid = material != Material.NODATA
@@ -76,6 +78,10 @@ def block_features(
     ds = xr.Dataset(layers)
     lst_blocks = block_mean(lst, lst_factor)
     ds["lst_c"] = lst_blocks.assign_coords(x=ds.x, y=ds.y)
+    if population is not None:
+        # Residents are counts, so blocks sum them (every other layer is a mean or share).
+        people = population.coarsen(x=lst_factor, y=lst_factor, boundary="trim").sum()
+        ds["population"] = people.assign_coords(x=ds.x, y=ds.y)
 
     df = ds.to_dataframe().reset_index()
     # Derive grid indices from coordinates, not row order (to_dataframe does not promise one).

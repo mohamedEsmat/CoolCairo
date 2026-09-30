@@ -13,7 +13,9 @@ from coolcairo.config import EXPORT_DIR, load_config
 from coolcairo.export import grid_origin, grid_shape, write_district
 from coolcairo.interventions import (
     cool_roof_surface_deltas,
+    exposure_reduction_summary,
     full_adoption_summary,
+    heat_reference_c,
     plausibility_warnings,
 )
 from coolcairo.model import fit, training_rows
@@ -38,7 +40,11 @@ def main() -> None:
         print("WARNING:", w)
     print(full_adoption_summary(cfg, result, train).round(2))
 
+    reference = heat_reference_c(cfg, train)
     disp_blocks, disp_buildings = display_subset(cfg, blocks, buildings)
+    print("Heat exposure, display district:")
+    measured = disp_blocks.dropna(subset=["lst_c"])
+    print(exposure_reduction_summary(cfg, result, measured, reference).round(2))
     rows, cols = grid_shape(disp_blocks)
     write_district(
         EXPORT_DIR / "district.json",
@@ -53,11 +59,13 @@ def main() -> None:
         fit=result,
         cool_roof=roof,
         cool_roof_method=cfg["cool_roof"]["method"],
+        heat_reference_c=reference,
         provenance={
             "lst": "Landsat 8/9 C2 L2 ST_B10, summer median",
             "materials": "Sentinel-2 L2A interim 4-class rules (EnMAP pending)",
             "cool_roof": "Wang, Huang & Li 2020, GRL 47, e2020GL087853 (see aoi.yaml)",
             "buildings": "OpenStreetMap footprints, Google Open Buildings 2.5D heights",
+            "population": "WorldPop Global2 R2025A 100 m constrained, 2024 (CC BY 4.0)",
         },
         sources=scene_inventory(cfg, cfg["model_aoi"]["bbox_wgs84"]),
         preview_bbox_wgs84=cfg["model_aoi"]["bbox_wgs84"],
