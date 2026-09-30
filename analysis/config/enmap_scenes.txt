@@ -1,0 +1,12 @@
+# EnMAP L2A scenes over Nasr City (display_aoi), found via DLR's public STAC catalogue:
+#   https://geoservice.dlr.de/eoc/ogc/stac/v1  collection ENMAP_HSI_L2A, bbox = model_aoi
+# 19 scenes matched on 30 Sep 2026; 11 are night acquisitions (sun elevation 0) and unusable.
+# Chosen daytime, cloud-free scenes that cover the display district:
+#   1. 2025-04-22 09:17 UTC, sun 70 deg, 0% cloud   (primary: most recent, inside the LST period)
+#   2. 2023-04-16 09:10 UTC, sun 67 deg, 0% cloud   (second date / backup)
+# Downloads need an EOC Geoservice account subscribed to the "EnMAP Access Service".
+# Save files to analysis/data/enmap/ (git-ignored). Per scene: spectral image, metadata, quality.
+# EnMAP data (c) DLR; see the EnMAP licence accepted on subscription for use and attribution.
+
+ENMAP01-____L2A-DT0000127221_20250422T091720Z_006_V010502_20250424T200249Z
+ENMAP01-____L2A-DT0000013828_20230416T091053Z_006_V010502_20251205T194117Z

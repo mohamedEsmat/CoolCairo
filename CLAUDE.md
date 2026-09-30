@@ -74,13 +74,20 @@ Stream via STAC from Microsoft Planetary Computer (anonymous, no key). Cached to
 
 | Source | Use | Status |
 | --- | --- | --- |
-| EnMAP (geoservice.dlr.de) | Material classification — primary | Pending hackathon/DLR access |
+| EnMAP L2A (DLR EOC Geoservice STAC) | Material classification — primary | Account active (30 Sep); scenes chosen in `analysis/config/enmap_scenes.txt` (2025-04-22 primary, 2023-04-16 backup). Download needs login: user downloads manually. |
 | Landsat C2 L2 (Planetary Computer) | Thermal | Working |
 | Sentinel-2 L2A (Planetary Computer) | NDVI, interim classes | Working |
 | OpenStreetMap (osmnx) | Footprints and heights | Working |
 | Google Open Buildings 2.5D Temporal (public GCS) | Building heights | Working |
 | WorldPop Global2 R2025A (data.worldpop.org) | Residents per block, heat exposure | Working |
 | Google Earth / Esri imagery | Visual validation | No PlanetScope access |
+
+### EnMAP licence (v1.1, copy in `docs/`)
+
+- Commercial and non-commercial use allowed; process, combine, share with team members (affiliated users, who must be told about the licence).
+- Never publish raw EnMAP data or pixel-preserving derivatives in a downloadable form (public repo, submission uploads). Raw files stay in git-ignored `analysis/data/enmap/`.
+- Block-level fractions/classes are value-added products we own.
+- Attribution on every EnMAP-derived output (app, report, video, export provenance): "Contains modified EnMAP data © DLR [2025]". Raw imagery shown: "EnMAP data © DLR [2025] All rights reserved", view-only.
 
 ## Milestones
 
