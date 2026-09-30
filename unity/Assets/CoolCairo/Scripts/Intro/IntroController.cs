@@ -18,7 +18,15 @@ namespace CoolCairo
         [SerializeField] SatelliteOrbits satellites;
         [SerializeField] Material satelliteMaterial;
         [SerializeField] Material markerMaterial;
+        [SerializeField] Material starMaterial;      // CoolCairo/VertexColorUnlit
         [SerializeField] string districtScene = "Main";
+
+        // "Coming soon" cities stay greyed out, but with a dark outline and a label backdrop so
+        // they stay readable over the bright desert.
+        static readonly Color LiveColor = new Color(1f, 0.45f, 0.1f);
+        static readonly Color SoonColor = new Color(0.78f, 0.80f, 0.84f);
+        static readonly Color OutlineColor = new Color(0.05f, 0.06f, 0.09f);
+        const float LiveSize = 0.022f, SoonSize = 0.016f, OutlineScale = 1.6f;
 
         struct City { public string Name; public float Lat, Lon; public bool Live; }
 
@@ -49,7 +57,8 @@ namespace CoolCairo
         AsyncOperation _districtLoad;
         float _overlayAlpha = 1f, _fadeToBlack;
         readonly List<Transform> _markers = new List<Transform>();
-        GUIStyle _title, _subtitle, _body, _small, _bold, _panel;
+        readonly List<Transform> _outlines = new List<Transform>();
+        GUIStyle _title, _subtitle, _body, _small, _bold, _marker;
         Texture2D _pixel;
 
         void Start()
@@ -58,6 +67,7 @@ namespace CoolCairo
             _districtLoad = SceneManager.LoadSceneAsync(districtScene);
             _districtLoad.allowSceneActivation = false;
             satellites.Create(_data.sources.Select(s => s.satellite).ToList(), satelliteMaterial);
+            new GameObject("Stars", typeof(StarField)).GetComponent<StarField>().Init(starMaterial);
             CreateMarkers();
 
             if (s_syncs != null) EnterGlobe(immediate: true);
@@ -123,25 +133,46 @@ namespace CoolCairo
         {
             foreach (var city in Cities)
             {
-                var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                go.name = city.Name;
-                go.transform.SetParent(transform, false);
-                go.transform.position = Globe.LatLonToPosition(city.Lat, city.Lon, 1.003f);
-                go.transform.localScale = Vector3.one * (city.Live ? 0.022f : 0.012f);
-                var r = go.GetComponent<MeshRenderer>();
-                r.sharedMaterial = markerMaterial;
-                var block = new MaterialPropertyBlock();
-                block.SetColor("_BaseColor", city.Live ? new Color(1f, 0.45f, 0.1f) : new Color(0.85f, 0.85f, 0.85f));
-                r.SetPropertyBlock(block);
-                _markers.Add(go.transform);
+                float size = city.Live ? LiveSize : SoonSize;
+                // Dark outline: a larger sphere sunk below the coloured dot, so only a ring shows
+                // around it. Its top must stay under the dot's top or it would swallow the dot.
+                float outlineRadius = OutlineCentre(size);
+                var outline = MarkerSphere($"{city.Name} outline", city, outlineRadius, size * OutlineScale, OutlineColor);
+                Destroy(outline.GetComponent<Collider>()); // Clicks go to the dot itself.
+                _outlines.Add(outline.transform);
+                _markers.Add(MarkerSphere(city.Name, city, DotCentre, size, city.Live ? LiveColor : SoonColor).transform);
             }
+        }
+
+        const float DotCentre = 1.003f;
+
+        // Distance from the globe centre for the outline sphere: its top sits just below the
+        // dot's top (dot top = DotCentre + size/2, outline top = centre + OutlineScale*size/2).
+        static float OutlineCentre(float size) => DotCentre + size / 2f - OutlineScale * size / 2f - 0.0006f;
+
+        GameObject MarkerSphere(string name, City city, float radius, float size, Color color)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = name;
+            go.transform.SetParent(transform, false);
+            go.transform.position = Globe.LatLonToPosition(city.Lat, city.Lon, radius);
+            go.transform.localScale = Vector3.one * size;
+            var r = go.GetComponent<MeshRenderer>();
+            r.sharedMaterial = markerMaterial;
+            var block = new MaterialPropertyBlock();
+            block.SetColor("_BaseColor", color);
+            r.SetPropertyBlock(block);
+            return go;
         }
 
         void Update()
         {
-            // Pulse the live marker.
-            float pulse = 0.022f * (1f + 0.25f * Mathf.Sin(Time.time * 4f));
-            _markers[0].localScale = Vector3.one * pulse;
+            // Pulse the live marker (and its outline).
+            float live = LiveSize * (1f + 0.25f * Mathf.Sin(Time.time * 4f));
+            _markers[0].localScale = Vector3.one * live;
+            _outlines[0].localScale = Vector3.one * live * OutlineScale;
+            // Keep the outline sunk as it grows, or its top would cover the dot at peak pulse.
+            _outlines[0].position = _markers[0].position.normalized * OutlineCentre(live);
 
             if (_phase == Phase.Globe && !globeCamera.Busy && Input.GetMouseButtonUp(0) && !_dragged)
             {
@@ -295,7 +326,7 @@ namespace CoolCairo
                 var row = new Rect(list.x + 12, list.y + 36 + i * 28, list.width - 24, 26);
                 var c = Cities[i];
                 var prev = GUI.contentColor;
-                GUI.contentColor = c.Live ? new Color(1f, 0.6f, 0.3f) : Idle;
+                GUI.contentColor = c.Live ? new Color(1f, 0.6f, 0.3f) : SoonColor;
                 if (GUI.Button(row, $"{(c.Live ? "●" : "○")}  {c.Name}   {(c.Live ? "LIVE" : "coming soon")}", _body) && !globeCamera.Busy)
                     OnCityChosen(i);
                 GUI.contentColor = prev;
@@ -308,8 +339,14 @@ namespace CoolCairo
                 var p = _markers[i].position;
                 if (Vector3.Dot(p.normalized, (cam.transform.position - p).normalized) < 0.1f) continue;
                 var sp = cam.WorldToScreenPoint(p);
-                var style = i == 0 ? _bold : _small;
-                GUI.Label(new Rect(sp.x + 10, Screen.height - sp.y - 10, 220, 22), Cities[i].Name, style);
+                var style = i == 0 ? _bold : _marker;
+                var content = new GUIContent(Cities[i].Name);
+                var size = style.CalcSize(content);
+                var r = new Rect(sp.x + 12, Screen.height - sp.y - size.y / 2f, size.x + 10, size.y + 2);
+                // Dark backdrop so labels read over the bright desert; grey text keeps the
+                // "coming soon" cities visibly greyed out next to the live one.
+                Fill(r, new Color(0.02f, 0.03f, 0.06f, 0.72f));
+                GUI.Label(new Rect(r.x + 5, r.y + 1, size.x, size.y), content, style);
             }
 
             GUI.Label(new Rect(28, Screen.height - 40, 800, 24),
@@ -338,6 +375,8 @@ namespace CoolCairo
             _bold = Make(15, FontStyle.Bold, Color.white);
             _small = Make(12, FontStyle.Normal, new Color(0.65f, 0.7f, 0.8f));
             _body.hover.textColor = Color.white;
+            _marker = Make(13, FontStyle.Normal, new Color(0.80f, 0.82f, 0.86f));
+            _marker.wordWrap = false;
         }
     }
 }

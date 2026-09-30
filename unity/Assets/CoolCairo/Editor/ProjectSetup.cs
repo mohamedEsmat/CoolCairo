@@ -75,6 +75,7 @@ namespace CoolCairo.EditorTools
             var satMat = EnsureMaterial("Satellite", "Universal Render Pipeline/Unlit");
             satMat.SetColor("_BaseColor", new Color(0.45f, 0.9f, 1f));
             var markerMat = EnsureMaterial("Marker", "Universal Render Pipeline/Unlit");
+            var starMat = EnsureMaterial("Stars", "CoolCairo/VertexColorUnlit");
             EditorUtility.SetDirty(earthMat);
             EditorUtility.SetDirty(satMat);
 
@@ -100,6 +101,7 @@ namespace CoolCairo.EditorTools
             Assign(intro, "satellites", sats);
             Assign(intro, "satelliteMaterial", satMat);
             Assign(intro, "markerMaterial", markerMat);
+            Assign(intro, "starMaterial", starMat);
 
             EditorSceneManager.SaveScene(scene, IntroScenePath);
         }
