@@ -60,9 +60,33 @@ namespace CoolCairo
             Refresh();
         }
 
+        // Materials-view colours for the legend, in the order the legend shows them.
+        public System.Collections.Generic.IEnumerable<(string label, Color color)> MaterialLegend()
+        {
+            yield return ("Vegetation", vegetation);
+            yield return ("Dark surface: asphalt, dark roofs", darkSurface);
+            yield return ("Pale surface: concrete, pale roofs", brightSurface);
+            yield return ("Bare soil / sand", soil);
+            yield return ("Roof coated white (intervention)", coolRoof);
+        }
+
         public Color HeatColor(float lst) => heatRamp.Evaluate(Mathf.InverseLerp(HeatMin, HeatMax, lst));
 
+        // Heat-risk view: zero-risk and unpopulated blocks get quiet, distinct greys so the
+        // orange-to-purple hotspots stand out (a near-white zero washed the whole district out).
+        public static readonly Color NoExcessHeat = new Color(0.42f, 0.48f, 0.58f);
+        public static readonly Color NoResidents = new Color(0.27f, 0.29f, 0.34f);
+        const float MinResidents = 1f;
+
         public Color RiskColor(float exposure) => riskRamp.Evaluate(Mathf.Clamp01(exposure / RiskMax));
+
+        public Color BlockRiskColor(int block)
+        {
+            if (!Model.IsValid(block)) return noData;
+            if (Model.Residents(block) < MinResidents) return NoResidents;
+            float e = Model.Exposure(block);
+            return e <= 0f ? NoExcessHeat : RiskColor(e);
+        }
 
         void ComputeRiskRange()
         {
@@ -138,7 +162,7 @@ namespace CoolCairo
                 }
                 else if (Mode == ViewMode.Risk)
                 {
-                    roof = Model.IsValid(block) ? RiskColor(Model.Exposure(block)) : noData;
+                    roof = BlockRiskColor(block);
                     walls = roof * 0.85f;
                 }
                 else
@@ -158,7 +182,7 @@ namespace CoolCairo
         {
             if (!Model.IsValid(i)) return noData;
             if (Mode == ViewMode.Heat) return HeatColor(Model.Lst(i));
-            if (Mode == ViewMode.Risk) return RiskColor(Model.Exposure(i));
+            if (Mode == ViewMode.Risk) return BlockRiskColor(i);
 
             var bl = Data.blocks;
             float ground = Mathf.Max(1e-4f, 1f - bl.roofFrac[i]);
@@ -182,14 +206,15 @@ namespace CoolCairo
 
         static Gradient DefaultRiskRamp()
         {
-            // Pale (no excess heat or no residents) -> orange -> deep purple (most person-degrees).
-            // Distinct from the temperature ramp so the two views are never confused.
+            // Light peach (a little excess heat) -> orange -> deep purple (most person-degrees).
+            // Zero risk is not on this ramp (see BlockRiskColor). Distinct from the temperature
+            // ramp so the two views are never confused.
             var g = new Gradient();
             g.SetKeys(
                 new[]
                 {
-                    new GradientColorKey(new Color(0.96f, 0.95f, 0.92f), 0f),
-                    new GradientColorKey(new Color(0.98f, 0.62f, 0.27f), 0.4f),
+                    new GradientColorKey(new Color(0.99f, 0.85f, 0.62f), 0f),
+                    new GradientColorKey(new Color(0.98f, 0.60f, 0.26f), 0.35f),
                     new GradientColorKey(new Color(0.80f, 0.20f, 0.30f), 0.7f),
                     new GradientColorKey(new Color(0.33f, 0.07f, 0.40f), 1f),
                 },

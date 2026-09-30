@@ -40,7 +40,7 @@ namespace CoolCairo
                        * panScale * 600f * Time.deltaTime;
 
             float scroll = Input.mouseScrollDelta.y;
-            if (scroll != 0f && !HUD.PointerOverPanel)
+            if (scroll != 0f && !DistrictUI.PointerOverUI)
                 distance = Mathf.Clamp(distance * (1f - scroll * zoomSpeed), minDistance, maxDistance);
 
             Apply();

@@ -23,7 +23,7 @@ namespace CoolCairo
             var ray = cam.ScreenPointToRay(Input.mousePosition);
             if (!_ground.Raycast(ray, out float dist)) return;
             HoverBlock = district.Data.BlockAt(ray.GetPoint(dist));
-            if (HoverBlock < 0 || HUD.PointerOverPanel || Input.GetKey(KeyCode.LeftAlt)) return;
+            if (HoverBlock < 0 || DistrictUI.PointerOverUI || Input.GetKey(KeyCode.LeftAlt)) return;
 
             float sign = Input.GetMouseButton(0) ? 1f : Input.GetMouseButton(1) ? -1f : 0f;
             if (sign == 0f) return;

@@ -120,6 +120,32 @@ namespace CoolCairo.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        // TextMeshPro essentials (fonts, shaders, settings) for the district UI. Non-interactive:
+        // the menu item would open a blocking dialog in batch mode.
+        [MenuItem("CoolCairo/Import TextMeshPro essentials")]
+        public static void ImportTmpEssentials()
+        {
+            if (AssetDatabase.IsValidFolder("Assets/TextMesh Pro"))
+            {
+                Debug.Log("TextMeshPro essentials already present.");
+                if (Application.isBatchMode) EditorApplication.Exit(0);
+                return;
+            }
+            // Package import finishes asynchronously; in batch mode, run WITHOUT -quit and exit
+            // from these callbacks once it is done.
+            AssetDatabase.importPackageCompleted += name =>
+            {
+                Debug.Log($"Imported {name}.");
+                if (Application.isBatchMode) EditorApplication.Exit(0);
+            };
+            AssetDatabase.importPackageFailed += (name, error) =>
+            {
+                Debug.LogError($"Import of {name} failed: {error}");
+                if (Application.isBatchMode) EditorApplication.Exit(1);
+            };
+            TMPro.TMP_PackageResourceImporter.ImportResources(true, false, false);
+        }
+
         [MenuItem("CoolCairo/Build Windows desktop app")]
         public static void BuildWindows()
         {
@@ -201,9 +227,7 @@ namespace CoolCairo.EditorTools
             var brush = tools.AddComponent<InterventionBrush>();
             Assign(brush, "district", view);
             Assign(brush, "cam", cam);
-            var hud = tools.AddComponent<HUD>();
-            Assign(hud, "district", view);
-            Assign(hud, "brush", brush);
+            HudBuilder.Build(view, brush);
 
             EditorSceneManager.SaveScene(scene, ScenePath);
         }
