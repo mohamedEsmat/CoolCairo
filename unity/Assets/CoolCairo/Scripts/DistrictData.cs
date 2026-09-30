@@ -23,6 +23,7 @@ namespace CoolCairo
         public ModelCoefficients model;
         public SourceInfo[] sources;     // Satellite scenes the analysis used.
         public float[] previewBbox;      // [min_lon, min_lat, max_lon, max_lat] for archive previews.
+        public HyperspectralInfo hyperspectral;
 
         public int BlockCount => rows * cols;
 
@@ -82,6 +83,20 @@ namespace CoolCairo
         public string firstDate;
         public string lastDate;
         public string previewQuery;  // Data API rendering parameters for the preview image
+        public string itemUrl;       // If set, verify by fetching this STAC item (DLR / EnMAP)
+    }
+
+    // EnMAP result (analysis notebook 05): how much better hyperspectral spectra explain
+    // block surface heat than Sentinel-2, with our model features, spatial CV.
+    [Serializable]
+    public class HyperspectralInfo
+    {
+        public int available;
+        public string sceneId;
+        public string acquired;
+        public float r2Multispectral;
+        public float r2Hyperspectral;
+        public string attribution;   // Required by the EnMAP licence on every derived output.
     }
 
     [Serializable]

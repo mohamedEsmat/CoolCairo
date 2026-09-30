@@ -195,7 +195,8 @@ namespace CoolCairo
             Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.02f, 0.03f, 0.06f, 0.55f));
 
             const float w = 720f;
-            int rows = s_syncs.Count + 3;
+            bool hasEnmap = s_syncs.Any(s => s.Source.satellite == "EnMAP");
+            int rows = s_syncs.Count + (hasEnmap ? 2 : 3);
             float h = 190f + rows * 64f;
             var panel = new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h);
             Fill(panel, new Color(0.04f, 0.06f, 0.1f, 0.88f));
@@ -208,7 +209,8 @@ namespace CoolCairo
             GUILayout.Space(6);
 
             foreach (var s in s_syncs) SourceRow(s);
-            StaticRow("EnMAP", "Hyperspectral surface materials", "Access pending", new Color(0.6f, 0.6f, 0.65f));
+            if (!hasEnmap) // EnMAP not processed in this build of district.json.
+                StaticRow("EnMAP", "Hyperspectral heat drivers", "Not processed", Idle);
             StaticRow("WorldPop 2024", $"Residents per block (census counts mapped onto satellite-detected buildings)  ·  " +
                       $"{_data.blocks.population.Where(p => p > 0).Sum():N0} residents in the district", "✓ Ready", Good);
             bool ready = _districtLoad.progress >= 0.9f;
@@ -222,8 +224,10 @@ namespace CoolCairo
             Fill(bar, new Color(1, 1, 1, 0.12f));
             Fill(new Rect(bar.x, bar.y, bar.width * done / (s_syncs.Count + 1), bar.height), Good);
             GUILayout.Space(6);
-            GUILayout.Label("Source: Microsoft Planetary Computer (USGS Landsat Collection 2, ESA Copernicus Sentinel-2). " +
-                            "Analysis precomputed from these scenes.", _small);
+            string enmapNote = _data.hyperspectral != null && _data.hyperspectral.available == 1
+                ? $" · DLR EOC Geoservice (EnMAP). {_data.hyperspectral.attribution}." : ".";
+            GUILayout.Label("Sources: Microsoft Planetary Computer (USGS Landsat Collection 2, ESA Copernicus Sentinel-2)" +
+                            enmapNote + " Analysis precomputed from these scenes.", _small);
             GUILayout.EndArea();
             GUI.color = prev;
         }
@@ -249,8 +253,11 @@ namespace CoolCairo
                 SyncState.Waiting => Idle,
                 _ => Busy,
             };
-            Row(s.Preview, src.satellite, $"{src.use}  ·  {src.sceneIds.Length} scenes  ·  {src.firstDate} → {src.lastDate}",
-                status, color);
+            var hs = _data.hyperspectral;
+            string detail = src.satellite == "EnMAP" && hs != null && hs.available == 1
+                ? $"{src.use}  ·  224 bands  ·  {src.firstDate}  ·  explains heat R² {hs.r2Hyperspectral:0.00} vs {hs.r2Multispectral:0.00} multispectral"
+                : $"{src.use}  ·  {src.sceneIds.Length} scenes  ·  {src.firstDate} → {src.lastDate}";
+            Row(s.Preview, src.satellite, detail, status, color);
         }
 
         void StaticRow(string name, string detail, string status, Color color) => Row(null, name, detail, status, color);

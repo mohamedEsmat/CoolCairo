@@ -59,7 +59,8 @@ namespace CoolCairo
                 $"<size=10>Land surface temperature, block-level ({d.blockSize:0} m). " +
                 $"Model spatial-CV R² {d.model.r2SpatialCv:0.00}, MAE {d.model.maeSpatialCv:0.0} °C, n={d.model.nBlocks}. " +
                 $"Cool roofs per coated area: dark {d.model.coolRoofDarkDeltaC:0.0} °C, " +
-                $"pale {d.model.coolRoofPaleDeltaC:0.0} °C ({d.model.coolRoofMethod}).</size>",
+                $"pale {d.model.coolRoofPaleDeltaC:0.0} °C ({d.model.coolRoofMethod})." +
+                HyperspectralNote(d) + "</size>",
                 Rich());
             GUILayout.EndArea();
 
@@ -94,6 +95,16 @@ namespace CoolCairo
             }
             GUI.Label(new Rect(r.x, r.y + hgt, w, 20), $"{district.HeatMin:0} °C");
             GUI.Label(new Rect(r.xMax - 40, r.y + hgt, 40, 20), $"{district.HeatMax:0} °C");
+        }
+
+        // Interventions use the interpretable fractions model; EnMAP shows how much more of the
+        // heat pattern hyperspectral data explains. The attribution is required by the licence.
+        static string HyperspectralNote(DistrictData d)
+        {
+            var h = d.hyperspectral;
+            if (h == null || h.available != 1) return "";
+            return $" Hyperspectral (EnMAP {h.acquired}): heat explained R² {h.r2Hyperspectral:0.00} " +
+                   $"vs {h.r2Multispectral:0.00} with Sentinel-2. {h.attribution}.";
         }
 
         static GUIStyle Rich() => new GUIStyle(GUI.skin.label) { richText = true, wordWrap = true };

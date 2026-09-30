@@ -101,6 +101,7 @@ def write_district(
     provenance: dict[str, str],
     sources: list[dict] | None = None,
     preview_bbox_wgs84: list[float] | None = None,
+    hyperspectral: dict | None = None,
 ) -> dict:
     c = fit.coefficients
     payload = {
@@ -136,6 +137,8 @@ def write_district(
         # Satellite scenes used, re-verified against the archive by the app at startup.
         "sources": sources or [],
         "previewBbox": preview_bbox_wgs84 or [],
+        # EnMAP result shown in the app; "available": 0 when EnMAP was not processed.
+        "hyperspectral": hyperspectral or {"available": 0},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")

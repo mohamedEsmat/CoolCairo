@@ -220,3 +220,13 @@ def test_heat_r2_ranks_informative_features_higher():
     groups = np.arange(n) // 20
     r2 = heat_r2({"informative": signal, "noise": rng.normal(size=(n, 3))}, lst, groups, folds=5)
     assert r2["informative"] > 0.9 and r2["noise"] < 0.1
+
+
+def test_enmap_archive_source_uses_item_url_and_date():
+    from coolcairo.enmap import archive_source, attribution
+
+    sid = "ENMAP01-____L2A-DT0000127221_20250422T091720Z_006_V010502_20250424T200249Z"
+    src = archive_source(sid)
+    assert src["firstDate"] == src["lastDate"] == "2025-04-22"
+    assert src["itemUrl"].endswith("/items/" + sid)
+    assert attribution(sid).endswith("DLR [2025]")

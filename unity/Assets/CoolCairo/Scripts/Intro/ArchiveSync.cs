@@ -38,6 +38,11 @@ namespace CoolCairo
         {
             var src = sync.Source;
             sync.State = SyncState.Querying;
+            if (!string.IsNullOrEmpty(src.itemUrl))
+            {
+                yield return VerifyItem(sync);
+                yield break;
+            }
             int found = 0;
             for (int start = 0; start < src.sceneIds.Length; start += PageSize)
             {
@@ -82,6 +87,26 @@ namespace CoolCairo
             sync.State = SyncState.Complete;
             Debug.Log($"{src.satellite}: archive confirmed {found}/{src.sceneIds.Length} scenes; " +
                       $"preview {(sync.Preview != null ? $"{sync.Preview.width}x{sync.Preview.height}" : "unavailable")}.");
+        }
+
+        // Catalogues whose search ignores id filters (DLR): fetch the item itself. Metadata is
+        // public; the data needs a login, so no preview image is downloaded.
+        static IEnumerator VerifyItem(SourceSync sync)
+        {
+            var src = sync.Source;
+            using var req = UnityWebRequest.Get(src.itemUrl);
+            req.timeout = TimeoutSeconds;
+            yield return req.SendWebRequest();
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning($"{src.satellite}: archive query failed ({req.error}); using prepared data.");
+                sync.State = SyncState.Offline;
+                yield break;
+            }
+            sync.Found = src.sceneIds.Length;
+            sync.LatestSceneDate = src.lastDate;
+            sync.State = SyncState.Complete;
+            Debug.Log($"{src.satellite}: archive confirmed {sync.Found}/{src.sceneIds.Length} scenes (metadata only).");
         }
     }
 }

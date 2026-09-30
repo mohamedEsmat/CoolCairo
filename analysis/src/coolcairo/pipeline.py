@@ -9,10 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import xarray as xr
 
-from coolcairo import enmap, openbuildings, population, stac
+from coolcairo import enmap, openbuildings, population, separability, stac
 from coolcairo.blocks import block_features, height_raster
 from coolcairo.buildings import fetch_buildings, footprint_mask
 from coolcairo.classify import classify_sentinel2
@@ -125,3 +126,36 @@ def display_subset(
     centroids = buildings.geometry.centroid
     in_display = centroids.x.between(min_x, max_x) & centroids.y.between(min_y, max_y)
     return sub.reset_index(drop=True), buildings[in_display].reset_index(drop=True)
+
+
+def hyperspectral_summary(cfg: Config, blocks: pd.DataFrame) -> dict | None:
+    """How much better EnMAP explains block heat than Sentinel-2 (our features + spectra,
+    spatial CV); None when the EnMAP files are not downloaded (they need a DLR login)."""
+    from coolcairo.model import FEATURES, spatial_groups, training_rows
+
+    try:
+        refl = load_enmap(cfg)
+    except FileNotFoundError as err:
+        print(f"EnMAP not available, skipping hyperspectral summary: {err}")
+        return None
+    urban = training_rows(blocks, cfg["min_building_coverage"])
+    s2 = load_sentinel2(cfg)[list(enmap.S2_PASSBANDS_NM)].to_array("feature")
+    ours = urban[FEATURES].to_numpy()
+    r2 = separability.heat_r2(
+        {
+            "multispectral": np.hstack([ours, separability.block_spectra(s2, 9, urban)]),
+            "hyperspectral": np.hstack([ours, separability.block_spectra(refl, 3, urban)]),
+        },
+        urban.lst_c.to_numpy(),
+        spatial_groups(urban, cfg["cv_tile_size"]),
+        cfg["cv_folds"],
+    )
+    scene = refl.attrs.get("scene") or enmap.scene_ids()[0]
+    return {
+        "available": 1,
+        "sceneId": scene,
+        "acquired": enmap.acquisition_date(scene),
+        "r2Multispectral": float(r2["multispectral"]),
+        "r2Hyperspectral": float(r2["hyperspectral"]),
+        "attribution": enmap.attribution(scene),
+    }

@@ -107,3 +107,34 @@ def simulate_sentinel2(refl: xr.DataArray) -> xr.Dataset:
         inside = (refl.wavelength >= lo) & (refl.wavelength <= hi)
         out[name] = refl.sel(wavelength=inside).mean("wavelength")
     return out
+
+
+DLR_STAC_ITEMS = "https://geoservice.dlr.de/eoc/ogc/stac/v1/collections/ENMAP_HSI_L2A/items/"
+
+
+def acquisition_date(scene_id: str) -> str:
+    """ISO date from an EnMAP scene id (..._20250422T091720Z_...)."""
+    m = re.search(r"_(\d{4})(\d{2})(\d{2})T\d{6}Z_", scene_id)
+    if not m:
+        raise ValueError(f"No acquisition time in {scene_id}")
+    return "-".join(m.groups())
+
+
+def attribution(scene_id: str) -> str:
+    return f"Contains modified EnMAP data © DLR [{acquisition_date(scene_id)[:4]}]"
+
+
+def archive_source(scene_id: str) -> dict:
+    """Loading-screen source entry. DLR's catalogue search ignores id filters, so the app
+    verifies the scene by fetching its item URL (public; downloads need a login)."""
+    date = acquisition_date(scene_id)
+    return {
+        "satellite": "EnMAP",
+        "collection": "ENMAP_HSI_L2A",
+        "use": "Hyperspectral heat drivers",
+        "sceneIds": [scene_id],
+        "firstDate": date,
+        "lastDate": date,
+        "previewQuery": "",
+        "itemUrl": DLR_STAC_ITEMS + scene_id,
+    }

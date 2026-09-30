@@ -17,8 +17,16 @@ uv run python run_pipeline.py  # stream data, fit model, write export/district.j
 ```
 
 Notebooks in `analysis/notebooks/` walk through the same steps with plots (`uv run jupyter lab`).
-No account or API key is needed: Landsat and Sentinel-2 stream from Microsoft Planetary Computer,
-buildings from OpenStreetMap.
+No account or API key is needed for the core pipeline: Landsat and Sentinel-2 stream from
+Microsoft Planetary Computer, buildings from OpenStreetMap and Google Open Buildings, residents
+from WorldPop.
+
+**EnMAP (hyperspectral, optional).** Downloads need a free DLR EOC Geoservice account subscribed
+to the "EnMAP Access Service". Download the files for the scenes in
+`analysis/config/enmap_scenes.txt` into `analysis/data/enmap/` (spectral image, metadata, quality
+classes). Without them the pipeline still runs and simply skips the hyperspectral results
+(notebook 05). EnMAP data may not be redistributed, so it is not in this repository.
+Contains modified EnMAP data © DLR [2025].
 
 Then open `unity/` in Unity and run **CoolCairo → Setup project and scene**, which imports
 `export/district.json` and builds `Assets/CoolCairo/Main.unity`.
