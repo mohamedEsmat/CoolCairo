@@ -10,6 +10,12 @@ A browser-based 3D tool where a city planner sees a real Cairo district rendered
 
 Output for the judges: a deployed WebGL link, reproducible notebooks, a methodology report, and a pitch video.
 
+## Problem statement (official template, chosen 30 Sep)
+
+> We want to **map** summer heat risk, meaning land surface temperature, the surface materials driving it, and the population exposed to it, in **Nasr City, Cairo** during **June–August 2023–2025** so that **city planners** can decide **which blocks to prioritise for cool roofs and street trees**.
+
+Official challenge text (Cockpit): *"Quantify urban growth, map land-use transitions, and assess urban heat island intensity and heat risk for cities across the Arab world. Fuse 813 imagery with SAR and thermal data to track impervious surface growth, characterize land-use change, and build heat risk maps to support climate-resilient urban planning."*
+
 ## Architecture
 
 ```
@@ -88,9 +94,11 @@ Stream via STAC from Microsoft Planetary Computer (anonymous, no key). Cached to
 
 ## Scope discipline
 
-**Core:** material classification, block-level heat map, 3D district with overlay, one working intervention type.
+**Core:** material classification, block-level heat map, **heat risk = surface temperature × population exposed (WorldPop)** (required by the problem statement), 3D district with overlay, one working intervention type.
 
-**Cut first:** cost estimation, population-benefit calculation, multiple intervention types, ranked top-20 list.
+**Should have:** built-up growth 2016–2023 from Open Buildings Temporal (answers the challenge's "urban growth / land-use change" with data already in use).
+
+**Cut first:** cost estimation, multiple intervention types beyond cool roofs and trees, ranked top-20 list, SAR.
 
 ## Fallbacks
 
