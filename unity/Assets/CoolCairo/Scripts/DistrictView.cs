@@ -46,6 +46,7 @@ namespace CoolCairo
             ComputeHeatRange();
             BuildGround();
             BuildBuildings();
+            gameObject.AddComponent<TreeLayer>().Init(this, buildingMaterial);
             Refresh();
             Loaded?.Invoke();
         }
