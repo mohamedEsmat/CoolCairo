@@ -20,6 +20,7 @@ dependencies = [
     "osmnx>=2.0",
     "pyyaml>=6.0",
     "matplotlib>=3.9",
+    "openpyxl>=3.1.5",
 ]
 
 [dependency-groups]
