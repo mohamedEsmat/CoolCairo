@@ -93,10 +93,12 @@ namespace CoolCairo.EditorTools
 
             Divider(side.transform);
             Section(side.transform, "INTERVENTION");
-            var tools = Row(side.transform, "Tools", 44, 6);
-            foreach (var tool in new[] { Intervention.CoolRoof, Intervention.Trees })
-                Flexible(Button(tools, HudStyle.ToolButtonPrefix + tool,
-                                tool == Intervention.CoolRoof ? "Cool roofs" : "Street trees", 15).gameObject, width: 1);
+            // Two rows of two tool buttons.
+            var toolRows = new[] { Row(side.transform, "Tools1", 40, 6), Row(side.transform, "Tools2", 40, 6) };
+            var toolNames = new[] { "Cool roofs", "Street trees", "Cool pavements", "Pocket parks" };
+            var tools = new[] { Intervention.CoolRoof, Intervention.Trees, Intervention.CoolPavement, Intervention.PocketPark };
+            for (int k = 0; k < tools.Length; k++)
+                Flexible(Button(toolRows[k / 2], HudStyle.ToolButtonPrefix + tools[k], toolNames[k], 14).gameObject, width: 1);
             Label(side.transform, HudStyle.ToolHint, "", 13, HudStyle.Muted, wrap: true, height: 54);
 
             var brushRow = Row(side.transform, "BrushRow", 20, 6);

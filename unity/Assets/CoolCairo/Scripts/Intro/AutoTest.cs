@@ -44,7 +44,7 @@ namespace CoolCairo
                 for (int i = 0; i < 400; i++)
                 {
                     int block = Random.Range(0, district.Data.BlockCount);
-                    var kind = i % 2 == 0 ? Intervention.CoolRoof : Intervention.Trees;
+                    var kind = (Intervention)(i % 4); // All four tools.
                     model.Apply(kind, block, Random.Range(-0.5f, 1f));
                     if (i % 50 == 0) district.SetMode((ViewMode)(i / 50 % 3)); // Materials, Heat, Risk.
                     yield return null;

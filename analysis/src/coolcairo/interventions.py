@@ -1,7 +1,13 @@
 """Translate interventions into feature changes and predicted surface-temperature change.
 
-Unity implements the same arithmetic in C#; this module is the reference the C# is tested
-against, and the source of the per-intervention numbers stated in the report (milestone M3).
+Unity implements the same arithmetic in C# (InterventionModel.cs); this module is the reference
+the C# is checked against, and the source of the per-intervention numbers in the report.
+
+Four interventions, each acting on one block-area share:
+  cool roofs      dark and pale roofs coated white               (literature, per albedo change)
+  street trees    dark ground -> vegetation, up to a cap        (our regression)
+  cool pavements  remaining dark ground coated reflective       (literature, per albedo change)
+  pocket parks    bare sand -> vegetation, up to a cap          (our regression)
 
 All temperatures are land SURFACE temperature (LST) as seen by Landsat, not air temperature.
 """
@@ -60,21 +66,40 @@ def tree_delta(fit: FitResult, ground_planted: pd.Series | float) -> pd.Series |
     return (c["veg_frac"] - c["dark_ground_frac"]) * ground_planted
 
 
-def full_adoption_summary(cfg: Config, fit: FitResult, blocks: pd.DataFrame) -> pd.DataFrame:
-    """Per-block Delta LST if every roof were coated / 25% of dark ground were planted.
+def cool_pavement_surface_delta(cfg: Config) -> float:
+    """Surface temperature change (deg C) per unit of block area of dark ground coated.
 
-    These are the "Delta T per intervention type" figures for the report. The 25% planting
-    cap reflects that streets cannot be fully covered by canopy.
+    Same physics and roof-derived sensitivity as cool roofs (config `cool_pavement`); a
+    conservative choice for pavements, which field studies find respond more strongly.
     """
-    deltas = cool_roof_surface_deltas(cfg, fit)
-    return pd.DataFrame(
-        {
-            "cool_roof_all_roofs": cool_roof_delta(
-                deltas, blocks.dark_roof_frac, blocks.pale_roof_frac
-            ),
-            "trees_25pct_dark_ground": tree_delta(fit, 0.25 * blocks.dark_ground_frac),
-        }
-    ).describe()
+    cp = cfg["cool_pavement"]
+    return cfg["cool_roof"]["dts_per_albedo"] * (cp["albedo_after"] - cp["albedo_before"])
+
+
+def pocket_park_delta(fit: FitResult, sand_greened: pd.Series | float) -> pd.Series | float:
+    """Delta LST (deg C) when this share of block area changes from bare sand to vegetation."""
+    c = fit.coefficients
+    return (c["veg_frac"] - c["soil_frac"]) * sand_greened
+
+
+def full_adoption_deltas(cfg: Config, fit: FitResult, blocks: pd.DataFrame) -> pd.DataFrame:
+    """Per-block Delta LST for each intervention at full adoption within its cap."""
+    caps = cfg["interventions"]
+    planted = caps["tree_max_share_of_dark_ground"] * blocks.dark_ground_frac
+    return pd.DataFrame({
+        "cool_roofs": cool_roof_delta(
+            cool_roof_surface_deltas(cfg, fit), blocks.dark_roof_frac, blocks.pale_roof_frac
+        ),
+        "street_trees": tree_delta(fit, planted),
+        # Pavements coat the dark ground trees do not take (here: all of it, trees not planted).
+        "cool_pavements": cool_pavement_surface_delta(cfg) * blocks.dark_ground_frac,
+        "pocket_parks": pocket_park_delta(fit, caps["park_max_share_of_sand"] * blocks.soil_frac),
+    })
+
+
+def full_adoption_summary(cfg: Config, fit: FitResult, blocks: pd.DataFrame) -> pd.DataFrame:
+    """Distribution of the per-block effects: the "Delta T per intervention type" in the report."""
+    return full_adoption_deltas(cfg, fit, blocks).describe()
 
 
 def plausibility_warnings(cfg: Config, fit: FitResult) -> list[str]:
@@ -87,6 +112,8 @@ def plausibility_warnings(cfg: Config, fit: FitResult) -> list[str]:
         warnings.append(f"Fitted dark roofs do not raise LST vs bright roofs ({note}).")
     if c["veg_frac"] >= c["dark_ground_frac"]:
         warnings.append("Vegetation is not cooler than dark ground: tree effect unusable.")
+    if c["veg_frac"] >= c["soil_frac"]:
+        warnings.append("Vegetation is not cooler than bare sand: pocket-park effect unusable.")
     return warnings
 
 
@@ -100,18 +127,15 @@ def heat_reference_c(cfg: Config, urban_blocks: pd.DataFrame) -> float:
 def exposure_reduction_summary(
     cfg: Config, fit: FitResult, blocks: pd.DataFrame, reference_c: float
 ) -> pd.Series:
-    """District heat exposure (person-degrees) now, and after coating every roof or planting
-    25% of dark ground. The report's "heat risk reduced by X%" figures come from here."""
-    deltas = cool_roof_surface_deltas(cfg, fit)
-    roof = cool_roof_delta(deltas, blocks.dark_roof_frac, blocks.pale_roof_frac)
-    trees = tree_delta(fit, 0.25 * blocks.dark_ground_frac)
+    """District heat exposure (person-degrees) now, and the % change for each intervention at
+    full adoption. The report's "heat risk reduced by X%" figures come from here."""
     base = heat_exposure(blocks.lst_c, blocks.population, reference_c).sum()
-    after_roofs = heat_exposure(blocks.lst_c + roof, blocks.population, reference_c).sum()
-    after_trees = heat_exposure(blocks.lst_c + trees, blocks.population, reference_c).sum()
-    return pd.Series({
+    out = {
         "residents": blocks.population.sum(),
         "reference_c": reference_c,
         "exposure_person_degC": base,
-        "cool_roofs_all_pct": 100 * (after_roofs - base) / base if base else 0.0,
-        "trees_25pct_pct": 100 * (after_trees - base) / base if base else 0.0,
-    })
+    }
+    for name, delta in full_adoption_deltas(cfg, fit, blocks).items():
+        after = heat_exposure(blocks.lst_c + delta, blocks.population, reference_c).sum()
+        out[f"{name}_pct"] = 100 * (after - base) / base if base else 0.0
+    return pd.Series(out)

@@ -2,32 +2,47 @@ using System;
 
 namespace CoolCairo
 {
-    public enum Intervention { CoolRoof, Trees }
+    public enum Intervention { CoolRoof, Trees, CoolPavement, PocketPark }
 
     // C# port of analysis/src/coolcairo/interventions.py. Keep the two in sync.
-    // Pure arithmetic on precomputed regression coefficients: no model solving at runtime.
+    // Pure arithmetic on precomputed coefficients from district.json: no model solving at runtime.
     // All temperatures are land SURFACE temperature (Landsat LST), not air temperature.
     public class InterventionModel
     {
-        // Street trees can cover at most this share of a block's dark ground (matches the report).
-        public const float MaxTreeShareOfDarkGround = 0.25f;
-
         readonly DistrictData _d;
-        readonly float[] _coolRoofShare;  // 0..1 of the block's roofs (dark and pale) coated.
-        readonly float[] _treeShare;      // 0..1 of the plantable dark ground planted.
+        // Per intervention, per block: 0..1 of the intervention's full adoption in that block
+        // (all roofs coated / cap of dark ground planted / remaining dark ground coated /
+        // cap of bare sand greened).
+        readonly float[][] _share;
 
         public event Action Changed;
 
         public InterventionModel(DistrictData district)
         {
             _d = district;
-            _coolRoofShare = new float[district.BlockCount];
-            _treeShare = new float[district.BlockCount];
+            int kinds = Enum.GetValues(typeof(Intervention)).Length;
+            _share = new float[kinds][];
+            for (int k = 0; k < kinds; k++) _share[k] = new float[district.BlockCount];
         }
+
+        // Adoption caps exported from config (fallbacks for older district.json files).
+        public float TreeMaxShare => _d.model.treeMaxShare > 0f ? _d.model.treeMaxShare : 0.25f;
+        public float ParkMaxShare => _d.model.parkMaxShare > 0f ? _d.model.parkMaxShare : 0.5f;
 
         public bool IsValid(int block) => _d.blocks.valid[block] == 1;
 
         public float BaselineLst(int block) => _d.blocks.lstC[block];
+
+        // Block-area shares changed by each intervention (used for the maths and for colouring).
+        public float TreePlantedFrac(int block) =>
+            Share(Intervention.Trees, block) * TreeMaxShare * _d.blocks.darkGroundFrac[block];
+
+        // Pavements coat the dark ground that trees have not taken.
+        public float PavementCoatedFrac(int block) =>
+            Share(Intervention.CoolPavement, block) * (_d.blocks.darkGroundFrac[block] - TreePlantedFrac(block));
+
+        public float ParkGreenedFrac(int block) =>
+            Share(Intervention.PocketPark, block) * ParkMaxShare * _d.blocks.soilFrac[block];
 
         // Delta LST (deg C, negative = cooler) for one block with its current interventions.
         public float DeltaLst(int block)
@@ -35,11 +50,12 @@ namespace CoolCairo
             if (!IsValid(block)) return 0f;
             var b = _d.blocks;
             var m = _d.model;
-            float coated = _coolRoofShare[block];
-            float roof = coated * (m.coolRoofDarkDeltaC * b.darkRoofFrac[block]
-                                   + m.coolRoofPaleDeltaC * b.paleRoofFrac[block]);
-            float groundPlanted = _treeShare[block] * MaxTreeShareOfDarkGround * b.darkGroundFrac[block];
-            return roof + (m.vegFrac - m.darkGroundFrac) * groundPlanted;
+            float roof = Share(Intervention.CoolRoof, block)
+                         * (m.coolRoofDarkDeltaC * b.darkRoofFrac[block] + m.coolRoofPaleDeltaC * b.paleRoofFrac[block]);
+            float trees = (m.vegFrac - m.darkGroundFrac) * TreePlantedFrac(block);
+            float pavement = m.coolPavementDeltaC * PavementCoatedFrac(block);
+            float parks = m.pocketParkDeltaC * ParkGreenedFrac(block);
+            return roof + trees + pavement + parks;
         }
 
         public float Lst(int block) => BaselineLst(block) + DeltaLst(block);
@@ -55,7 +71,7 @@ namespace CoolCairo
         public void Apply(Intervention kind, int block, float amount)
         {
             if (block < 0 || !IsValid(block)) return;
-            var arr = kind == Intervention.CoolRoof ? _coolRoofShare : _treeShare;
+            var arr = _share[(int)kind];
             float next = Math.Clamp(arr[block] + amount, 0f, 1f);
             if (next == arr[block]) return;
             arr[block] = next;
@@ -64,13 +80,11 @@ namespace CoolCairo
 
         public void ResetAll()
         {
-            Array.Clear(_coolRoofShare, 0, _coolRoofShare.Length);
-            Array.Clear(_treeShare, 0, _treeShare.Length);
+            foreach (var arr in _share) Array.Clear(arr, 0, arr.Length);
             Changed?.Invoke();
         }
 
-        public float Share(Intervention kind, int block) =>
-            kind == Intervention.CoolRoof ? _coolRoofShare[block] : _treeShare[block];
+        public float Share(Intervention kind, int block) => _share[(int)kind][block];
 
         // District mean surface temperature over valid blocks, before or after interventions.
         public float MeanLst(bool withInterventions = true)

@@ -124,9 +124,18 @@ namespace CoolCairo
             _shownTool = tool;
             foreach (var kv in _toolButtons) Highlight(kv.Value, kv.Key == tool);
             var m = district.Data.model;
-            _toolHint.text = tool == Intervention.CoolRoof
-                ? $"Coat every roof in a block white. Per unit of area coated: {Minus(m.coolRoofDarkDeltaC)} °C on dark roofs, {Minus(m.coolRoofPaleDeltaC)} °C on pale roofs (published values)."
-                : $"Plant street trees on up to {InterventionModel.MaxTreeShareOfDarkGround:P0} of a block's dark ground. Effect estimated from our own data.";
+            var model = district.Model;
+            _toolHint.text = tool switch
+            {
+                Intervention.CoolRoof =>
+                    $"Coat every roof in a block white. Per unit of area coated: {Minus(m.coolRoofDarkDeltaC)} °C on dark roofs, {Minus(m.coolRoofPaleDeltaC)} °C on pale roofs (published values).",
+                Intervention.Trees =>
+                    $"Plant street trees on up to {model.TreeMaxShare:P0} of a block's dark ground. Effect estimated from our own data.",
+                Intervention.CoolPavement =>
+                    $"Coat asphalt and dark paving with reflective paint: {Minus(m.coolPavementDeltaC)} °C per unit of area coated (published values, conservative).",
+                _ =>
+                    $"Turn up to {model.ParkMaxShare:P0} of a block's bare sand into a small park: {Minus(m.pocketParkDeltaC)} °C per unit of area greened (our own data).",
+            };
         }
 
         void ShowBrush() => _brushValue.text = brush.Radius == 0 ? "1 block" : $"radius {brush.Radius} blocks";

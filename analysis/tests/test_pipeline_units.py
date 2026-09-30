@@ -230,3 +230,22 @@ def test_enmap_archive_source_uses_item_url_and_date():
     assert src["firstDate"] == src["lastDate"] == "2025-04-22"
     assert src["itemUrl"].endswith("/items/" + sid)
     assert attribution(sid).endswith("DLR [2025]")
+
+
+def test_new_interventions_cool_and_respect_caps():
+    from coolcairo.interventions import (
+        cool_pavement_surface_delta,
+        full_adoption_deltas,
+        pocket_park_delta,
+    )
+
+    cfg = load_config()
+    result = fit(_synthetic_blocks(), 1000, 5)
+    assert cool_pavement_surface_delta(cfg) == pytest.approx(-8.0 * (0.40 - 0.12))
+    # Synthetic data: veg -8, soil +6 -> greening sand cools by 14 per unit area.
+    assert pocket_park_delta(result, 0.1) == pytest.approx(-1.4, abs=0.1)
+    blocks = _synthetic_blocks().assign(pale_roof_frac=0.2)
+    d = full_adoption_deltas(cfg, result, blocks)
+    assert (d <= 0).all().all()
+    expected_park = pocket_park_delta(result, 0.5 * blocks.soil_frac)  # 50% cap from config
+    assert d.pocket_parks.to_numpy() == pytest.approx(expected_park.to_numpy())

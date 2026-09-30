@@ -19,6 +19,7 @@ namespace CoolCairo
         [SerializeField] Color vegetation = new Color(0.33f, 0.55f, 0.27f);
         [SerializeField] Color soil = new Color(0.84f, 0.70f, 0.49f);
         [SerializeField] Color coolRoof = new Color(0.97f, 0.98f, 1f);
+        [SerializeField] Color coolPavement = new Color(0.74f, 0.76f, 0.78f);
         [SerializeField] Color wall = new Color(0.72f, 0.69f, 0.64f);
         [SerializeField] Color noData = new Color(0.5f, 0.5f, 0.5f);
 
@@ -68,6 +69,7 @@ namespace CoolCairo
             yield return ("Pale surface: concrete, pale roofs", brightSurface);
             yield return ("Bare soil / sand", soil);
             yield return ("Roof coated white (intervention)", coolRoof);
+            yield return ("Cool pavement (intervention)", coolPavement);
         }
 
         public Color HeatColor(float lst) => heatRamp.Evaluate(Mathf.InverseLerp(HeatMin, HeatMax, lst));
@@ -186,14 +188,15 @@ namespace CoolCairo
 
             var bl = Data.blocks;
             float ground = Mathf.Max(1e-4f, 1f - bl.roofFrac[i]);
-            float plantedFromDark = Model.Share(Intervention.Trees, i)
-                                    * InterventionModel.MaxTreeShareOfDarkGround * bl.darkGroundFrac[i];
-            float veg = Mathf.Clamp01((bl.vegFrac[i] + plantedFromDark) / ground);
-            float dark = Mathf.Clamp01((bl.darkGroundFrac[i] - plantedFromDark) / ground);
-            float sand = Mathf.Clamp01(bl.soilFrac[i] / ground);
+            float planted = Model.TreePlantedFrac(i), coated = Model.PavementCoatedFrac(i);
+            float greened = Model.ParkGreenedFrac(i);
+            float veg = Mathf.Clamp01((bl.vegFrac[i] + planted + greened) / ground);
+            float dark = Mathf.Clamp01((bl.darkGroundFrac[i] - planted - coated) / ground);
+            float paved = Mathf.Clamp01(coated / ground);
+            float sand = Mathf.Clamp01((bl.soilFrac[i] - greened) / ground);
             // Mix the ground shares; bright paved ground fills whatever share is left.
-            float bright = Mathf.Max(0f, 1f - veg - dark - sand);
-            var c = brightSurface * bright + darkSurface * dark + soil * sand + vegetation * veg;
+            float bright = Mathf.Max(0f, 1f - veg - dark - paved - sand);
+            var c = brightSurface * bright + darkSurface * dark + coolPavement * paved + soil * sand + vegetation * veg;
             c.a = 1f;
             return c;
         }

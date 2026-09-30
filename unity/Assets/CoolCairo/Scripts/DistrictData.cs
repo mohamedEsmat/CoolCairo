@@ -127,6 +127,12 @@ namespace CoolCairo
         public float coolRoofDarkDeltaC;
         public float coolRoofPaleDeltaC;
         public string coolRoofMethod;
+        // Per unit of block area converted (cool pavement: literature; pocket park: our model).
+        public float coolPavementDeltaC;
+        public float pocketParkDeltaC;
+        // Adoption caps: share of a block's dark ground (trees) / bare sand (parks) convertible.
+        public float treeMaxShare;
+        public float parkMaxShare;
         // Heat exposure = residents x max(0, LST - heatReferenceC), in person-degrees.
         public float heatReferenceC;
     }

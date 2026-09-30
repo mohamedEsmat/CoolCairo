@@ -36,7 +36,8 @@ namespace CoolCairo
             var model = _district.Model;
             for (int block = 0; block < _spots.Length; block++)
             {
-                float share = model.Share(Intervention.Trees, block);
+                // Street trees and pocket parks both show as trees in the block.
+                float share = Mathf.Clamp01(model.Share(Intervention.Trees, block) + model.Share(Intervention.PocketPark, block));
                 int n = Mathf.RoundToInt(share * _spots[block].Count);
                 for (int i = 0; i < n; i++)
                 {

@@ -96,6 +96,8 @@ def write_district(
     buildings: gpd.GeoDataFrame,
     fit: FitResult,
     cool_roof: CoolRoofDeltas,
+    cool_pavement_delta_c: float = 0.0,
+    caps: dict | None = None,
     cool_roof_method: str,
     heat_reference_c: float = 0.0,
     provenance: dict[str, str],
@@ -131,6 +133,11 @@ def write_district(
             "coolRoofDarkDeltaC": cool_roof.dark,
             "coolRoofPaleDeltaC": cool_roof.pale,
             "coolRoofMethod": cool_roof_method,
+            # Per unit block area converted; caps are shares of the block's dark ground / sand.
+            "coolPavementDeltaC": cool_pavement_delta_c,
+            "pocketParkDeltaC": c["veg_frac"] - c["soil_frac"],
+            "treeMaxShare": (caps or {}).get("tree_max_share_of_dark_ground", 0.25),
+            "parkMaxShare": (caps or {}).get("park_max_share_of_sand", 0.5),
             # Heat exposure = residents x max(0, LST - heatReferenceC), person-degrees.
             "heatReferenceC": heat_reference_c,
         },

@@ -72,6 +72,24 @@ cool_roof:
   # "regression" only replaces the dark-roof term; pale roofs are the model's reference
   # category, so their effect always comes from the literature values above.
 
+# Cool pavements: reflective coating on asphalt / dark ground. Same dts_per_albedo as cool roofs
+# (conservative: a UAE desert field study measured 60 -> 47 C for albedo 0.24 -> 0.70,
+# i.e. far more per unit albedo; "Evaluation and thermal performance of cool pavement under
+# desert weather conditions", Case Studies in Construction Materials (2023),
+# https://www.sciencedirect.com/science/article/pii/S2214509523001195). Cool coatings on asphalt
+# start above ~0.5 albedo
+# (Hendel, "Cool Pavements", 2024, arXiv:2409.12242); 0.40 allows for dust and traffic wear.
+cool_pavement:
+  albedo_before: 0.12   # Weathered asphalt, same Cairo baseline as dark roofs.
+  albedo_after: 0.40
+
+# Adoption caps (assumptions, stated in the app and report):
+interventions:
+  # Street trees can cover at most this share of a block's dark ground (canopy vs. traffic).
+  tree_max_share_of_dark_ground: 0.25
+  # Pocket parks can green at most this share of a block's bare sand (paths, facilities).
+  park_max_share_of_sand: 0.5
+
 # Building heights: OSM `height` -> OSM `building:levels` x storey height
 #   -> Google Open Buildings 2.5D Temporal 2023 (median inside footprint) -> default.
 storey_height_m: 3.2

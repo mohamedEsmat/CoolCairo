@@ -13,6 +13,7 @@ from coolcairo import enmap
 from coolcairo.config import EXPORT_DIR, load_config
 from coolcairo.export import grid_origin, grid_shape, write_district
 from coolcairo.interventions import (
+    cool_pavement_surface_delta,
     cool_roof_surface_deltas,
     exposure_reduction_summary,
     full_adoption_summary,
@@ -61,6 +62,8 @@ def main() -> None:
         buildings=disp_buildings,
         fit=result,
         cool_roof=roof,
+        cool_pavement_delta_c=cool_pavement_surface_delta(cfg),
+        caps=cfg["interventions"],
         cool_roof_method=cfg["cool_roof"]["method"],
         heat_reference_c=reference,
         provenance={
