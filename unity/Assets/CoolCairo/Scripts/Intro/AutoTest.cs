@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -7,6 +8,8 @@ namespace CoolCairo
     // Soak test for crash hunting: run the app with `-autotest` and it drives itself through
     // loading -> globe -> fly into Cairo -> paint interventions -> back to globe, forever,
     // logging each step. Does nothing unless the flag is present.
+    // `-screenshots <folder>` instead takes one tour, saves a PNG of each screen (for the report
+    // and pitch) and quits.
     public class AutoTest : MonoBehaviour
     {
         static AutoTest s_instance;
@@ -15,14 +18,70 @@ namespace CoolCairo
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Boot()
         {
-            if (s_instance != null || !System.Environment.GetCommandLineArgs().Contains("-autotest")) return;
+            var args = System.Environment.GetCommandLineArgs();
+            int shots = System.Array.IndexOf(args, "-screenshots");
+            if (s_instance != null || (!args.Contains("-autotest") && shots < 0)) return;
             s_instance = new GameObject("AutoTest").AddComponent<AutoTest>();
             DontDestroyOnLoad(s_instance.gameObject);
             Application.logMessageReceived += (msg, trace, type) =>
             {
                 if (type == LogType.Exception || type == LogType.Error) System.Console.Out.Flush();
             };
-            s_instance.StartCoroutine(s_instance.Loop());
+            if (shots >= 0 && shots + 1 < args.Length)
+                s_instance.StartCoroutine(s_instance.ScreenshotTour(args[shots + 1]));
+            else
+                s_instance.StartCoroutine(s_instance.Loop());
+        }
+
+        IEnumerator ScreenshotTour(string folder)
+        {
+            System.IO.Directory.CreateDirectory(folder);
+            yield return new WaitForSeconds(4.5f); // Loading screen, archive rows mid-sync.
+            yield return Shot(folder, "01_loading");
+
+            IntroController intro = null;
+            while ((intro = FindFirstObjectByType<IntroController>()) == null || !intro.ReadyForInput) yield return null;
+            yield return new WaitForSeconds(1f);
+            yield return Shot(folder, "02_globe");
+
+            intro.ChooseCity(0);
+            yield return new WaitForSeconds(4.8f); // End of the slow descent, before the fade.
+            yield return Shot(folder, "03_flyin");
+
+            DistrictView district = null;
+            while ((district = FindFirstObjectByType<DistrictView>()) == null || district.Model == null) yield return null;
+            yield return new WaitForSeconds(1.5f);
+            district.SetMode(ViewMode.Heat);
+            yield return Shot(folder, "04_heat_today");
+            district.SetMode(ViewMode.Materials);
+            yield return Shot(folder, "05_materials_today");
+            district.SetMode(ViewMode.Risk);
+            yield return Shot(folder, "06_risk_today");
+
+            // A targeted plan: cool roofs + pocket parks on the riskiest third of populated blocks.
+            var model = district.Model;
+            var ranked = Enumerable.Range(0, district.Data.BlockCount)
+                .Where(model.IsValid).OrderByDescending(b => model.Exposure(b, false)).ToList();
+            foreach (int b in ranked.Take(ranked.Count / 3))
+            {
+                model.Apply(Intervention.CoolRoof, b, 1f);
+                model.Apply(Intervention.PocketPark, b, 1f);
+            }
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(folder, "07_risk_after_plan");
+            district.SetMode(ViewMode.Heat);
+            yield return Shot(folder, "08_heat_after_plan");
+            Debug.Log($"[AutoTest] screenshots saved to {folder}");
+            Application.Quit();
+        }
+
+        static IEnumerator Shot(string folder, string name)
+        {
+            yield return new WaitForSeconds(0.4f);
+            yield return new WaitForEndOfFrame();
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, name + ".png"));
+            yield return null;
+            yield return null;
         }
 
         IEnumerator Loop()
@@ -59,8 +118,4 @@ namespace CoolCairo
             Debug.Log($"[AutoTest] cycle {_cycle} t={Time.realtimeSinceStartup:0.0}s mem={System.GC.GetTotalMemory(false) / (1024 * 1024)}MB: {step}");
     }
 
-    static class ArgsExtensions
-    {
-        public static bool Contains(this string[] args, string flag) => System.Array.IndexOf(args, flag) >= 0;
-    }
 }
