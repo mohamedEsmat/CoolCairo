@@ -86,7 +86,7 @@ Starting the app with `-autotest` makes it drive itself through the whole flow i
 - **Surface, not air, temperature.** Satellites measure how hot surfaces get. Studies suggest city-wide cool roofs lower air temperature by about 0.1–0.33 °C per +0.1 roof albedo; the effect on air is smaller and spreads beyond the district.
 - **Block level only (90 m).** Landsat's thermal band is 100 m, so no per-building temperatures are claimed.
 - **Modest model fit** (R² 0.25 with Sentinel-2 features). Cool roofs and cool pavements therefore use published values; trees and pocket parks use our own estimates.
-- **Materials come from Sentinel-2 rules;** visual validation against 20 spot-checked points (milestone M2) is in progress.
+- **Materials come from Sentinel-2 rules.** A visual spot check of 20 random points against Google Maps satellite imagery (milestone M2) agrees at 16 of 18 judgeable points (89%); misses are dusty asphalt and dusty roofs read as sand. The check was not blind (done by an AI assistant that could see the labels); details per point in `docs/m2_spot_check.xlsx`.
 - **Heat risk is a screening indicator** (heat × residents). It does not include vulnerability such as age, housing or access to cooling.
 - **Costs are not yet in the app;** researched ranges are in `docs/intervention_research.md`.
 

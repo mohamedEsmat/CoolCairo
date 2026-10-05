@@ -194,13 +194,23 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     fly = r.district["flyIn"]
     m2 = r.m2
     if m2["checked"]:
-        m2_text = (f"{m2['checked']} of {m2['points']} spot-check points have been checked; the "
-                   f"interim classes agree with what a person sees at {m2['agreement']:.0%} of them.")
+        m2_text = (f"{m2['points']} stratified random points (5 per class) were compared with "
+                   "Google Maps satellite imagery (Airbus, 2026). "
+                   f"{m2['checked']} could be judged; the interim classes agree at "
+                   f"{m2['agreement']:.0%} of them. The two misses are a dusty asphalt road and a "
+                   "dusty concrete roof labelled bare sand (the model already counts soil-like "
+                   "pixels inside building footprints as pale roofs). The two points that could not be judged were "
+                   "a shadowed gap and a mixed edge. The check was done by an AI assistant that "
+                   "could see the pipeline's labels, so it is not blind; the sheet "
+                   "(<i>docs/m2_spot_check.xlsx</i>) records what was seen at every point for "
+                   "review.")
     else:
         m2_text = (f"The sheet with {m2['points']} stratified random points is ready "
                    "(<i>docs/m2_spot_check.xlsx</i>) but has not been filled in yet, so no agreement "
                    "figure is reported. This report reads the sheet automatically when it is rebuilt.")
 
+    m2_short = (f"{m2['agreement']:.0%} agreement" if m2["checked"]
+                else "no agreement figure yet")
     s: list = []
     # ---------------------------------------------------------------- title page
     s += [Spacer(1, 38 * mm), p("CoolCairo", TITLE), Spacer(1, 4 * mm),
@@ -536,7 +546,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               f"<b>Modest model fit</b> (spatial R² {f.r2_spatial_cv:.2f}). Effects are averages "
               "for blocks like the treated one, not guarantees for a single block.",
               "<b>Interim material classes.</b> Rules on Sentinel-2 confuse dark roofs with "
-              "shadow; the M2 spot check will quantify agreement.",
+              f"shadow and dusty surfaces with sand; the spot check found {m2_short}, from "
+              "20 points checked non-blind.",
               "<b>One EnMAP scene</b> (April, not summer). The hyperspectral result is a strong "
               "signal, not yet a production model.",
               "<b>Heat risk is a screening indicator</b> (heat × residents). It leaves out "
