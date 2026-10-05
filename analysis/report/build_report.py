@@ -311,7 +311,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                "Building heights", "CC BY 4.0 / ODbL"],
               ["WorldPop Global2 R2025A", "2024, 100 m, constrained", "Residents per block",
                "CC BY 4.0"],
-              ["NASA Blue Marble", "July 2004 composite", "Globe in the app", "Public domain"],
+              ["NASA Blue Marble Next Generation", "July 2004; 2.4 km globe, 500 m over Egypt and the Middle East", "Globe in the app", "Public domain"],
           ], [0.21, 0.37, 0.15, 0.27]),
           p("<b>Table 1.</b> Data sources. All satellite data are streamed from public STAC "
             "archives except EnMAP, which needs a free DLR account and is downloaded manually.",
@@ -563,19 +563,21 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ("01_loading.png", "<b>a</b> Satellite archive sync: the app queries Planetary "
                                  "Computer and DLR for the scenes used and shows a live preview "
                                  "from each satellite."),
-              ("02_globe.png", "<b>b</b> MENA globe (NASA Blue Marble). Nasr City is the analysed "
-                               "district; other cities show where the method scales next."),
-              ("03_flyin.png", f"<b>c</b> Fly-in, ending on a 10 m Sentinel-2 image of Cairo "
-                               f"({fly['date']})."),
-              ("05_materials_today.png", "<b>d</b> Materials view: vegetation, dark, pale and "
+              ("02_globe.png", "<b>b</b> MENA globe (NASA Blue Marble, 2.4 km). Nasr City is the "
+                               "analysed district; other cities show where the method scales next."),
+              ("02b_approach.png", "<b>c</b> Approach, ~760 km up: a 500 m Blue Marble image of "
+                                   "Egypt and the Middle East keeps the descent sharp."),
+              ("03_flyin.png", f"<b>d</b> End of the fly-in: 10 m Sentinel-2 image of Cairo "
+                               f"({fly['date']}), Nasr City in the centre."),
+              ("05_materials_today.png", "<b>e</b> Materials view: vegetation, dark, pale and "
                                          "sand per block, 3D buildings with estimated heights."),
-              ("04_heat_today.png", "<b>e</b> Surface heat view: summer LST per block."),
-              ("06_risk_today.png", "<b>f</b> Heat risk view: residents × °C above the "
+              ("04_heat_today.png", "<b>f</b> Surface heat view: summer LST per block."),
+              ("06_risk_today.png", "<b>g</b> Heat risk view: residents × °C above the "
                                     "reference."),
-              ("07_risk_after_plan.png", "<b>g</b> After a plan (cool roofs and pocket parks on "
+              ("07_risk_after_plan.png", "<b>h</b> After a plan (cool roofs and pocket parks on "
                                          "the riskiest third of blocks): live before → after "
                                          "card."),
-              ("08_heat_after_plan.png", "<b>h</b> Surface heat after the same plan."),
+              ("08_heat_after_plan.png", "<b>i</b> Surface heat after the same plan."),
           ])]
 
     # ---------------------------------------------------------------- 9 reproducibility
