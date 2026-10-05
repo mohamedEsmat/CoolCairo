@@ -59,6 +59,11 @@ namespace CoolCairo
             yield return Shot(folder, "05_materials_today");
             district.SetMode(ViewMode.Risk);
             yield return Shot(folder, "06_risk_today");
+            if (district.Data.HasGrowth)
+            {
+                district.SetMode(ViewMode.Growth);
+                yield return Shot(folder, "06b_growth");
+            }
 
             // A targeted plan: cool roofs + pocket parks on the riskiest third of populated blocks.
             var model = district.Model;
@@ -107,7 +112,7 @@ namespace CoolCairo
                     int block = Random.Range(0, district.Data.BlockCount);
                     var kind = (Intervention)(i % 4); // All four tools.
                     model.Apply(kind, block, Random.Range(-0.5f, 1f));
-                    if (i % 50 == 0) district.SetMode((ViewMode)(i / 50 % 3)); // Materials, Heat, Risk.
+                    if (i % 50 == 0) district.SetMode((ViewMode)(i / 50 % 4)); // Materials, Heat, Risk, Growth.
                     yield return null;
                 }
                 Log($"painted; mean dT {model.MeanDelta():0.00}; exposure {model.TotalExposure(false):0} -> {model.TotalExposure():0}; back to globe");

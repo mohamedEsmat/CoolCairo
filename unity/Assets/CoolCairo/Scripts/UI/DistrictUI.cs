@@ -25,7 +25,7 @@ namespace CoolCairo
         TextMeshProUGUI _deltaValue, _deltaSub, _exposureValue, _exposureSub, _residentsValue, _residentsSub;
         TextMeshProUGUI _tooltipTitle, _tooltipBody;
         RawImage _legendRamp;
-        GameObject _legendScale, _legendSwatches, _riskKeys;
+        GameObject _legendScale, _legendSwatches, _riskKeys, _growthKeys;
         RectTransform _tooltip, _canvas;
         Texture2D _rampTex;
         ViewMode _shownMode = (ViewMode)(-1);
@@ -40,6 +40,8 @@ namespace CoolCairo
                 _viewButtons[mode] = b;
                 b.onClick.AddListener(() => district.SetMode(mode));
             }
+            // A district exported without growth data has no Growth view.
+            _viewButtons[ViewMode.Growth].gameObject.SetActive(district.Data.HasGrowth);
             foreach (Intervention tool in System.Enum.GetValues(typeof(Intervention)))
             {
                 var b = Find<Button>(HudStyle.ToolButtonPrefix + tool);
@@ -82,6 +84,8 @@ namespace CoolCairo
             _riskKeys = BuildKeys("RiskKeys", _legendScale.transform.GetSiblingIndex() + 1,
                                   ("No excess heat (at or below typical)", DistrictView.NoExcessHeat),
                                   ("No residents", DistrictView.NoResidents));
+            _growthKeys = BuildKeys("GrowthKeys", _legendScale.transform.GetSiblingIndex() + 1,
+                                    district.GrowthLegend().ToArray());
             Find<TextMeshProUGUI>(HudStyle.ModelText).text = ModelSummary();
             Find<TextMeshProUGUI>(HudStyle.Footer).text = Credits();
 
@@ -114,9 +118,18 @@ namespace CoolCairo
             {
                 ViewMode.Materials => "What surfaces are made of, per 90 m block (Sentinel-2, summer 2023–25): dark vs pale roofs, asphalt, sand and greenery.",
                 ViewMode.Heat => "Land surface temperature per 90 m block: median of summer 2023–25 Landsat 8/9 scenes. Surface, not air, temperature.",
+                ViewMode.Growth => GrowthHint(),
                 _ => $"Heat exposure = residents × °C above {m.heatReferenceC:0.0} °C, the typical east-Cairo block. Residents: WorldPop 2024.",
             };
             ShowLegend(mode);
+        }
+
+        string GrowthHint()
+        {
+            var g = district.Data.growth;
+            if (g == null || g.available != 1) return "";
+            return $"Building cover per block, {g.firstYear} → {g.lastYear} (Google Open Buildings Temporal): " +
+                   $"{g.builtFirstKm2:0.00} → {g.builtLastKm2:0.00} km²; {g.newBlocks} new, {g.denserBlocks} denser blocks.";
         }
 
         void ShowTool(Intervention tool)
@@ -187,13 +200,20 @@ namespace CoolCairo
 
         void ShowLegend(ViewMode mode)
         {
-            bool scale = mode != ViewMode.Materials;
+            bool scale = mode == ViewMode.Heat || mode == ViewMode.Risk;
             _legendScale.SetActive(scale);
-            _legendSwatches.SetActive(!scale);
+            _legendSwatches.SetActive(mode == ViewMode.Materials);
             _riskKeys.SetActive(mode == ViewMode.Risk);
-            if (!scale)
+            _growthKeys.SetActive(mode == ViewMode.Growth);
+            if (mode == ViewMode.Materials)
             {
                 _legendTitle.text = "Surface materials (share per block)";
+                return;
+            }
+            if (mode == ViewMode.Growth)
+            {
+                var g = district.Data.growth;
+                _legendTitle.text = $"Urban growth {g.firstYear}–{g.lastYear}";
                 return;
             }
             var px = new Color[_rampTex.width];
@@ -289,6 +309,9 @@ namespace CoolCairo
                 $"Residents  <color=#E8EEF6>{model.Residents(h):N0}</color>  ·  heat exposure <color=#E8EEF6>{expo}</color> person·°C\n" +
                 $"Roofs: {b.darkRoofFrac[h]:P0} dark, {b.paleRoofFrac[h]:P0} pale of block area\n" +
                 $"Ground: {b.darkGroundFrac[h]:P0} dark, {b.soilFrac[h]:P0} sand, {b.vegFrac[h]:P0} green";
+            if (district.Data.HasGrowth && b.builtFirst[h] >= 0f && b.builtLast[h] >= 0f)
+                _tooltipBody.text += $"\nBuilding cover {district.Data.growth.firstYear} → {district.Data.growth.lastYear}: " +
+                                     $"{b.builtFirst[h]:P0} → {b.builtLast[h]:P0}";
 
             // Follow the mouse, flipping sides near the screen edges.
             RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvas, Input.mousePosition, null, out var local);
@@ -329,7 +352,7 @@ namespace CoolCairo
             var h = district.Data.hyperspectral;
             if (h != null && h.available == 1) parts.Add(h.attribution);
             parts.Add("Residents: WorldPop 2024 (CC BY 4.0)");
-            parts.Add("Buildings: © OpenStreetMap contributors, Google Open Buildings 2.5D (CC BY 4.0)");
+            parts.Add("Buildings and growth: © OpenStreetMap contributors, Google Open Buildings 2.5D Temporal (CC BY 4.0)");
             parts.Add("Data access: Microsoft Planetary Computer, DLR EOC Geoservice");
             return string.Join("  ·  ", parts);
         }

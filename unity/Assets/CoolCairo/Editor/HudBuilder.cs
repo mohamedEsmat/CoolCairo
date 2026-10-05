@@ -83,12 +83,12 @@ namespace CoolCairo.EditorTools
 
             Divider(side.transform);
             Section(side.transform, "VIEW");
-            var views = Row(side.transform, "Views", 40, 6);
-            foreach (var mode in new[] { ViewMode.Materials, ViewMode.Heat, ViewMode.Risk })
-            {
-                string text = mode == ViewMode.Materials ? "Materials" : mode == ViewMode.Heat ? "Surface heat" : "Heat risk";
-                Flexible(Button(views, HudStyle.ViewButtonPrefix + mode, text, 14).gameObject, width: 1);
-            }
+            // Two rows of two view buttons, like the tools below.
+            var viewRows = new[] { Row(side.transform, "Views1", 40, 6), Row(side.transform, "Views2", 40, 6) };
+            var viewNames = new[] { "Materials", "Surface heat", "Heat risk", "Growth" };
+            var modes = new[] { ViewMode.Materials, ViewMode.Heat, ViewMode.Risk, ViewMode.Growth };
+            for (int k = 0; k < modes.Length; k++)
+                Flexible(Button(viewRows[k / 2], HudStyle.ViewButtonPrefix + modes[k], viewNames[k], 14).gameObject, width: 1);
             Label(side.transform, HudStyle.ViewHint, "", 13, HudStyle.Muted, wrap: true, height: 54);
 
             Divider(side.transform);

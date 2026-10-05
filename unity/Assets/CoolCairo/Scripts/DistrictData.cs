@@ -25,6 +25,10 @@ namespace CoolCairo
         public float[] previewBbox;      // [min_lon, min_lat, max_lon, max_lat] for archive previews.
         public HyperspectralInfo hyperspectral;
         public FlyInInfo flyIn;          // Sentinel-2 close-up for the globe fly-in.
+        public GrowthInfo growth;        // Urban growth summary (Growth view).
+
+        public bool HasGrowth => growth != null && growth.available == 1
+                                 && blocks.growthClass != null && blocks.growthClass.Length == BlockCount;
 
         public int BlockCount => rows * cols;
 
@@ -61,6 +65,25 @@ namespace CoolCairo
         public float[] roofFrac;
         public float[] meanHeightM;
         public float[] population;   // Residents per block (WorldPop 2024).
+        // Building cover in the first / last growth year (Open Buildings Temporal) and the
+        // Growth-view class: 0 still open, 1 built before, 2 built before and denser, 3 newly built.
+        public float[] builtFirst;
+        public float[] builtLast;
+        public int[] growthClass;
+    }
+
+    [Serializable]
+    public class GrowthInfo
+    {
+        public int available;
+        public int firstYear;
+        public int lastYear;
+        public float builtFirstKm2;  // Building footprint area in the district, first year.
+        public float builtLastKm2;
+        public int newBlocks;
+        public int denserBlocks;
+        public float denserMin;      // Cover gain that makes a built-up block "denser".
+        public string source;
     }
 
     [Serializable]

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace CoolCairo
 {
-    public enum ViewMode { Materials, Heat, Risk }
+    public enum ViewMode { Materials, Heat, Risk, Growth }
 
     // Loads district.json, builds the buildings mesh and the block-level ground overlay,
     // and recolours both whenever the view mode or interventions change.
@@ -22,6 +22,13 @@ namespace CoolCairo
         [SerializeField] Color coolPavement = new Color(0.74f, 0.76f, 0.78f);
         [SerializeField] Color wall = new Color(0.72f, 0.69f, 0.64f);
         [SerializeField] Color noData = new Color(0.5f, 0.5f, 0.5f);
+
+        // Growth view (district.json blocks.growthClass). Orange and gold mark change, so they
+        // stand out against quiet grey; open land is a darker khaki, distinct by lightness too.
+        public static readonly Color GrowthNew = new Color(0.92f, 0.41f, 0.20f);     // #EB6834
+        public static readonly Color GrowthDenser = new Color(0.95f, 0.76f, 0.31f);  // #F2C14E
+        public static readonly Color GrowthStable = new Color(0.45f, 0.48f, 0.54f);  // #737A8A
+        public static readonly Color GrowthOpen = new Color(0.63f, 0.56f, 0.42f);    // #A08F6C
 
         // Built in code, not serialized: a serialized Gradient is initialised by Unity to plain
         // white, which silently turned the whole heat view white.
@@ -70,6 +77,30 @@ namespace CoolCairo
             yield return ("Bare soil / sand", soil);
             yield return ("Roof coated white (intervention)", coolRoof);
             yield return ("Cool pavement (intervention)", coolPavement);
+        }
+
+        // Growth-view colours for the legend, in the order the legend shows them.
+        public System.Collections.Generic.IEnumerable<(string label, Color color)> GrowthLegend()
+        {
+            var g = Data.growth;
+            int first = g?.firstYear ?? 2016, last = g?.lastYear ?? 2023;
+            yield return ($"New built-up since {first}", GrowthNew);
+            yield return ($"Denser since {first} (+{(g?.denserMin ?? 0.05f) * 100f:0} pts building cover)", GrowthDenser);
+            yield return ($"Built up before {first}, little change", GrowthStable);
+            yield return ($"Still open land in {last}", GrowthOpen);
+        }
+
+        public Color BlockGrowthColor(int block)
+        {
+            if (!Data.HasGrowth) return noData;
+            return Data.blocks.growthClass[block] switch
+            {
+                3 => GrowthNew,
+                2 => GrowthDenser,
+                1 => GrowthStable,
+                0 => GrowthOpen,
+                _ => noData,
+            };
         }
 
         public Color HeatColor(float lst) => heatRamp.Evaluate(Mathf.InverseLerp(HeatMin, HeatMax, lst));
@@ -167,6 +198,11 @@ namespace CoolCairo
                     roof = BlockRiskColor(block);
                     walls = roof * 0.85f;
                 }
+                else if (Mode == ViewMode.Growth)
+                {
+                    roof = BlockGrowthColor(block);
+                    walls = roof * 0.85f;
+                }
                 else
                 {
                     // Block-level statement: roofs in this block are X% dark. Not per-roof truth.
@@ -182,6 +218,8 @@ namespace CoolCairo
 
         Color GroundColor(int i)
         {
+            // Growth comes from building data, not temperature, so it ignores the LST mask.
+            if (Mode == ViewMode.Growth) return BlockGrowthColor(i);
             if (!Model.IsValid(i)) return noData;
             if (Mode == ViewMode.Heat) return HeatColor(Model.Lst(i));
             if (Mode == ViewMode.Risk) return BlockRiskColor(i);
