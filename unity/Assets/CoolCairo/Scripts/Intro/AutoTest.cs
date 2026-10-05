@@ -45,7 +45,9 @@ namespace CoolCairo
             yield return Shot(folder, "02_globe");
 
             intro.ChooseCity(0);
-            yield return new WaitForSeconds(4.8f); // End of the slow descent, before the fade.
+            yield return new WaitForSeconds(1.6f); // End of the fast approach, ~760 km up.
+            yield return Shot(folder, "02b_approach");
+            yield return new WaitForSeconds(2.8f); // End of the slow descent, before the fade.
             yield return Shot(folder, "03_flyin");
 
             DistrictView district = null;
