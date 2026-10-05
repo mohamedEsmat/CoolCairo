@@ -12,10 +12,11 @@ CoolCairo is a Windows desktop app backed by a reproducible Python analysis. A p
 1. **Satellite archive sync.** At start-up the app queries the real archives for the exact scenes the analysis used (65 Landsat 8/9 and 70 Sentinel-2 scenes via Microsoft Planetary Computer, the EnMAP scene via DLR) and downloads a live preview of Cairo from each satellite. Offline, it says so and uses the prepared data.
 2. **MENA globe.** NASA Blue Marble Earth with the region's major cities; Nasr City is the one analysed district, the others show where the method scales next.
 3. **Fly-in.** From space down to Nasr City, ending on a sharp 10 m Sentinel-2 image of Cairo.
-4. **3D district** (about 1,900 buildings with estimated heights) with three views:
+4. **3D district** (about 1,900 buildings with estimated heights) with four views:
    - **Materials:** vegetation, dark surfaces, pale surfaces and bare sand per block.
    - **Surface heat:** summer land surface temperature per block.
    - **Heat risk:** residents × degrees above a typical east-Cairo block.
+   - **Growth:** building cover 2016 → 2023 per block: new built-up, denser, unchanged, still open.
 5. **Four cooling tools**, painted per block, with live results (average block temperature before → after, heat exposure, residents in cooled blocks):
 
 | Tool | What it changes | Effect per unit of block area | Basis |
@@ -30,6 +31,7 @@ CoolCairo is a Windows desktop app backed by a reproducible Python analysis. A p
 - **Heat model:** block surface temperature from material fractions and building height, spatial cross-validated R² **0.25** (mean error ±1.2 °C, 2,538 urban blocks, 1 km tiles held out).
 - **Hyperspectral adds value for heat:** EnMAP block spectra explain block surface temperature at R² **0.58** (with our features) vs **0.40** with Sentinel-2, and **0.53 vs 0.33** for the same EnMAP scene reduced to Sentinel-2's bands. The advantage holds with 2–3 km held-out tiles. For separating buildings from desert, EnMAP adds nothing beyond a 70-scene Sentinel-2 composite. See `analysis/notebooks/05_hyperspectral_value.ipynb`.
 - **Heat risk in the display district:** 95,141 residents, 6,460 person·°C of heat exposure today. At full adoption within each tool's limits, exposure falls by 41% (cool roofs), 24% (street trees), 52% (cool pavements) and 60% (pocket parks).
+- **Urban growth 2016–2023:** building footprint area in east Cairo grew 5.7% (37.1 → 39.2 km²); 988 blocks turned from open land to built-up and now house about 61,000 residents. These new blocks average 46.9 °C summer surface temperature, about 1 °C hotter than established neighbourhoods (46.0 °C) and cooler than open desert (48.6 °C). See `analysis/notebooks/06_urban_growth.ipynb`.
 - **Building heights:** Google Open Buildings 2.5D estimates checked against OSM-tagged heights: bias −1.4 m, mean error 6.2 m, r = 0.60.
 
 ## Data
@@ -40,7 +42,7 @@ CoolCairo is a Windows desktop app backed by a reproducible Python analysis. A p
 | Sentinel-2 L2A (ESA Copernicus, via Planetary Computer) | Surface materials, vegetation, fly-in image | Contains modified Copernicus Sentinel data [2023–2025] |
 | EnMAP L2A, 22 Apr 2025 (DLR EOC Geoservice) | Hyperspectral heat drivers | Contains modified EnMAP data © DLR [2025]. Raw data may not be redistributed and is **not** in this repository |
 | OpenStreetMap (via osmnx) | Building footprints | © OpenStreetMap contributors, ODbL |
-| Google Open Buildings 2.5D Temporal | Building heights | CC BY 4.0 / ODbL |
+| Google Open Buildings 2.5D Temporal (2016–2023) | Building heights, urban growth | CC BY 4.0 / ODbL |
 | WorldPop Global2 R2025A, 2024 | Residents per block | CC BY 4.0 |
 | NASA Blue Marble (July 2004) | Globe texture | Public domain |
 
@@ -55,7 +57,7 @@ cd analysis
 uv sync                        # locked dependencies
 uv run pytest                  # unit tests
 uv run python run_pipeline.py  # stream data, fit model, write export/district.json
-uv run jupyter lab             # notebooks 01–05, same steps with plots
+uv run jupyter lab             # notebooks 01–06, same steps with plots
 uv run python report/build_report.py  # methodology report PDF in docs/
 uv run python globe_textures.py       # app globe textures from NASA Blue Marble (already in the repo)
 ```
@@ -76,7 +78,7 @@ Starting the app with `-autotest` makes it drive itself through the whole flow i
 | --- | --- |
 | `analysis/src/coolcairo` | Pipeline modules; notebooks are thin drivers |
 | `analysis/config/aoi.yaml` | Areas, CRS, dates, thresholds and every literature value, with sources |
-| `analysis/notebooks` | 01 data · 02 classification and M2 spot check · 03 model and heat risk · 04 export · 05 hyperspectral value |
+| `analysis/notebooks` | 01 data · 02 classification and M2 spot check · 03 model and heat risk · 04 export · 05 hyperspectral value · 06 urban growth |
 | `export/district.json` | Handoff from analysis to the app |
 | `unity/Assets/CoolCairo` | Globe intro, 3D district, interventions, UI |
 | `docs` | Research notes, M2 spot-check sheet, EnMAP licence |

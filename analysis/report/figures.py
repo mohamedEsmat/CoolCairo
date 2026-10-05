@@ -205,6 +205,71 @@ def interventions(r, out: Path) -> Path:
     return _save(fig, out / "fig5_interventions.png")
 
 
+# Same four classes and colours as the app's Growth view (DistrictView.cs).
+GROWTH = [("Still open land", "#a08f6c"), ("Built up before 2016, little change", "#737a8a"),
+          ("Denser since 2016", "#f2c14e"), ("New built-up since 2016", "#eb6834")]
+
+
+def urban_growth(r, out: Path) -> Path:
+    from coolcairo.growth import NEWLY_BUILT, BUILT_BEFORE, OPEN, growth_class
+
+    cfg, gr = r.cfg, r.growth
+    b = gr["blocks"]
+    g = cfg["growth"]
+    codes = growth_class(b, gr["first"], gr["last"], g["built_block_min"], g["denser_min"])
+    disp = projected_bbox(cfg["display_aoi"]["bbox_wgs84"], cfg.crs, cfg.block_size)
+
+    fig = plt.figure(figsize=(7.2, 3.9))
+    grid = fig.add_gridspec(2, 2, width_ratios=[1.15, 1], hspace=0.55, wspace=0.28)
+    ax = fig.add_subplot(grid[:, 0])
+    ax.imshow(np.ma.masked_less(_grid(b, codes.astype(float)), 0),
+              cmap=ListedColormap([c for _, c in GROWTH]), vmin=-0.5, vmax=3.5,
+              extent=_extent(b, cfg.block_size / 2), interpolation="nearest")
+    _map_axes(ax, f"a  Building growth {gr['first']}–{gr['last']}, 90 m blocks")
+    ax.add_patch(Rectangle((disp[0], disp[1]), disp[2] - disp[0], disp[3] - disp[1],
+                           fill=False, ec=INK, lw=1.2))
+    _scale_bar(ax, 2000, "2 km")
+    ax.legend(handles=[Patch(color=c, label=n) for n, c in GROWTH[::-1]], loc="upper center",
+              bbox_to_anchor=(0.5, -0.01), ncol=2, fontsize=6.8, handlelength=1)
+
+    area = gr["area_model"]
+    ax = fig.add_subplot(grid[0, 1])
+    ax.plot(area.index, area.values, color=BLUE, lw=2, marker="o", ms=4)
+    ax.set_title("b  Building footprint area, model area", fontsize=8.5)
+    ax.set_ylabel("km²")
+    ax.set_xticks(area.index[::2])
+    ax.set_xlim(area.index[0] - 1.2, area.index[-1] + 1.2)
+    pad = (area.max() - area.min()) * 0.15
+    ax.set_ylim(area.min() - pad, area.max() + pad)
+    ax.grid(color=GRID, lw=0.5), ax.set_axisbelow(True)
+    for s_ in ("top", "right"):
+        ax.spines[s_].set_visible(False)
+    ax.annotate(f"{area.iloc[-1]:.1f}", (area.index[-1], area.iloc[-1]), xytext=(4, 0),
+                textcoords="offset points", va="center", fontsize=7.5)
+    ax.annotate(f"{area.iloc[0]:.1f}", (area.index[0], area.iloc[0]), xytext=(-4, 0),
+                textcoords="offset points", va="center", ha="right", fontsize=7.5)
+
+    heat = gr["heat"]
+    ax = fig.add_subplot(grid[1, 1])
+    colours = {BUILT_BEFORE: "#737a8a", NEWLY_BUILT: "#eb6834", OPEN: "#a08f6c"}
+    names = {BUILT_BEFORE: "Built before 2016", NEWLY_BUILT: "Built 2016–23", OPEN: "Still open"}
+    ys = np.arange(len(heat))[::-1]
+    ax.barh(ys, heat.mean_lst_c - 40, left=40, height=0.6,
+            color=[colours[k] for k in heat.index])
+    for y_, (k, row) in zip(ys, heat.iterrows(), strict=True):
+        ax.text(row.mean_lst_c + 0.1, y_, f"{row.mean_lst_c:.1f} °C  (n = {int(row.blocks):,})",
+                va="center", fontsize=7)
+    ax.axvline(r.reference_c, color=INK, lw=0.8, ls="--")
+    ax.set_yticks(ys, [names[k] for k in heat.index])
+    ax.set_xlim(40, 52)
+    ax.set_title("c  Mean summer surface temperature", fontsize=8.5)
+    ax.set_xlabel("°C (dashed: urban median)")
+    ax.tick_params(axis="y", length=0, labelcolor=INK)
+    for s_ in ("top", "right", "left"):
+        ax.spines[s_].set_visible(False)
+    return _save(fig, out / "fig6_growth.png")
+
+
 def _save(fig: plt.Figure, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path)
@@ -214,4 +279,4 @@ def _save(fig: plt.Figure, path: Path) -> Path:
 
 def all_figures(r, out: Path) -> dict[str, Path]:
     return {f.__name__: f(r, out) for f in (study_area, district, model_fit, hyperspectral,
-                                             interventions)}
+                                             interventions, urban_growth)}

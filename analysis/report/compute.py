@@ -14,7 +14,7 @@ from scipy.ndimage import distance_transform_edt
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import GroupKFold
 
-from coolcairo import enmap, openbuildings, separability, validation
+from coolcairo import enmap, growth, openbuildings, separability, validation
 from coolcairo.buildings import footprint_mask
 from coolcairo.classify import bare_soil_index, soil_threshold
 from coolcairo.config import EXPORT_DIR, REPO_ROOT, geobox_for, load_config
@@ -36,6 +36,7 @@ from coolcairo.pipeline import (
     load_lst,
     load_open_buildings_heights,
     load_osm_buildings,
+    load_presence,
     load_sentinel2,
 )
 from coolcairo.population import heat_exposure
@@ -64,6 +65,7 @@ class Results:
     fused: tuple
     heat_r2: pd.DataFrame
     m2: dict
+    growth: dict
     extra: dict = field(default_factory=dict)
 
 
@@ -96,6 +98,39 @@ def targeted_plan(cfg: object, result: object, display: pd.DataFrame, ref: float
         "mean_lst_before": float(d.lst_c.mean()),
         "mean_lst_after": float((d.lst_c + delta).mean()),
         "residents_cooled": float(d.population.clip(lower=0)[chosen][delta[chosen] < -0.01].sum()),
+    }
+
+
+def growth_results(cfg: object, blocks: pd.DataFrame, display: pd.DataFrame) -> dict:
+    """Urban growth 2016-2023 per block, its link to summer heat, and threshold sensitivity."""
+    g = cfg["growth"]
+    first, last = g["first_year"], g["last_year"]
+    presence = {y: load_presence(cfg, y) for y in openbuildings.YEARS}
+
+    def per_block(presence_min: float) -> pd.DataFrame:
+        merged = growth.attach(blocks, growth.block_built_share(presence, cfg, presence_min))
+        merged["transition"] = growth.transitions(merged, first, last, g["built_block_min"])
+        return merged
+
+    main = per_block(g["presence_min"])
+    in_display = pd.MultiIndex.from_arrays([main.x.round(), main.y.round()]).isin(
+        pd.MultiIndex.from_arrays([display.x.round(), display.y.round()]))
+    sensitivity = {}
+    for t in (0.4, g["presence_min"], 0.6):
+        b = main if t == g["presence_min"] else per_block(t)
+        area = growth.built_area_km2(b, cfg.block_size)
+        sensitivity[t] = {"area_first": area[first], "area_last": area[last],
+                          "newly_built_blocks": int((b.transition == growth.NEWLY_BUILT).sum())}
+    new = main[main.transition == growth.NEWLY_BUILT]
+    return {
+        "blocks": main,
+        "area_model": growth.built_area_km2(main, cfg.block_size),
+        "area_display": growth.built_area_km2(main[in_display], cfg.block_size),
+        "counts": main.transition.value_counts(),
+        "heat": growth.heat_by_transition(main),
+        "new_residents": float(new.population.clip(lower=0).sum()),
+        "sensitivity": pd.DataFrame(sensitivity).T,
+        "first": first, "last": last,
     }
 
 
@@ -190,5 +225,5 @@ def compute() -> Results:
         adoption=full_adoption_deltas(cfg, result, train).describe(),
         targeted=targeted_plan(cfg, result, display, ref), deltas=deltas, heights=heights,
         height_shares=height_shares, soil=soil, separability=sep, fused=fused, heat_r2=heat,
-        m2=m2, extra=extra,
+        m2=m2, growth=growth_results(cfg, blocks, display), extra=extra,
     )

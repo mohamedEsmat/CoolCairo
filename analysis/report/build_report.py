@@ -187,6 +187,13 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     en_full = sep["EnMAP full spectrum"]["balanced_accuracy"]
     en_bands = sep["EnMAP full spectrum"]["n_features"]
     h = r.heat_r2
+    gr, gcfg = r.growth, cfg["growth"]
+    g0, g1 = gr["first"], gr["last"]
+    gam, gad = gr["area_model"], gr["area_display"]
+    gheat = gr["heat"]
+    gnew = gr["blocks"][gr["blocks"].transition == "Built 2016-2023"]
+    gsens = gr["sensitivity"]
+    osm_missing = float((gnew.roof_frac < 0.05).mean())
     a = r.adoption
     d = r.display
     caps = cfg["interventions"]
@@ -228,7 +235,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ["Event", "Arab Youth Space Hackathon 2026 (UAE Space Agency / Space42)"],
               ["Challenge", "813 Challenge: Urban Expansion, Land Use Change &amp; Heat Risk"],
               ["Team", "Team 46: Liquaa Mahmoud (team lead), Mohamed Esmat (technical lead), Mahmoud"],
-              ["Deliverables", "Windows desktop app, reproducible Python analysis (notebooks 01–05), "
+              ["Deliverables", "Windows desktop app, reproducible Python analysis (notebooks 01–06), "
                                "this report, pitch video"],
               ["Report built", f"{date.today():%d %B %Y} from commit {git_commit()}"],
           ], [0.2, 0.8], shade_first_col=True),
@@ -261,6 +268,11 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               f"{-e.cool_pavements_pct:.0f}% (cool pavements) and {-e.pocket_parks_pct:.0f}% "
               f"(pocket parks). Targeting cool roofs and pocket parks at the riskiest third of "
               f"blocks alone cuts it by <b>{-t['exposure_change_pct']:.0f}%</b>.",
+              f"<b>Urban growth {g0}–{g1}:</b> building footprint area in east Cairo grew "
+              f"{100 * (gam[g1] / gam[g0] - 1):.1f}% and {len(gnew):,} blocks turned from desert "
+              f"to built-up. These new blocks run about "
+              f"{gheat.loc['Built 2016-2023', 'mean_lst_c'] - gheat.loc['Built before 2016', 'mean_lst_c']:.0f} °C "
+              "hotter than established neighbourhoods.",
               f"<b>Hyperspectral value:</b> EnMAP block spectra explain block surface temperature at "
               f"R² <b>{h.loc['Our features + EnMAP', 1000]:.2f}</b> (with our features) versus "
               f"{h.loc['Our features + Sentinel-2', 1000]:.2f} with Sentinel-2. For separating "
@@ -317,8 +329,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                f"{ENMAP_CREDIT}. Raw data not redistributed"],
               ["OpenStreetMap (osmnx)", f"{r.extra['n_buildings_model']:,} building footprints, "
                "height and level tags", "Roofs, heights", "© OpenStreetMap contributors, ODbL"],
-              ["Google Open Buildings 2.5D Temporal", "2023 building heights, 4 m",
-               "Building heights", "CC BY 4.0 / ODbL"],
+              ["Google Open Buildings 2.5D Temporal", "Annual layers 2016–2023, 4 m: heights (2023), building presence (growth)",
+               "Heights, urban growth", "CC BY 4.0 / ODbL"],
               ["WorldPop Global2 R2025A", "2024, 100 m, constrained", "Residents per block",
                "CC BY 4.0"],
               ["NASA Blue Marble Next Generation", "July 2004; 2.4 km globe, 500 m over Egypt and the Middle East", "Globe in the app", "Public domain"],
@@ -329,7 +341,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
 
     # ---------------------------------------------------------------- 4 methods
     s += [CondPageBreak(70 * mm), p("4  Methods", H1),
-          p("The pipeline is a Python package (<i>analysis/src/coolcairo</i>); notebooks 01–05 are "
+          p("The pipeline is a Python package (<i>analysis/src/coolcairo</i>); notebooks 01–06 are "
             "thin drivers, and every threshold, date and literature value sits in one config file "
             "(<i>analysis/config/aoi.yaml</i>) with its source."),
           p("4.1  Grid and blocks", H2),
@@ -435,6 +447,18 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "cross-validation; spatial R² with 1, 2 and 3 km held-out tiles.",
           ])]
 
+    s += [p("4.9  Urban growth", H2),
+          p(f"Google Open Buildings 2.5D Temporal gives one building map per year ({g0}–{g1}, "
+            "dated 30 June), predicted from Sentinel-2 at an effective 4 m. Its "
+            "<i>building presence</i> band is a model confidence from 0 to 1; a pixel counts as "
+            f"built at ≥ {gcfg['presence_min']} (values are strongly two-peaked; 0.4 and 0.6 are "
+            "reported as a check). Built pixels are averaged to the same 10 m and 90 m grid as "
+            "every other layer, giving each block a building cover per year. A block is "
+            f"built-up at ≥ {gcfg['built_block_min']:.0%} cover, the model's urban cut-off, so "
+            f"blocks fall into <i>built before {g0}</i>, <i>built {g0}–{g1}</i> or <i>still "
+            f"open</i>. The app also marks built-up blocks whose cover rose by ≥ "
+            f"{gcfg['denser_min'] * 100:.0f} percentage points as <i>denser</i>.")]
+
     # ---------------------------------------------------------------- 5 results
     coef_rows = [["Feature", "Coefficient", "Reading"],
                  ["Intercept", f"{m(f.intercept)} °C", "Block of pale ground, no buildings"],
@@ -515,6 +539,40 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "with its attribution, and a hyperspectral-based model is the main upgrade path once "
             "more cloud-free summer EnMAP scenes over Cairo exist.")]
 
+    s += [p("5.5  Urban growth and heat", H2),
+          p(f"Across the model area, building footprint area grew from {gam[g0]:.1f} km² in {g0} "
+            f"to {gam[g1]:.1f} km² in {g1} (<b>+{gam[g1] - gam[g0]:.1f} km², "
+            f"+{100 * (gam[g1] / gam[g0] - 1):.1f}%</b>), almost every year (Figure 6b). "
+            f"{len(gnew):,} blocks ({len(gnew) * cfg.block_size**2 / 1e6:.1f} km²) changed from "
+            f"open land to built-up; WorldPop counts {gr['new_residents']:,.0f} residents in them "
+            "in 2024. They are partly scattered infill inside the existing city (single blocks "
+            "crossing the 10% cut-off, some of which will be noise) and partly compact new "
+            "clusters on the southern desert edge (Figure 6a). Nasr City itself was already "
+            "built: its building area rose only "
+            f"from {gad[g0]:.2f} to {gad[g1]:.2f} km², mostly by densification."),
+          p(f"<b>New development runs hot.</b> Newly built blocks average "
+            f"{gheat.loc['Built 2016-2023', 'mean_lst_c']:.1f} °C in summer, against "
+            f"{gheat.loc['Built before 2016', 'mean_lst_c']:.1f} °C for blocks built before {g0} "
+            f"and {gheat.loc['Still open', 'mean_lst_c']:.1f} °C for open desert (Figure 6c). "
+            "Building on sand cools the surface somewhat, but new districts stay about "
+            f"{gheat.loc['Built 2016-2023', 'mean_lst_c'] - gheat.loc['Built before 2016', 'mean_lst_c']:.0f} °C "
+            "hotter than mature neighbourhoods with their trees and shade, so cooling measures "
+            "are best designed in while these areas are still being built. This is a "
+            "comparison across places in one period, not a measured change over time."),
+          figure(figs["urban_growth"], TEXT_W,
+                 f"<b>Figure 6.</b> Urban growth {g0}–{g1} from Google Open Buildings Temporal. "
+                 "(a) Block classes, same colours as the app's Growth view; the box marks Nasr "
+                 "City. (b) Building footprint area per year. (c) Mean summer LST (2023–25) by "
+                 "class, with block counts."),
+          table([["Presence cut-off", f"Footprint area {g0}", f"Footprint area {g1}",
+                  "Newly built-up blocks"]]
+                + [[f"{t:.1f}" + (" (used)" if t == gcfg["presence_min"] else ""),
+                    f"{row.area_first:.1f} km²", f"{row.area_last:.1f} km²",
+                    f"{row.newly_built_blocks:,.0f}"] for t, row in gsens.iterrows()],
+                [0.25, 0.25, 0.25, 0.25]),
+          p("<b>Table 4.</b> Sensitivity to the building-presence cut-off: absolute areas "
+            "shift, but growth and the number of newly built blocks stay similar.", CAPTION)]
+
     # ---------------------------------------------------------------- 6 quality
     s += [p("6  Quality control and validation", H1),
           bullets([
@@ -548,6 +606,10 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "<b>Interim material classes.</b> Rules on Sentinel-2 confuse dark roofs with "
               f"shadow and dusty surfaces with sand; the spot check found {m2_short}, from "
               "20 points checked non-blind.",
+              "<b>Growth comes from yearly model predictions</b> (Open Buildings Temporal), so "
+              "small year-to-year changes are partly noise; only the 2016 → 2023 change is used. "
+              f"{osm_missing:.0%} of newly built blocks have almost no OpenStreetMap footprints "
+              "yet, so the heat model's roof features under-represent the newest areas.",
               "<b>One EnMAP scene</b> (April, not summer). The hyperspectral result is a strong "
               "signal, not yet a production model.",
               "<b>Heat risk is a screening indicator</b> (heat × residents). It leaves out "
@@ -585,10 +647,12 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ("04_heat_today.png", "<b>f</b> Surface heat view: summer LST per block."),
               ("06_risk_today.png", "<b>g</b> Heat risk view: residents × °C above the "
                                     "reference."),
-              ("07_risk_after_plan.png", "<b>h</b> After a plan (cool roofs and pocket parks on "
+              ("06b_growth.png", "<b>h</b> Growth view: building cover 2016 → 2023 per block "
+                                 "(Google Open Buildings Temporal)."),
+              ("07_risk_after_plan.png", "<b>i</b> After a plan (cool roofs and pocket parks on "
                                          "the riskiest third of blocks): live before → after "
                                          "card."),
-              ("08_heat_after_plan.png", "<b>i</b> Surface heat after the same plan."),
+              ("08_heat_after_plan.png", "<b>j</b> Surface heat after the same plan."),
           ])]
 
     # ---------------------------------------------------------------- 9 reproducibility
@@ -600,7 +664,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ["Install locked dependencies", "uv sync"],
               ["Unit tests", "uv run pytest"],
               ["Data, model, export for the app", "uv run python run_pipeline.py"],
-              ["Notebooks 01–05", "uv run jupyter lab"],
+              ["Notebooks 01–06", "uv run jupyter lab"],
               ["This report", "uv run python report/build_report.py"],
               ["App", "Unity 6000.0.83f1: CoolCairo → Setup project and scene, then Build Windows "
                       "desktop app"],
