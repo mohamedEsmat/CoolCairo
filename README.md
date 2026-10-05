@@ -56,6 +56,7 @@ uv sync                        # locked dependencies
 uv run pytest                  # unit tests
 uv run python run_pipeline.py  # stream data, fit model, write export/district.json
 uv run jupyter lab             # notebooks 01–05, same steps with plots
+uv run python report/build_report.py  # methodology report PDF in docs/
 ```
 
 No account or API key is needed for the core pipeline. **EnMAP is optional:** it needs a free DLR EOC Geoservice account subscribed to the "EnMAP Access Service"; download the files for the scene in `analysis/config/enmap_scenes.txt` into `analysis/data/enmap/`. Without them the pipeline runs and skips the hyperspectral results.

@@ -29,6 +29,7 @@ dev = [
     "ruff>=0.6",
     "jupyterlab>=4.2",
     "ipykernel>=6.29",
+    "reportlab>=5.0.1",
 ]
 
 [build-system]
