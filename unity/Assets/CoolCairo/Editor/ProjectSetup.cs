@@ -58,17 +58,16 @@ namespace CoolCairo.EditorTools
         }
 
         const string IntroScenePath = Root + "/Intro.unity";
-        const string EarthTexture = Root + "/Globe/BlueMarble_2004-07_5400.jpg";
+        // Made by analysis/globe_textures.py from NASA Blue Marble Next Generation (July 2004).
+        const string EarthTexture = Root + "/Globe/BlueMarble_2004-07_16384.jpg";
+        const string MenaTexture = Root + "/Globe/BlueMarble_2004-07_MENA.jpg";
 
         static void BuildIntroScene()
         {
-            // Keep the full 5400 px NASA Blue Marble (Unity would downscale to 2048 by default).
-            var importer = (TextureImporter)AssetImporter.GetAtPath(EarthTexture);
-            importer.maxTextureSize = 8192;
-            importer.wrapModeU = TextureWrapMode.Repeat;
-            importer.wrapModeV = TextureWrapMode.Clamp;
-            importer.anisoLevel = 4;
-            importer.SaveAndReimport();
+            // Keep full resolution (Unity would downscale to 2048 by default): the globe at Unity's
+            // 16384 maximum (~2.4 km/px), the MENA patch at its native 5520 px (500 m/px).
+            ImportFullSize(EarthTexture, 16384, TextureWrapMode.Repeat);
+            ImportFullSize(MenaTexture, 8192, TextureWrapMode.Clamp);
 
             var earthMat = EnsureMaterial("Earth", "Universal Render Pipeline/Unlit");
             earthMat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(EarthTexture));
@@ -76,6 +75,12 @@ namespace CoolCairo.EditorTools
             satMat.SetColor("_BaseColor", new Color(0.45f, 0.9f, 1f));
             var markerMat = EnsureMaterial("Marker", "Universal Render Pipeline/Unlit");
             var flyInMat = EnsureMaterial("FlyIn", "CoolCairo/FadeTexture");
+            var menaMat = EnsureMaterial("GlobePatch", "CoolCairo/FadeTexture");
+            menaMat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(MenaTexture));
+            menaMat.SetFloat("_Alpha", 1f);
+            menaMat.SetFloat("_Edge", 0.05f);
+            menaMat.renderQueue = 2999;  // Before the fly-in image (3000), which must draw on top.
+            EditorUtility.SetDirty(menaMat);
             EditorUtility.SetDirty(earthMat);
             EditorUtility.SetDirty(satMat);
 
@@ -92,6 +97,8 @@ namespace CoolCairo.EditorTools
 
             var earth = new GameObject("Earth", typeof(MeshFilter), typeof(MeshRenderer), typeof(Globe));
             earth.GetComponent<MeshRenderer>().sharedMaterial = earthMat;
+            var mena = new GameObject("MENA patch", typeof(MeshFilter), typeof(MeshRenderer), typeof(GlobePatch));
+            mena.GetComponent<MeshRenderer>().sharedMaterial = menaMat;
 
             var sats = new GameObject("Satellites").AddComponent<SatelliteOrbits>();
 
@@ -105,6 +112,17 @@ namespace CoolCairo.EditorTools
             AddStars(Vector3.zero, 40f);
 
             EditorSceneManager.SaveScene(scene, IntroScenePath);
+        }
+
+        static void ImportFullSize(string path, int maxSize, TextureWrapMode wrapU)
+        {
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.maxTextureSize = maxSize;
+            importer.wrapModeU = wrapU;
+            importer.wrapModeV = TextureWrapMode.Clamp;
+            importer.anisoLevel = 8;
+            importer.textureCompression = TextureImporterCompression.Compressed;
+            importer.SaveAndReimport();
         }
 
         static readonly Color SpaceColor = new Color(0.01f, 0.015f, 0.03f);

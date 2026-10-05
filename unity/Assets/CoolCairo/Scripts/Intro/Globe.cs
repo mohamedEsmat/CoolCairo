@@ -55,5 +55,35 @@ namespace CoolCairo
             mesh.RecalculateBounds();
             return mesh;
         }
+
+        // Curved patch on the sphere covering a [minLon, minLat, maxLon, maxLat] box, UVs (0..1)
+        // matching an image of that box. Used for the sharper images laid over the Earth texture.
+        public static Mesh BuildPatch(float[] bbox, float radius, int steps, string name)
+        {
+            float minLon = bbox[0], minLat = bbox[1], maxLon = bbox[2], maxLat = bbox[3];
+            int n = steps + 1;
+            var verts = new Vector3[n * n];
+            var uvs = new Vector2[n * n];
+            for (int i = 0; i < n; i++)
+            for (int j = 0; j < n; j++)
+            {
+                float u = (float)j / steps, v = (float)i / steps;
+                verts[i * n + j] = LatLonToPosition(Mathf.Lerp(minLat, maxLat, v), Mathf.Lerp(minLon, maxLon, u), radius);
+                uvs[i * n + j] = new Vector2(u, v);
+            }
+            // Same winding as the globe.
+            var tris = new int[steps * steps * 6];
+            int t = 0;
+            for (int i = 0; i < steps; i++)
+            for (int j = 0; j < steps; j++)
+            {
+                int a = i * n + j, b = a + 1, d = a + n, c = d + 1;
+                tris[t++] = a; tris[t++] = d; tris[t++] = c;
+                tris[t++] = a; tris[t++] = c; tris[t++] = b;
+            }
+            var mesh = new Mesh { name = name, vertices = verts, uv = uvs, triangles = tris };
+            mesh.RecalculateBounds();
+            return mesh;
+        }
     }
 }

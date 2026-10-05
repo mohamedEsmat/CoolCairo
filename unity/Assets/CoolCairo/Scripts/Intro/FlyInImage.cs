@@ -6,15 +6,15 @@ using UnityEngine.Networking;
 
 namespace CoolCairo
 {
-    // Sharp Sentinel-2 image of Cairo laid on the globe's surface. The Blue Marble texture is
-    // ~7 km per pixel, so close to the ground it turns to mush; this 10 m image (downloaded from
+    // Sharp Sentinel-2 image of Cairo laid on the globe's surface. Even the 500 m Blue Marble
+    // patch (GlobePatch) turns soft in the last kilometres; this 10 m image (downloaded from
     // the Planetary Computer archive at startup) fades in as the camera descends.
     // Offline: nothing is shown and the fly-in simply fades as before.
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public class FlyInImage : MonoBehaviour
     {
         const string DataBbox = "https://planetarycomputer.microsoft.com/api/data/v1/item/bbox/";
-        const float SurfaceRadius = 1.0004f;  // Just above the globe mesh.
+        const float SurfaceRadius = 1.0004f;  // Above the globe mesh and the GlobePatch.
         const float FadeStart = 1.3f, FadeFull = IntroController.ApproachDistance;  // Camera distances (globe radius = 1).
         const int GridSteps = 24;
 
@@ -35,7 +35,7 @@ namespace CoolCairo
             _material.SetFloat("_Alpha", 0f);
             GetComponent<MeshRenderer>().sharedMaterial = _material;
             if (info != null && info.bbox != null && info.bbox.Length == 4)
-                GetComponent<MeshFilter>().sharedMesh = BuildPatch(info.bbox);
+                GetComponent<MeshFilter>().sharedMesh = Globe.BuildPatch(info.bbox, SurfaceRadius, GridSteps, "FlyInPatch");
         }
 
         public IEnumerator Download()
@@ -70,35 +70,6 @@ namespace CoolCairo
         {
             float alpha = Ready ? Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(FadeStart, FadeFull, _camera.Distance)) : 0f;
             _material.SetFloat("_Alpha", alpha);
-        }
-
-        // Curved patch on the sphere covering the lon/lat box, UVs matching the image.
-        static Mesh BuildPatch(float[] bbox)
-        {
-            float minLon = bbox[0], minLat = bbox[1], maxLon = bbox[2], maxLat = bbox[3];
-            int n = GridSteps + 1;
-            var verts = new Vector3[n * n];
-            var uvs = new Vector2[n * n];
-            for (int i = 0; i < n; i++)
-            for (int j = 0; j < n; j++)
-            {
-                float u = (float)j / GridSteps, v = (float)i / GridSteps;
-                verts[i * n + j] = Globe.LatLonToPosition(Mathf.Lerp(minLat, maxLat, v), Mathf.Lerp(minLon, maxLon, u), SurfaceRadius);
-                uvs[i * n + j] = new Vector2(u, v);
-            }
-            // Same winding as Globe: seen from outside, +lon right and +lat up.
-            var tris = new int[GridSteps * GridSteps * 6];
-            int t = 0;
-            for (int i = 0; i < GridSteps; i++)
-            for (int j = 0; j < GridSteps; j++)
-            {
-                int a = i * n + j, b = a + 1, d = a + n, c = d + 1;
-                tris[t++] = a; tris[t++] = d; tris[t++] = c;
-                tris[t++] = a; tris[t++] = c; tris[t++] = b;
-            }
-            var mesh = new Mesh { name = "FlyInPatch", vertices = verts, uv = uvs, triangles = tris };
-            mesh.RecalculateBounds();
-            return mesh;
         }
     }
 }

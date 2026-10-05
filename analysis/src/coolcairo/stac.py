@@ -176,7 +176,7 @@ FLY_IN_HALF_SIZE_DEG = 0.12  # ~24 km box: fills the view at the end of the glob
 
 
 def fly_in_image(cfg: Config) -> dict:
-    """Sharp true-colour image for the last part of the globe fly-in (Blue Marble is ~7 km/px).
+    """Sharp true-colour image for the last part of the globe fly-in (Blue Marble is 0.5-2.4 km/px).
 
     The clearest Sentinel-2 scene in the date window whose footprint fully covers a box around
     the display district; the app downloads it from the Planetary Computer data API.
