@@ -130,8 +130,13 @@ namespace CoolCairo
             // Stage 1: fast approach over the Blue Marble to just above the city.
             yield return globeCamera.FlyTo(city.Lat, city.Lon, ApproachDistance, 2.0f);
             // Stage 2: slow descent; the Sentinel-2 close-up is fully visible from the start of it.
+            // Markers are ~140 km wide at globe scale, so they would cover the close-up: hide them.
+            foreach (var t in _markers.Concat(_outlines)) t.gameObject.SetActive(false);
             _showFlyInCaption = _flyIn != null && _flyIn.Ready;
-            yield return globeCamera.FlyTo(city.Lat, city.Lon, 1.006f, 3.0f);
+            // Stop at 1.02 (ground well beyond the near clip plane; closer, the globe vanished) and
+            // narrow the field of view like a zoom lens so the Sentinel-2 close-up still fills the view.
+            StartCoroutine(ZoomLens(Camera.main, 60f, 11f, 3.0f));
+            yield return globeCamera.FlyTo(city.Lat, city.Lon, 1.02f, 3.0f);
             yield return new WaitForSeconds(0.4f);
             for (float t = 0f; t < 1f; t += Time.deltaTime / 0.6f)
             {
@@ -140,6 +145,16 @@ namespace CoolCairo
             }
             _fadeToBlack = 1f;
             _districtLoad.allowSceneActivation = true;
+        }
+
+        static IEnumerator ZoomLens(Camera cam, float fromFov, float toFov, float seconds)
+        {
+            for (float t = 0f; t < 1f; t += Time.deltaTime / seconds)
+            {
+                cam.fieldOfView = Mathf.Lerp(fromFov, toFov, Mathf.SmoothStep(0f, 1f, t));
+                yield return null;
+            }
+            cam.fieldOfView = toFov;
         }
 
         void CreateMarkers()
