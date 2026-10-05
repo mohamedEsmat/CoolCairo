@@ -134,8 +134,9 @@ namespace CoolCairo
             foreach (var t in _markers.Concat(_outlines)) t.gameObject.SetActive(false);
             _showFlyInCaption = _flyIn != null && _flyIn.Ready;
             // Stop at 1.02 (ground well beyond the near clip plane; closer, the globe vanished) and
-            // narrow the field of view like a zoom lens so the Sentinel-2 close-up still fills the view.
-            StartCoroutine(ZoomLens(Camera.main, 60f, 11f, 3.0f));
+            // narrow the field of view like a zoom lens until the ~23 km Sentinel-2 close-up fills
+            // the whole width (at 11 degrees the soft 500 m Blue Marble still showed at the sides).
+            StartCoroutine(ZoomLens(Camera.main, 60f, 5f, 3.0f));
             yield return globeCamera.FlyTo(city.Lat, city.Lon, 1.02f, 3.0f);
             yield return new WaitForSeconds(0.4f);
             for (float t = 0f; t < 1f; t += Time.deltaTime / 0.6f)
