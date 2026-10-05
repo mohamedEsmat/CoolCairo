@@ -21,7 +21,13 @@ from coolcairo.interventions import (
     plausibility_warnings,
 )
 from coolcairo.model import fit, training_rows
-from coolcairo.pipeline import build_blocks, display_subset, hyperspectral_summary
+from coolcairo.pipeline import (
+    add_growth,
+    build_blocks,
+    display_subset,
+    growth_summary,
+    hyperspectral_summary,
+)
 from coolcairo.stac import fly_in_image, scene_inventory
 
 
@@ -45,7 +51,9 @@ def main() -> None:
     reference = heat_reference_c(cfg, train)
     hyper = hyperspectral_summary(cfg, blocks)
     print("Hyperspectral:", hyper)
-    disp_blocks, disp_buildings = display_subset(cfg, blocks, buildings)
+    disp_blocks, disp_buildings = display_subset(cfg, add_growth(cfg, blocks), buildings)
+    grown = growth_summary(cfg, disp_blocks)
+    print("Growth, display district:", grown)
     print("Heat exposure, display district:")
     measured = disp_blocks.dropna(subset=["lst_c"])
     print(exposure_reduction_summary(cfg, result, measured, reference).round(2))
@@ -78,6 +86,7 @@ def main() -> None:
         + ([enmap.archive_source(hyper["sceneId"])] if hyper else []),
         hyperspectral=hyper,
         fly_in=fly_in_image(cfg),
+        growth=grown,
         preview_bbox_wgs84=cfg["model_aoi"]["bbox_wgs84"],
     )
     print(f"[{time.time() - t0:.0f}s] display: {rows}x{cols} blocks, "

@@ -104,3 +104,16 @@ worldpop:
 # Reference: median summer LST of the urban training blocks in the model area, i.e. heat
 # exposure counts only degrees above what is typical for built-up east Cairo.
 heat_reference: urban_median
+
+# Urban growth from Google Open Buildings 2.5D Temporal (annual layers 2016-2023).
+growth:
+  # A 4 m pixel is built when building_presence (model confidence 0-1) is at least this.
+  # The values are strongly two-peaked (most pixels near 0 or 1); 0.4 and 0.6 are reported as a
+  # sensitivity check.
+  presence_min: 0.5
+  # A block counts as built-up at this building cover, the same cut-off as min_building_coverage.
+  built_block_min: 0.10
+  # A built-up block counts as "denser" when its building cover rose by at least this much.
+  denser_min: 0.05
+  first_year: 2016
+  last_year: 2023

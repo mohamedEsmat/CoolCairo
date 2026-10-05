@@ -35,7 +35,16 @@ def _block_arrays(blocks: pd.DataFrame, rows: int, cols: int) -> dict[str, list]
     def column(name: str) -> list[float]:
         return [round(float(v), 4) for v in south_first[name].fillna(MISSING)]
 
+    growth = {}
+    if "growth_class" in south_first:
+        # Building cover first/last year (Open Buildings Temporal) and the Growth-view class.
+        growth = {
+            "builtFirst": column("built_first"),
+            "builtLast": column("built_last"),
+            "growthClass": south_first.growth_class.fillna(-1).astype(int).tolist(),
+        }
     return {
+        **growth,
         "valid": valid.astype(int).tolist(),
         "lstC": column("lst_c"),
         "vegFrac": column("veg_frac"),
@@ -105,6 +114,7 @@ def write_district(
     preview_bbox_wgs84: list[float] | None = None,
     hyperspectral: dict | None = None,
     fly_in: dict | None = None,
+    growth: dict | None = None,
 ) -> dict:
     c = fit.coefficients
     payload = {
@@ -149,6 +159,8 @@ def write_district(
         "hyperspectral": hyperspectral or {"available": 0},
         # Sentinel-2 image the app fades in during the globe fly-in (see stac.fly_in_image).
         "flyIn": fly_in or {},
+        # Urban growth summary for the Growth view; "available": 0 when not computed.
+        "growth": growth or {"available": 0},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")

@@ -11,6 +11,7 @@ Bands: 1 building_fractional_count, 2 building_height (m, 0-100), 3 building_pre
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import geopandas as gpd
@@ -25,6 +26,8 @@ from coolcairo.config import ANALYSIS_ROOT, Config, projected_bbox
 
 TILE_LIST = ANALYSIS_ROOT / "config" / "open_buildings_tiles.txt"
 HEIGHT_BAND = 2
+PRESENCE_BAND = 3  # Model confidence (0-1) that a pixel is part of a building.
+YEARS = list(range(2016, 2024))  # Annual layers, each dated 30 June.
 NODATA = -99.0
 # Read at the data's effective resolution; finer overviews only repeat the same information.
 TARGET_RESOLUTION_M = 4.0
@@ -69,14 +72,26 @@ def find_tiles(url_list: list[str], bbox_wgs84: list[float]) -> list[str]:
     return hits
 
 
+def year_url(url: str, year: int) -> str:
+    """Same tile in another year's layer: only the dated folder differs (`<id>_<year>_06_30`)."""
+    return re.sub(r"/(\d+)_\d{4}_06_30/", rf"/\g<1>_{year}_06_30/", url)
+
+
 def height_mosaic(cfg: Config, aoi_key: str = "model_aoi") -> xr.DataArray:
     """Building height (m) over the AOI in the project CRS; NaN where no data."""
+    mosaic = band_mosaic(cfg, HEIGHT_BAND, 2023, aoi_key)
+    mosaic.name = "ob_height_m"
+    return mosaic
+
+
+def band_mosaic(cfg: Config, band: int, year: int, aoi_key: str = "model_aoi") -> xr.DataArray:
+    """One band of one year's layer over the AOI in the project CRS (4 m); NaN where no data."""
     min_x, min_y, max_x, max_y = projected_bbox(cfg[aoi_key]["bbox_wgs84"], cfg.crs, 1)
     parts = []
-    for url in tile_urls():
+    for url in (year_url(u, year) for u in tile_urls()):
         da = rioxarray.open_rasterio(
             "/vsicurl/" + url, overview_level=overview_level(url), masked=True
-        ).sel(band=HEIGHT_BAND)
+        ).sel(band=band)
         if da.rio.crs.to_string() != cfg.crs:
             da = da.rio.reproject(cfg.crs)
         try:
@@ -89,9 +104,7 @@ def height_mosaic(cfg: Config, aoi_key: str = "model_aoi") -> xr.DataArray:
     if not parts:
         raise RuntimeError("No Open Buildings tiles cover the AOI; regenerate the tile list.")
     mosaic = merge_arrays(parts, nodata=np.nan)
-    mosaic = mosaic.where(mosaic != NODATA)
-    mosaic.name = "ob_height_m"
-    return mosaic
+    return mosaic.where(mosaic != NODATA)
 
 
 def footprint_heights(

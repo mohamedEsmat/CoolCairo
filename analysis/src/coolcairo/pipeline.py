@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from coolcairo import enmap, openbuildings, population, separability, stac
+from coolcairo import enmap, growth, openbuildings, population, separability, stac
 from coolcairo.blocks import block_features, height_raster
 from coolcairo.buildings import fetch_buildings, footprint_mask
 from coolcairo.classify import classify_sentinel2
@@ -60,6 +60,51 @@ def load_osm_buildings(cfg: Config) -> gpd.GeoDataFrame:
 
 def load_open_buildings_heights(cfg: Config) -> xr.DataArray:
     return _cached_array(DATA_DIR / "ob_height_m.nc", lambda: openbuildings.height_mosaic(cfg))
+
+
+def load_presence(cfg: Config, year: int) -> xr.DataArray:
+    """Open Buildings building-presence confidence (0-1, 4 m) over the model area for one year.
+
+    Cached as int16 thousandths (-1 = no data) so eight years fit in ~200 MB.
+    """
+    def build() -> xr.DataArray:
+        p = openbuildings.band_mosaic(cfg, openbuildings.PRESENCE_BAND, year)
+        coded = (p * 1000).round().fillna(-1).astype("int16")
+        coded.attrs = {"year": year}
+        return coded.drop_vars("band", errors="ignore")
+
+    coded = _cached_array(DATA_DIR / f"ob_presence_{year}_4m.nc", build)
+    presence = coded.where(coded >= 0) / 1000.0
+    return presence.rio.write_crs(cfg.crs)
+
+
+def add_growth(cfg: Config, blocks: pd.DataFrame) -> pd.DataFrame:
+    """Blocks plus building cover in the first and last growth year and the growth class."""
+    g = cfg["growth"]
+    first, last = g["first_year"], g["last_year"]
+    presence = {y: load_presence(cfg, y) for y in (first, last)}
+    out = growth.attach(blocks, growth.block_built_share(presence, cfg, g["presence_min"]))
+    out["built_first"], out["built_last"] = out[f"built_{first}"], out[f"built_{last}"]
+    out["growth_class"] = growth.growth_class(
+        out, first, last, g["built_block_min"], g["denser_min"])
+    return out
+
+
+def growth_summary(cfg: Config, blocks: pd.DataFrame) -> dict:
+    """What the app's Growth view states about the blocks given (the display district)."""
+    g = cfg["growth"]
+    cell_km2 = cfg.block_size**2 / 1e6
+    return {
+        "available": 1,
+        "firstYear": g["first_year"],
+        "lastYear": g["last_year"],
+        "builtFirstKm2": float(blocks.built_first.sum() * cell_km2),
+        "builtLastKm2": float(blocks.built_last.sum() * cell_km2),
+        "newBlocks": int((blocks.growth_class == growth.NEW_CODE).sum()),
+        "denserBlocks": int((blocks.growth_class == growth.DENSER_CODE).sum()),
+        "denserMin": g["denser_min"],
+        "source": "Google Open Buildings 2.5D Temporal (CC BY 4.0)",
+    }
 
 
 def load_population(cfg: Config) -> xr.DataArray:

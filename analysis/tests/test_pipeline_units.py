@@ -249,3 +249,44 @@ def test_new_interventions_cool_and_respect_caps():
     assert (d <= 0).all().all()
     expected_park = pocket_park_delta(result, 0.5 * blocks.soil_frac)  # 50% cap from config
     assert d.pocket_parks.to_numpy() == pytest.approx(expected_park.to_numpy())
+
+
+def test_open_buildings_year_url_swaps_only_the_dated_folder():
+    from coolcairo.openbuildings import year_url
+
+    url = "https://x/v1/geotiffs/14584_2023_06_30/tile_2023ab.tif"
+    assert year_url(url, 2016) == "https://x/v1/geotiffs/14584_2016_06_30/tile_2023ab.tif"
+
+
+def test_growth_transitions_and_built_area():
+    from coolcairo.growth import BUILT_BEFORE, NEWLY_BUILT, OPEN, built_area_km2, transitions
+
+    shares = pd.DataFrame({"built_2016": [0.30, 0.02, 0.01], "built_2023": [0.35, 0.25, 0.05]})
+    assert transitions(shares, 2016, 2023, 0.10).tolist() == [BUILT_BEFORE, NEWLY_BUILT, OPEN]
+    area = built_area_km2(shares, 90)  # 0.0081 km2 per block.
+    assert area[2016] == pytest.approx(0.33 * 0.0081)
+    assert area[2023] == pytest.approx(0.65 * 0.0081)
+
+
+def test_growth_built_share_counts_confident_pixels_per_10m_cell():
+    from coolcairo.growth import built_share_fine
+
+    cfg = load_config()
+    gb = geobox_for(cfg, "model_aoi", 10)
+    x0, y0 = gb.affine.c, gb.affine.f  # North-west corner.
+    # 5 m pixels over the first two 10 m cells of the top row: left cell 3 of 4 built, right 0.
+    p = np.array([[0.9, 0.8, 0.1, 0.2], [0.7, 0.3, 0.0, 0.4]], dtype="float32")
+    da = xr.DataArray(p, dims=("y", "x"),
+                      coords={"y": [y0 - 2.5, y0 - 7.5], "x": x0 + 2.5 + 5.0 * np.arange(4)})
+    da = da.rio.write_crs(cfg.crs)
+    share = built_share_fine(da, cfg, 0.5)
+    assert float(share.isel(y=0, x=0)) == pytest.approx(0.75)
+    assert float(share.isel(y=0, x=1)) == pytest.approx(0.0)
+
+
+def test_growth_class_codes():
+    from coolcairo.growth import growth_class
+
+    shares = pd.DataFrame({"built_2016": [0.30, 0.30, 0.02, 0.01, np.nan],
+                           "built_2023": [0.32, 0.40, 0.25, 0.05, 0.2]})
+    assert growth_class(shares, 2016, 2023, 0.10, 0.05).tolist() == [1, 2, 3, 0, -1]
