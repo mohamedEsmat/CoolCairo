@@ -9,9 +9,11 @@ Cities across the region share the problem: desert climate, dark roofs and aspha
 
 CoolCairo is a Windows desktop app backed by a reproducible Python analysis. A planner sees the district in 3D from real satellite data, switches between surface materials, surface temperature and heat risk, paints cooling measures onto 90 m blocks, and reads the predicted effect live.
 
+**Methodology report:** [`docs/CoolCairo_Methodology_Report.pdf`](docs/CoolCairo_Methodology_Report.pdf) (data, method, validation, results, limitations). **Quick look without installing anything:** [example data and results](#example-data-try-it-in-seconds-offline).
+
 ## What the app does
 
-1. **Satellite archive sync.** At start-up the app queries the real archives for the exact scenes the analysis used (65 Landsat 8/9 and 70 Sentinel-2 scenes via Microsoft Planetary Computer, the EnMAP scene via DLR) and downloads a live preview of Cairo from each satellite. Offline, it says so and uses the prepared data.
+1. **Satellite archive sync.** At start-up the app queries the real archives for the exact scenes the analysis used (65 Landsat 8/9 scenes and 70 Sentinel-2 granules from 58 acquisition days via Microsoft Planetary Computer, the EnMAP scene via DLR) and downloads a live preview of Cairo from each satellite. Offline, it says so and uses the prepared data.
 2. **MENA globe.** NASA Blue Marble Earth with the region's major cities; Nasr City is the one analysed district, the others show where the method scales next.
 3. **Fly-in.** From space down to Nasr City, ending on a sharp 10 m Sentinel-2 image of Cairo.
 4. **3D district** (about 1,900 buildings with estimated heights) with four views:
@@ -19,7 +21,8 @@ CoolCairo is a Windows desktop app backed by a reproducible Python analysis. A p
    - **Surface heat:** summer land surface temperature per block.
    - **Heat risk:** residents × degrees above a typical east-Cairo block.
    - **Growth:** building cover 2016 → 2023 per block: new built-up, denser, unchanged, still open.
-5. **Four cooling tools**, painted per block, with live results (average block temperature before → after, heat exposure, residents in cooled blocks):
+5. **Analysis maps.** Each view opens the matching figures from the methodology report (e.g. the hyperspectral comparison in Surface heat); the heat view offers three colour schemes.
+6. **Four cooling tools**, painted per block, with live results (average block temperature before → after, heat exposure, residents in cooled blocks):
 
 | Tool | What it changes | Effect per unit of block area | Basis |
 | --- | --- | --- | --- |
@@ -31,8 +34,8 @@ CoolCairo is a Windows desktop app backed by a reproducible Python analysis. A p
 ## Key results
 
 - **Heat model:** block surface temperature from material fractions and building height, spatial cross-validated R² **0.25** (mean error ±1.2 °C, 2,538 urban blocks, 1 km tiles held out).
-- **Hyperspectral adds value for heat:** EnMAP block spectra explain block surface temperature at R² **0.58** (with our features) vs **0.40** with Sentinel-2, and **0.53 vs 0.33** for the same EnMAP scene reduced to Sentinel-2's bands. The advantage holds with 2–3 km held-out tiles. For separating buildings from desert, EnMAP adds nothing beyond a 70-scene Sentinel-2 composite. See `analysis/notebooks/05_hyperspectral_value.ipynb`.
-- **Heat risk in the display district:** 95,141 residents, 6,460 person·°C of heat exposure today. At full adoption within each tool's limits, exposure falls by 41% (cool roofs), 24% (street trees), 52% (cool pavements) and 60% (pocket parks).
+- **Hyperspectral adds value for heat:** with our features, EnMAP block spectra explain block surface temperature at R² **0.58** vs **0.40** with Sentinel-2. Spectra alone: **0.53** for EnMAP's full spectrum vs **0.33** for the same scene reduced to Sentinel-2's bands, so the gain comes from spectral detail, not the sensor or date. The advantage holds with 2–3 km held-out tiles. For separating buildings from desert, EnMAP adds nothing beyond the Sentinel-2 summer composite (58 acquisition days). See `analysis/notebooks/05_hyperspectral_value.ipynb`.
+- **Heat risk in the display district:** 95,141 residents, 6,460 person·°C of heat exposure today. At full adoption within each tool's limits, exposure falls by 41% (cool roofs), 24% (street trees), 52% (cool pavements) and 60% (pocket parks). Targeting matters more: cool roofs and pocket parks on only the riskiest third of blocks cut it by **74%** (6,460 → 1,686 person·°C, 22,588 residents in cooled blocks).
 - **Urban growth 2016–2023:** building footprint area in east Cairo grew 5.7% (37.1 → 39.2 km²); 988 blocks turned from open land to built-up and now house about 61,000 residents. These new blocks average 46.9 °C summer surface temperature, about 1 °C hotter than established neighbourhoods (46.0 °C) and cooler than open desert (48.6 °C). See `analysis/notebooks/06_urban_growth.ipynb`.
 - **Building heights:** Google Open Buildings 2.5D estimates checked against OSM-tagged heights: bias −1.4 m, mean error 6.2 m, r = 0.60.
 
@@ -60,13 +63,13 @@ uv sync                        # locked dependencies
 uv run pytest                  # unit tests
 uv run python run_pipeline.py  # stream data, fit model, write export/district.json
 uv run jupyter lab             # notebooks 01–06, same steps with plots
-uv run python report/build_report.py  # methodology report PDF in docs/
+uv run python report/build_report.py  # methodology report PDF in docs/ (needs the EnMAP files)
 uv run python globe_textures.py       # app globe textures from NASA Blue Marble (already in the repo)
 ```
 
 Without uv, `requirements.txt` at the repo root pins the same versions (Python 3.12): `pip install -r requirements.txt`, then `pip install --no-deps -e ./analysis`, then run the same commands with `python` instead of `uv run python`.
 
-No account or API key is needed for the core pipeline. **EnMAP is optional:** it needs a free DLR EOC Geoservice account subscribed to the "EnMAP Access Service"; download the files for the scene in `analysis/config/enmap_scenes.txt` into `analysis/data/enmap/`. Without them the pipeline runs and skips the hyperspectral results.
+No account or API key is needed for the core pipeline. **EnMAP is optional:** it needs a free DLR EOC Geoservice account subscribed to the "EnMAP Access Service"; download the files for the scene in `analysis/config/enmap_scenes.txt` into `analysis/data/enmap/`. Without them the pipeline, notebooks 01–04 and 06 and the example run, and skip the hyperspectral results; only notebook 05 and the report script need them.
 
 ### Example data: try it in seconds, offline
 
@@ -97,7 +100,7 @@ It fits the heat model and computes cooling effects, heat risk and urban growth,
 
 Starting the app with `-autotest` makes it drive itself through the whole flow in a loop, for soak testing.
 
-`CoolCairo.exe -selftest -logFile selftest.log` runs automated checks inside the built app (heat colour schemes, brush footprint and block highlight, analysis-maps popup, today's heat exposure) and quits with exit code 0 when all pass; each check writes a `[SelfTest] PASS/FAIL` line to the log.
+`CoolCairo.exe -selftest -logFile selftest.log` runs 51 automated checks inside the built app (heat colour schemes, brush footprint and block highlight, analysis-maps popup, view fades, result cards, paint feedback, heat shimmer, data ticker, today's heat exposure) and quits with exit code 0 when all pass; each check writes a `[SelfTest] PASS/FAIL` line to the log. `-screenshots <folder>` takes the screenshots used in the report.
 
 ## Repository layout
 
@@ -110,7 +113,7 @@ Starting the app with `-autotest` makes it drive itself through the whole flow i
 | `data/sample_input` | Example input (see above); `analysis/make_sample.py` recreates it |
 | `results` | Example outputs written by `analysis/run_example.py` |
 | `unity/Assets/CoolCairo` | Globe intro, 3D district, interventions, UI |
-| `docs` | Research notes, M2 spot-check sheet, EnMAP licence |
+| `docs` | Methodology report (PDF, with its figures and app screenshots), research notes, M2 spot-check sheet, EnMAP licence |
 
 ## Limitations
 
