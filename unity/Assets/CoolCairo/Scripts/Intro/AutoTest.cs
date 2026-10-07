@@ -63,6 +63,10 @@ namespace CoolCairo
             {
                 district.SetMode(ViewMode.Growth);
                 yield return Shot(folder, "06b_growth");
+                // The analysis-maps popup for this view, then close it again.
+                FindButton(HudStyle.FiguresButton)?.onClick.Invoke();
+                yield return Shot(folder, "06c_analysis_map");
+                FindButton(HudStyle.FigureClose)?.onClick.Invoke();
             }
 
             // A targeted plan: cool roofs + pocket parks on the riskiest third of populated blocks.
@@ -82,6 +86,10 @@ namespace CoolCairo
             Debug.Log($"[AutoTest] screenshots saved to {folder}");
             Application.Quit();
         }
+
+        static UnityEngine.UI.Button FindButton(string name) =>
+            Resources.FindObjectsOfTypeAll<UnityEngine.UI.Button>()
+                .FirstOrDefault(b => b.name == name && b.gameObject.scene.IsValid());
 
         static IEnumerator Shot(string folder, string name)
         {
