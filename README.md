@@ -74,6 +74,8 @@ No account or API key is needed for the core pipeline. **EnMAP is optional:** it
 
 Starting the app with `-autotest` makes it drive itself through the whole flow in a loop, for soak testing.
 
+`CoolCairo.exe -selftest -logFile selftest.log` runs automated checks inside the built app (heat colour schemes, brush footprint and block highlight, analysis-maps popup, today's heat exposure) and quits with exit code 0 when all pass; each check writes a `[SelfTest] PASS/FAIL` line to the log.
+
 ## Repository layout
 
 | Path | What |
