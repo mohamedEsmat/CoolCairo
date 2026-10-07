@@ -5,6 +5,13 @@ namespace CoolCairo
 {
     public enum ViewMode { Materials, Heat, Risk, Growth }
 
+    // Colour schemes for the Surface heat view, chosen with the buttons in the colour key.
+    //   Report:  blue -> light grey -> orange, centred on the typical urban block (heatReferenceC),
+    //            the same colours as the methodology report's maps.
+    //   Inferno: black -> purple -> orange -> yellow, the classic thermal-camera look.
+    //   Warm:    pale yellow -> orange -> dark red.
+    public enum HeatPalette { Report, Inferno, Warm }
+
     // Loads district.json, builds the buildings mesh and the block-level ground overlay,
     // and recolours both whenever the view mode or interventions change.
     public class DistrictView : MonoBehaviour
@@ -32,11 +39,13 @@ namespace CoolCairo
 
         // Built in code, not serialized: a serialized Gradient is initialised by Unity to plain
         // white, which silently turned the whole heat view white.
-        Gradient heatRamp, riskRamp;
+        Gradient riskRamp;
+        Gradient[] heatRamps;
 
         public DistrictData Data { get; private set; }
         public InterventionModel Model { get; private set; }
         public ViewMode Mode { get; private set; } = ViewMode.Heat;
+        public HeatPalette Palette { get; private set; } = HeatPalette.Report;
         public float HeatMin { get; private set; }
         public float HeatMax { get; private set; }
         public float RiskMax { get; private set; }  // Person-degrees at the top of the risk scale.
@@ -48,7 +57,7 @@ namespace CoolCairo
 
         void Awake()
         {
-            heatRamp = DefaultHeatRamp();
+            heatRamps = new[] { ReportRamp(), InfernoRamp(), WarmRamp() };
             riskRamp = DefaultRiskRamp();
             Data = DistrictData.FromJson(districtJson.text);
             Model = new InterventionModel(Data);
@@ -65,6 +74,12 @@ namespace CoolCairo
         public void SetMode(ViewMode mode)
         {
             Mode = mode;
+            Refresh();
+        }
+
+        public void SetPalette(HeatPalette palette)
+        {
+            Palette = palette;
             Refresh();
         }
 
@@ -103,7 +118,18 @@ namespace CoolCairo
             };
         }
 
-        public Color HeatColor(float lst) => heatRamp.Evaluate(Mathf.InverseLerp(HeatMin, HeatMax, lst));
+        public Color HeatColor(float lst)
+        {
+            var ramp = heatRamps[(int)Palette];
+            if (Palette != HeatPalette.Report)
+                return ramp.Evaluate(Mathf.InverseLerp(HeatMin, HeatMax, lst));
+            // Report: the light-grey middle sits exactly on the typical urban block, so blue means
+            // "cooler than typical" and orange "hotter" (the blocks that carry heat risk). The
+            // wider side of the range sets the scale, so both sides use the same degrees per colour step.
+            float reference = Data.model.heatReferenceC;
+            float span = Mathf.Max(0.1f, Mathf.Max(reference - HeatMin, HeatMax - reference));
+            return ramp.Evaluate(Mathf.Clamp01(0.5f + (lst - reference) / (2f * span)));
+        }
 
         // Heat-risk view: zero-risk and unpopulated blocks get quiet, distinct greys so the
         // orange-to-purple hotspots stand out (a near-white zero washed the whole district out).
@@ -263,19 +289,27 @@ namespace CoolCairo
             return g;
         }
 
-        static Gradient DefaultHeatRamp()
+        static Gradient Ramp(params (Color color, float at)[] keys)
         {
-            // Cool blue -> pale yellow -> deep red. Sequential, readable for common colour-vision deficiencies.
             var g = new Gradient();
-            g.SetKeys(
-                new[]
-                {
-                    new GradientColorKey(new Color(0.19f, 0.33f, 0.62f), 0f),
-                    new GradientColorKey(new Color(0.99f, 0.93f, 0.65f), 0.5f),
-                    new GradientColorKey(new Color(0.65f, 0.06f, 0.09f), 1f),
-                },
-                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
+            var colorKeys = new GradientColorKey[keys.Length];
+            for (int k = 0; k < keys.Length; k++) colorKeys[k] = new GradientColorKey(keys[k].color, keys[k].at);
+            g.SetKeys(colorKeys, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
             return g;
         }
+
+        static Color Hex(int rgb) => new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
+
+        // Same colours as the methodology report: diverging, neutral light grey in the middle.
+        static Gradient ReportRamp() => Ramp((Hex(0x174A8B), 0f), (Hex(0x2A78D6), 0.25f), (Hex(0xF0EFEC), 0.5f),
+                                             (Hex(0xEB6834), 0.75f), (Hex(0x9C3A14), 1f));
+
+        // Matplotlib's "inferno", as in the Landsat maps of the analysis notebooks.
+        static Gradient InfernoRamp() => Ramp((Hex(0x000004), 0f), (Hex(0x420A68), 0.2f), (Hex(0x932667), 0.45f),
+                                              (Hex(0xDD513A), 0.7f), (Hex(0xFCA50A), 0.88f), (Hex(0xFCFFA4), 1f));
+
+        // ColorBrewer "YlOrRd": warm only, pale yellow to dark red.
+        static Gradient WarmRamp() => Ramp((Hex(0xFFFFB2), 0f), (Hex(0xFECC5C), 0.25f), (Hex(0xFD8D3C), 0.5f),
+                                           (Hex(0xF03B20), 0.75f), (Hex(0xBD0026), 1f));
     }
 }

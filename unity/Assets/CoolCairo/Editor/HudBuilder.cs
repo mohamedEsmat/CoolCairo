@@ -188,6 +188,14 @@ namespace CoolCairo.EditorTools
             gv.childControlWidth = gv.childControlHeight = true;
             gv.childForceExpandHeight = false;
             // Rows are filled in by DistrictUI from DistrictView's material colours.
+
+            // Heat view only: three buttons to switch the colour scheme.
+            var palettes = Row(card.transform, HudStyle.LegendPalettes, 26, 6);
+            Fixed(Label(palettes, "PaletteLabel", "Colours", 12, HudStyle.Muted).gameObject, 56, 26);
+            var paletteNames = new[] { "Report", "Inferno", "Warm" };
+            var paletteValues = new[] { HeatPalette.Report, HeatPalette.Inferno, HeatPalette.Warm };
+            for (int k = 0; k < paletteValues.Length; k++)
+                Flexible(Button(palettes, HudStyle.PaletteButtonPrefix + paletteValues[k], paletteNames[k], 12).gameObject, width: 1);
         }
 
         static void BuildFooter(Transform root)

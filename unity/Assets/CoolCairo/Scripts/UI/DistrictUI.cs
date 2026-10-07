@@ -21,14 +21,16 @@ namespace CoolCairo
 
         readonly Dictionary<ViewMode, Button> _viewButtons = new Dictionary<ViewMode, Button>();
         readonly Dictionary<Intervention, Button> _toolButtons = new Dictionary<Intervention, Button>();
+        readonly Dictionary<HeatPalette, Button> _paletteButtons = new Dictionary<HeatPalette, Button>();
         TextMeshProUGUI _viewHint, _toolHint, _brushValue, _legendTitle, _legendMin, _legendMax;
         TextMeshProUGUI _deltaValue, _deltaSub, _exposureValue, _exposureSub, _residentsValue, _residentsSub;
         TextMeshProUGUI _tooltipTitle, _tooltipBody;
         RawImage _legendRamp;
-        GameObject _legendScale, _legendSwatches, _riskKeys, _growthKeys;
+        GameObject _legendScale, _legendSwatches, _riskKeys, _growthKeys, _legendPalettes;
         RectTransform _tooltip, _canvas;
         Texture2D _rampTex;
         ViewMode _shownMode = (ViewMode)(-1);
+        HeatPalette _shownPalette = (HeatPalette)(-1);
         Intervention _shownTool = (Intervention)(-1);
 
         void Start()
@@ -47,6 +49,12 @@ namespace CoolCairo
                 var b = Find<Button>(HudStyle.ToolButtonPrefix + tool);
                 _toolButtons[tool] = b;
                 b.onClick.AddListener(() => brush.Tool = tool);
+            }
+            foreach (HeatPalette palette in System.Enum.GetValues(typeof(HeatPalette)))
+            {
+                var b = Find<Button>(HudStyle.PaletteButtonPrefix + palette);
+                _paletteButtons[palette] = b;
+                b.onClick.AddListener(() => district.SetPalette(palette));
             }
             Find<Button>(HudStyle.GlobeButton).onClick.AddListener(() => SceneManager.LoadScene(0));
             Find<Button>(HudStyle.ResetButton).onClick.AddListener(() => district.Model.ResetAll());
@@ -73,6 +81,7 @@ namespace CoolCairo
             _legendRamp = Find<RawImage>(HudStyle.LegendRamp);
             _legendScale = Find<RectTransform>(HudStyle.LegendScale).gameObject;
             _legendSwatches = Find<RectTransform>(HudStyle.LegendSwatches).gameObject;
+            _legendPalettes = Find<RectTransform>(HudStyle.LegendPalettes).gameObject;
             _tooltip = Find<RectTransform>(HudStyle.Tooltip);
             _tooltipTitle = Find<TextMeshProUGUI>(HudStyle.TooltipTitle);
             _tooltipBody = Find<TextMeshProUGUI>(HudStyle.TooltipBody);
@@ -102,7 +111,7 @@ namespace CoolCairo
         void Update()
         {
             // Mode and tool can also change from code (e.g. the soak test), so poll them.
-            if (district.Mode != _shownMode) ShowView(district.Mode);
+            if (district.Mode != _shownMode || district.Palette != _shownPalette) ShowView(district.Mode);
             if (brush.Tool != _shownTool) ShowTool(brush.Tool);
             UpdateTooltip();
         }
@@ -112,7 +121,9 @@ namespace CoolCairo
         void ShowView(ViewMode mode)
         {
             _shownMode = mode;
+            _shownPalette = district.Palette;
             foreach (var kv in _viewButtons) Highlight(kv.Value, kv.Key == mode);
+            foreach (var kv in _paletteButtons) Highlight(kv.Value, kv.Key == district.Palette);
             var m = district.Data.model;
             _viewHint.text = mode switch
             {
@@ -205,6 +216,7 @@ namespace CoolCairo
             _legendSwatches.SetActive(mode == ViewMode.Materials);
             _riskKeys.SetActive(mode == ViewMode.Risk);
             _growthKeys.SetActive(mode == ViewMode.Growth);
+            _legendPalettes.SetActive(mode == ViewMode.Heat);
             if (mode == ViewMode.Materials)
             {
                 _legendTitle.text = "Surface materials (share per block)";
@@ -228,7 +240,9 @@ namespace CoolCairo
             _rampTex.Apply(false);
             if (mode == ViewMode.Heat)
             {
-                _legendTitle.text = "Land surface temperature";
+                _legendTitle.text = district.Palette == HeatPalette.Report
+                    ? $"Land surface temperature (grey = typical block, {district.Data.model.heatReferenceC:0.0} °C)"
+                    : "Land surface temperature";
                 _legendMin.text = $"{district.HeatMin:0} °C";
                 _legendMax.text = $"{district.HeatMax:0} °C";
             }
