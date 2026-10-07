@@ -245,6 +245,15 @@ namespace CoolCairo.EditorTools
             var brush = tools.AddComponent<InterventionBrush>();
             Assign(brush, "district", view);
             Assign(brush, "cam", cam);
+
+            // Outlines of the hovered block and the brush footprint (URP Unlit, both faces).
+            var highlightMat = EnsureMaterial("Highlight", "Universal Render Pipeline/Unlit");
+            highlightMat.SetFloat("_Cull", 0f);
+            EditorUtility.SetDirty(highlightMat);
+            var highlight = tools.AddComponent<BlockHighlight>();
+            Assign(highlight, "district", view);
+            Assign(highlight, "brush", brush);
+            Assign(highlight, "material", highlightMat);
             HudBuilder.Build(view, brush);
 
             EditorSceneManager.SaveScene(scene, ScenePath);

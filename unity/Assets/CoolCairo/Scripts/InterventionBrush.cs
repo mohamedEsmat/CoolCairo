@@ -32,15 +32,24 @@ namespace CoolCairo
 
         void PaintAround(int centre, float amount)
         {
+            foreach (int block in Footprint(centre)) district.Model.Apply(Tool, block, amount);
+        }
+
+        // The blocks one stroke covers: a circle of the brush radius around the centre block.
+        // BlockHighlight outlines exactly these, so what you see is what gets painted.
+        public System.Collections.Generic.List<int> Footprint(int centre)
+        {
             var d = district.Data;
+            var blocks = new System.Collections.Generic.List<int>();
             int cr = centre / d.cols, cc = centre % d.cols;
             for (int r = cr - radius; r <= cr + radius; r++)
             for (int c = cc - radius; c <= cc + radius; c++)
             {
                 if (r < 0 || r >= d.rows || c < 0 || c >= d.cols) continue;
                 if ((r - cr) * (r - cr) + (c - cc) * (c - cc) > radius * radius) continue;
-                district.Model.Apply(Tool, r * d.cols + c, amount);
+                blocks.Add(r * d.cols + c);
             }
+            return blocks;
         }
     }
 }
