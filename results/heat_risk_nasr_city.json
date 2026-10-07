@@ -1,0 +1,19 @@
+{
+  "residents": 95140.6122,
+  "reference_c": 45.65516,
+  "exposure_person_degC": 6459.735832054281,
+  "cool_roofs_pct": -41.38537296483716,
+  "street_trees_pct": -23.71088435292918,
+  "cool_pavements_pct": -52.33091098045175,
+  "pocket_parks_pct": -60.228559806871125,
+  "targeted_plan": {
+    "blocks": 192,
+    "share_blocks": 0.3333333333333333,
+    "exposure_before": 6459.735832054281,
+    "exposure_after": 1685.625974934017,
+    "exposure_change_pct": -73.90565158145228,
+    "mean_lst_before": 44.746162534722224,
+    "mean_lst_after": 44.29726592589182,
+    "residents_cooled": 27066.629459999996
+  }
+}

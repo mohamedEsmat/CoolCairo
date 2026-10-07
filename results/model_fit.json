@@ -1,0 +1,17 @@
+{
+  "intercept": 45.830812205535175,
+  "coefficients": {
+    "veg_frac": -3.1510027305033015,
+    "dark_roof_frac": -11.277188200293311,
+    "dark_ground_frac": 0.12494326784947683,
+    "soil_frac": 3.363530016014996,
+    "roof_frac": 2.289653910451485,
+    "mean_height_m": -0.061690488967792105
+  },
+  "r2_train": 0.3784403736917349,
+  "r2_spatial_cv": 0.25011100018748145,
+  "mae_spatial_cv": 1.1986845284241967,
+  "n_blocks": 2538,
+  "cv_folds": 5,
+  "cv_tile_size_m": 1000
+}

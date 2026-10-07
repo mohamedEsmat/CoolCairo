@@ -68,6 +68,27 @@ Without uv, `requirements.txt` at the repo root pins the same versions (Python 3
 
 No account or API key is needed for the core pipeline. **EnMAP is optional:** it needs a free DLR EOC Geoservice account subscribed to the "EnMAP Access Service"; download the files for the scene in `analysis/config/enmap_scenes.txt` into `analysis/data/enmap/`. Without them the pipeline runs and skips the hyperspectral results.
 
+### Example data: try it in seconds, offline
+
+[`data/sample_input/`](data/sample_input/README.md) holds real example input: every 90 m block of the east-Cairo model area (material shares, building height, summer surface temperature, residents, building cover 2016/2023), plus Landsat, Sentinel-2 and building extracts for Nasr City. No download or account needed:
+
+```bash
+cd analysis
+uv run python run_example.py     # or: python run_example.py
+```
+
+It fits the heat model and computes cooling effects, heat risk and urban growth, writing [`results/`](results/summary.md) (JSON, CSV, three maps and a summary). The numbers match the report and the app; `uv run pytest` checks that.
+
+| Result (from the example data) | Value |
+| --- | --- |
+| Heat model, spatial cross-validated R² | 0.25 (±1.2 °C, 2,538 blocks) |
+| Nasr City heat exposure today | 6,460 person·°C (95,141 residents) |
+| One measure in every block | cool roofs −41%, street trees −24%, cool pavements −52%, pocket parks −60% |
+| Cool roofs + pocket parks on the riskiest third of blocks | −74% (6,460 → 1,686 person·°C) |
+| Urban growth 2016–2023 | +5.7% building footprint, 988 newly built blocks at 46.9 °C vs 46.0 °C established |
+
+![Nasr City heat exposure per 90 m block, today](results/nasr_city_heat_exposure.png)
+
 **App** (Unity 6000.0.83f1, URP, Windows):
 
 1. Open `unity/` in Unity.
@@ -86,6 +107,8 @@ Starting the app with `-autotest` makes it drive itself through the whole flow i
 | `analysis/config/aoi.yaml` | Areas, CRS, dates, thresholds and every literature value, with sources |
 | `analysis/notebooks` | 01 data · 02 classification and M2 spot check · 03 model and heat risk · 04 export · 05 hyperspectral value · 06 urban growth |
 | `export/district.json` | Handoff from analysis to the app |
+| `data/sample_input` | Example input (see above); `analysis/make_sample.py` recreates it |
+| `results` | Example outputs written by `analysis/run_example.py` |
 | `unity/Assets/CoolCairo` | Globe intro, 3D district, interventions, UI |
 | `docs` | Research notes, M2 spot-check sheet, EnMAP licence |
 
