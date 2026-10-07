@@ -139,3 +139,27 @@ def exposure_reduction_summary(
         after = heat_exposure(blocks.lst_c + delta, blocks.population, reference_c).sum()
         out[f"{name}_pct"] = 100 * (after - base) / base if base else 0.0
     return pd.Series(out)
+
+
+def targeted_plan(cfg: Config, result: FitResult, display: pd.DataFrame, ref: float) -> dict:
+    """Same plan as the app screenshot: cool roofs + pocket parks on the riskiest third of
+    valid blocks (ranked by baseline heat exposure)."""
+    d = display.dropna(subset=["lst_c"]).copy()
+    base = heat_exposure(d.lst_c, d.population.clip(lower=0), ref)
+    chosen = base.sort_values(ascending=False).index[: len(d) // 3]
+    delta = pd.Series(0.0, index=d.index)
+    roofs = cool_roof_delta(
+        cool_roof_surface_deltas(cfg, result), d.dark_roof_frac, d.pale_roof_frac)
+    parks = pocket_park_delta(result, cfg["interventions"]["park_max_share_of_sand"] * d.soil_frac)
+    delta[chosen] = (roofs + parks)[chosen]
+    after = heat_exposure(d.lst_c + delta, d.population.clip(lower=0), ref)
+    return {
+        "blocks": len(chosen),
+        "share_blocks": len(chosen) / len(d),
+        "exposure_before": float(base.sum()),
+        "exposure_after": float(after.sum()),
+        "exposure_change_pct": 100 * (after.sum() - base.sum()) / base.sum(),
+        "mean_lst_before": float(d.lst_c.mean()),
+        "mean_lst_after": float((d.lst_c + delta).mean()),
+        "residents_cooled": float(d.population.clip(lower=0)[chosen][delta[chosen] < -0.01].sum()),
+    }
