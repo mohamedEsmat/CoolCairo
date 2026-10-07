@@ -28,6 +28,7 @@ from coolcairo.interventions import (
     full_adoption_deltas,
     heat_reference_c,
     targeted_plan,
+    targeted_plan_delta,
 )
 from coolcairo.model import fit, training_rows
 from coolcairo.population import heat_exposure
@@ -99,20 +100,9 @@ def grid(display: pd.DataFrame, values: pd.Series) -> np.ndarray:
 
 
 def maps(cfg: object, result: object, display: pd.DataFrame, reference: float) -> None:
-    from coolcairo.interventions import (
-        cool_roof_delta,
-        cool_roof_surface_deltas,
-        pocket_park_delta,
-    )
-
     d = display.copy()
     base = heat_exposure(d.lst_c, d.population.clip(lower=0), reference)
-    chosen = base.sort_values(ascending=False).index[: d.lst_c.notna().sum() // 3]
-    delta = pd.Series(0.0, index=d.index)
-    roofs = cool_roof_delta(cool_roof_surface_deltas(cfg, result), d.dark_roof_frac,
-                            d.pale_roof_frac)
-    parks = pocket_park_delta(result, cfg["interventions"]["park_max_share_of_sand"] * d.soil_frac)
-    delta[chosen] = (roofs + parks)[chosen]
+    delta = targeted_plan_delta(cfg, result, display, reference).reindex(d.index, fill_value=0.0)
     after = heat_exposure(d.lst_c + delta, d.population.clip(lower=0), reference)
 
     top = float(np.nanpercentile(base[base > 0], 95))

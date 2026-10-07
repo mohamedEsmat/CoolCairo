@@ -71,8 +71,11 @@ namespace CoolCairo
 
             // A targeted plan: cool roofs + pocket parks on the riskiest third of populated blocks.
             var model = district.Model;
+            // Many blocks have zero exposure: break ties by surface temperature, hottest first,
+            // exactly as coolcairo.interventions.targeted_plan_delta, so the report agrees.
             var ranked = Enumerable.Range(0, district.Data.BlockCount)
-                .Where(model.IsValid).OrderByDescending(b => model.Exposure(b, false)).ToList();
+                .Where(model.IsValid).OrderByDescending(b => model.Exposure(b, false))
+                .ThenByDescending(model.BaselineLst).ToList();
             foreach (int b in ranked.Take(ranked.Count / 3))
             {
                 model.Apply(Intervention.CoolRoof, b, 1f);

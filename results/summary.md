@@ -14,7 +14,7 @@ Written by `analysis/run_example.py` from `data/sample_input/blocks_east_cairo.c
 ## Heat risk, Nasr City display district
 - 95,141 residents, typical block 45.7 °C, heat exposure **6,460 person·°C** today.
 - One measure in every block: cool roofs -41%, street trees -24%, cool pavements -52%, pocket parks -60%.
-- Targeted plan (cool roofs + pocket parks on the riskiest third, 192 blocks): 6,460 → 1,686 person·°C (**-74%**), 27,067 residents cooled.
+- Targeted plan (cool roofs + pocket parks on the riskiest third, 192 blocks): 6,460 → 1,686 person·°C (**-74%**), 22,588 residents cooled.
 
 ## Urban growth 2016–2023 (model area)
 - Building footprint 37.1 → 39.2 km² (+5.7%); 988 newly built blocks, ~61,145 residents.
