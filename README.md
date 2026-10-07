@@ -64,6 +64,8 @@ uv run python report/build_report.py  # methodology report PDF in docs/
 uv run python globe_textures.py       # app globe textures from NASA Blue Marble (already in the repo)
 ```
 
+Without uv, `requirements.txt` at the repo root pins the same versions (Python 3.12): `pip install -r requirements.txt`, then `pip install --no-deps -e ./analysis`, then run the same commands with `python` instead of `uv run python`.
+
 No account or API key is needed for the core pipeline. **EnMAP is optional:** it needs a free DLR EOC Geoservice account subscribed to the "EnMAP Access Service"; download the files for the scene in `analysis/config/enmap_scenes.txt` into `analysis/data/enmap/`. Without them the pipeline runs and skips the hyperspectral results.
 
 **App** (Unity 6000.0.83f1, URP, Windows):
