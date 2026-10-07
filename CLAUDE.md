@@ -10,9 +10,9 @@ A browser-based 3D tool where a city planner sees a real Cairo district rendered
 
 Output for the judges: a deployed WebGL link, reproducible notebooks, a methodology report, and a pitch video.
 
-## Problem statement (official template, chosen 30 Sep)
+## Problem statement (official template, chosen 30 Sep; widened to MENA cities 7 Oct)
 
-> We want to **map** summer heat risk, meaning land surface temperature, the surface materials driving it, and the population exposed to it, in **Nasr City, Cairo** during **June–August 2023–2025** so that **city planners** can decide **which blocks to prioritise for cool roofs and street trees**.
+> We want to **map** summer heat risk (land surface temperature, the surface materials driving it, and the residents exposed to it) in **fast-growing cities across the Middle East and North Africa**, starting with **Nasr City, Cairo** (June–August 2023–2025) as the first example, so that **city planners** can **decide which blocks to prioritise for cool roofs, street trees, cool pavements and pocket parks**.
 
 Official challenge text (Cockpit): *"Quantify urban growth, map land-use transitions, and assess urban heat island intensity and heat risk for cities across the Arab world. Fuse 813 imagery with SAR and thermal data to track impervious surface growth, characterize land-use change, and build heat risk maps to support climate-resilient urban planning."*
 

@@ -1,9 +1,11 @@
 # CoolCairo
 
-**Block-level urban heat decision support for Nasr City, Cairo.**
+**Block-level urban heat decision support for MENA cities, starting with Nasr City, Cairo.**
 Arab Youth Space Hackathon 2026 (UAE Space Agency / Space42), 813 Challenge: *Urban Expansion, Land Use Change & Heat Risk*. Team 46.
 
-> We want to **map** summer heat risk, meaning land surface temperature, the surface materials driving it, and the population exposed to it, in **Nasr City, Cairo** during **June–August 2023–2025** so that **city planners** can decide **which blocks to prioritise for cool roofs, street trees, cool pavements and pocket parks**.
+> We want to **map** summer heat risk (land surface temperature, the surface materials driving it, and the residents exposed to it) in **fast-growing cities across the Middle East and North Africa**, starting with **Nasr City, Cairo** (June–August 2023–2025) as the first example, so that **city planners** can **decide which blocks to prioritise for cool roofs, street trees, cool pavements and pocket parks**.
+
+Cities across the region share the problem: desert climate, dark roofs and asphalt, sandy lots, and fast growth onto the desert. Every dataset used here is free and covers the whole region, so the method runs in any city; Nasr City is the first one built and tested.
 
 CoolCairo is a Windows desktop app backed by a reproducible Python analysis. A planner sees the district in 3D from real satellite data, switches between surface materials, surface temperature and heat risk, paints cooling measures onto 90 m blocks, and reads the predicted effect live.
 

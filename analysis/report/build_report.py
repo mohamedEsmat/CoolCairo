@@ -221,14 +221,16 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     s: list = []
     # ---------------------------------------------------------------- title page
     s += [Spacer(1, 38 * mm), p("CoolCairo", TITLE), Spacer(1, 4 * mm),
-          p("Block-level urban heat decision support for Nasr City, Cairo", SUBTITLE),
+          p("Block-level urban heat decision support for MENA cities, starting with Nasr City, "
+            "Cairo", SUBTITLE),
           Spacer(1, 2 * mm), p("Methodology report", SUBTITLE), Spacer(1, 14 * mm),
           callout([
-              "<b>Problem statement.</b> We want to <b>map</b> summer heat risk, meaning land surface "
-              "temperature, the surface materials driving it, and the population exposed to it, in "
-              f"<b>Nasr City, Cairo</b> during <b>{period}</b> so that <b>city planners</b> can "
-              "decide <b>which blocks to prioritise for cool roofs, street trees, cool pavements and "
-              "pocket parks</b>."]),
+              "<b>Problem statement.</b> We want to <b>map</b> summer heat risk (land surface "
+              "temperature, the surface materials driving it, and the residents exposed to it) in "
+              "<b>fast-growing cities across the Middle East and North Africa</b>, starting with "
+              f"<b>Nasr City, Cairo</b> ({period}) as the first example, so that <b>city planners</b> "
+              "can <b>decide which blocks to prioritise for cool roofs, street trees, cool pavements "
+              "and pocket parks</b>."]),
           Spacer(1, 14 * mm),
           table([
               ["", ""],
@@ -243,11 +245,13 @@ def story(r: Results, figs: dict[str, Path]) -> list:
 
     # ---------------------------------------------------------------- 1 summary
     s += [p("1  Summary", H1),
-          p("Cairo's eastern districts sit on desert and grow fast. Summer surfaces there routinely "
-            "pass 45 °C, but heat is not even: it follows what the ground is made of. CoolCairo "
-            "turns open satellite data into a planning tool that answers one question per city "
-            "block: <i>how hot is it, why, how many people live there, and what would a cooling "
-            "measure change?</i>"),
+          p("Cities across the Middle East and North Africa sit on desert and grow fast; Cairo's "
+            "eastern districts are a clear case. Summer surfaces there routinely pass 45 °C, but "
+            "heat is not even: it follows what the ground is made of. CoolCairo turns open "
+            "satellite data into a planning tool that answers one question per city block: <i>how "
+            "hot is it, why, how many people live there, and what would a cooling measure "
+            "change?</i> Nasr City is the first district built and tested; the free, region-wide "
+            "data lets the same method run in any city."),
           p("We measure summer land surface temperature (LST) with Landsat 8/9, map surface "
             "materials with Sentinel-2, add building footprints and heights (OpenStreetMap, Google "
             "Open Buildings) and residents (WorldPop), and aggregate everything to 90 m blocks. A "
@@ -281,8 +285,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
 
     # ---------------------------------------------------------------- 2 use case
     s += [p("2  Problem and use case", H1),
-          p("<b>Users.</b> City and district planners in Cairo Governorate, and the NGOs and "
-            "consultancies that prepare greening and retrofit programmes for them."),
+          p("<b>Users.</b> City and district planners in MENA cities (first: Cairo Governorate), "
+            "and the NGOs and consultancies that prepare greening and retrofit programmes for them."),
           p("<b>Decision.</b> Where to spend a limited cooling budget: which blocks first, and "
             "which measure there. A planner needs to see where heat and people coincide, what "
             "drives the heat in each block, and the expected effect of a measure before committing "
@@ -291,7 +295,12 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "cover a city block by block every summer. Landsat measures surface temperature every "
             "8 days (two satellites), Sentinel-2 sees materials and vegetation at 10 m every 5 days, "
             "and both archives are free, so the same method repeats each year and in any city."),
-          p("<b>Why Nasr City.</b> A dense, planned district with flat concrete roofs, "
+          p("<b>Why the MENA region.</b> Its cities share the problem: a desert climate, dark roofs "
+            "and asphalt, sandy lots, and fast growth onto the desert. Every dataset used here is "
+            "free and covers the whole region, so the method runs in any city. Nasr City is the "
+            "first one built and tested; the other cities on the app's globe are the next step, "
+            "not a result."),
+          p("<b>Why Nasr City first.</b> A dense, planned district with flat concrete roofs, "
             "wide asphalt streets and leftover sandy lots: all four measures apply, and its regular "
             "grid makes block-level results easy to read. It borders open desert, which makes the "
             "material question (pale roof or bare sand?) hard and worth solving.")]
