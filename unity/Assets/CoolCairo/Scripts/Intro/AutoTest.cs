@@ -74,6 +74,7 @@ namespace CoolCairo
                 model.Apply(Intervention.CoolRoof, b, 1f);
                 model.Apply(Intervention.PocketPark, b, 1f);
             }
+            district.SetMode(ViewMode.Risk);   // (was still on Growth when there is growth data)
             yield return new WaitForSeconds(0.5f);
             yield return Shot(folder, "07_risk_after_plan");
             district.SetMode(ViewMode.Heat);
