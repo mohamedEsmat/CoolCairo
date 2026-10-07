@@ -358,7 +358,7 @@ namespace CoolCairo.EditorTools
             var card = Glass(overlay.transform, HudStyle.FigureCard, solid: true);
             var rt = card.rectTransform;
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(1320, 900);
+            rt.sizeDelta = new Vector2(1600, 980);   // the map fills most of it (~75% of the height)
             var v = card.gameObject.AddComponent<VerticalLayoutGroup>();
             v.padding = new RectOffset(26, 26, 18, 20);
             v.spacing = 12;
@@ -366,11 +366,11 @@ namespace CoolCairo.EditorTools
             v.childForceExpandWidth = true;
             v.childForceExpandHeight = false;
 
-            var header = Row(card.transform, "FigureHeader", 34, 12);
-            Fixed(Label(header, "FigureTag", "ANALYSIS MAP", 11, HudStyle.ChromeBright, mono: true).gameObject, 110, 34);
+            var header = Row(card.transform, "FigureHeader", 32, 12);
+            Fixed(Label(header, "FigureTag", "ANALYSIS MAP", 11, HudStyle.ChromeBright, mono: true).gameObject, 110, 32);
             Flexible(Label(header, HudStyle.FigureTitle, "", 19, HudStyle.Text, bold: true, mono: true).gameObject, width: 1);
-            Fixed(Label(header, HudStyle.FigureCount, "", 13, HudStyle.Muted, mono: true, align: TextAlignmentOptions.Right).gameObject, 70, 34);
-            Fixed(Button(header, HudStyle.FigureClose, "×", 20).gameObject, 44, 34);
+            Fixed(Label(header, HudStyle.FigureCount, "", 13, HudStyle.Muted, mono: true, align: TextAlignmentOptions.Right).gameObject, 70, 32);
+            Fixed(Button(header, HudStyle.FigureClose, "×", 20).gameObject, 36, 32);
             Divider(card.transform);
 
             // The figure keeps its own aspect ratio inside a frame that takes the remaining height.
@@ -384,15 +384,15 @@ namespace CoolCairo.EditorTools
             fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             fit.aspectRatio = 1.6f;
 
-            Label(card.transform, HudStyle.FigureCaption, "", 14, HudStyle.Muted, wrap: true, height: 64);
+            Label(card.transform, HudStyle.FigureCaption, "", 14, HudStyle.Muted, wrap: true, height: 44);
 
-            var nav = Row(card.transform, "FigureNav", 38, 10);
-            Fixed(Button(nav, HudStyle.FigurePrev, "‹ Previous", 13).gameObject, 160, 38);
+            var nav = Row(card.transform, "FigureNav", 32, 10);
+            Fixed(Button(nav, HudStyle.FigurePrev, "‹ Previous", 12).gameObject, 120, 32);
             Spacer(nav);
             Fixed(Label(nav, "FigureKeys", "← → TO PAGE · ESC TO CLOSE", 10, HudStyle.Muted, mono: true,
-                        align: TextAlignmentOptions.Center).gameObject, 320, 38);
+                        align: TextAlignmentOptions.Center).gameObject, 320, 32);
             Spacer(nav);
-            Fixed(Button(nav, HudStyle.FigureNext, "Next ›", 13).gameObject, 160, 38);
+            Fixed(Button(nav, HudStyle.FigureNext, "Next ›", 12).gameObject, 120, 32);
 
             overlay.gameObject.SetActive(false);
         }
@@ -486,6 +486,9 @@ namespace CoolCairo.EditorTools
             h.childForceExpandWidth = false;
             h.childForceExpandHeight = true;
             Fixed(rt.gameObject, -1, height);
+            // A row's layout group would otherwise report itself as stretchable, so in a column
+            // with spare height (the analysis-maps card) the button rows grew instead of the map.
+            LayoutOf(rt.gameObject).flexibleHeight = 0;
             return rt;
         }
 

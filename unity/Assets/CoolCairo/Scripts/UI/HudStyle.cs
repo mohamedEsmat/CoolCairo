@@ -9,7 +9,7 @@ namespace CoolCairo
         // "Satellite mission control": dark glass panels outlined by thin cyan instrument lines,
         // monospaced readouts, Cairo orange only for what is selected.
         public static readonly Color Glass = Hex(0x050B14, 0.9f);        // Panel fill, map faintly shows through
-        public static readonly Color GlassSolid = Hex(0x050B14, 0.96f);  // Popups and tooltip
+        public static readonly Color GlassSolid = Hex(0x050B14, 1f);     // Popups and tooltip: nothing shows through
         public static readonly Color Chrome = Hex(0x4FD6FF, 0.28f);      // Panel outlines
         public static readonly Color ChromeBright = Hex(0x4FD6FF, 0.95f); // Corner brackets, live marks
         public static readonly Color Text = Hex(0xE6F1FF);
