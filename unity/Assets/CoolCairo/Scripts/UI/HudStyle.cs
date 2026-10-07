@@ -48,6 +48,15 @@ namespace CoolCairo
         public const string TooltipTitle = "TooltipTitle";
         public const string TooltipBody = "TooltipBody";
         public const string Footer = "Footer";
+        public const string FiguresButton = "FiguresButton";    // Sidebar: opens the analysis maps
+        public const string FigurePopup = "FigurePopup";
+        public const string FigureTitle = "FigureTitle";
+        public const string FigureCount = "FigureCount";
+        public const string FigureImage = "FigureImage";
+        public const string FigureCaption = "FigureCaption";
+        public const string FigurePrev = "FigurePrev";
+        public const string FigureNext = "FigureNext";
+        public const string FigureClose = "FigureClose";
 
         static Color Hex(int rgb, float a = 1f) =>
             new Color(((rgb >> 16) & 255) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f, a);

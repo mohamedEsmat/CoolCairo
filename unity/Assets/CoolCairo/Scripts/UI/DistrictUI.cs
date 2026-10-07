@@ -14,6 +14,7 @@ namespace CoolCairo
     {
         [SerializeField] DistrictView district;
         [SerializeField] InterventionBrush brush;
+        [SerializeField] AnalysisFigure[] figures;   // the analysis maps per view (ProjectSetup)
 
         // True while the mouse is over any HUD element; the brush and camera ignore input then.
         public static bool PointerOverUI =>
@@ -32,6 +33,15 @@ namespace CoolCairo
         ViewMode _shownMode = (ViewMode)(-1);
         HeatPalette _shownPalette = (HeatPalette)(-1);
         Intervention _shownTool = (Intervention)(-1);
+
+        // Analysis maps popup
+        Button _figuresButton, _figurePrev, _figureNext;
+        GameObject _figurePopup;
+        RawImage _figureImage;
+        AspectRatioFitter _figureFit;
+        TextMeshProUGUI _figureTitle, _figureCount, _figureCaption, _figuresButtonLabel;
+        List<AnalysisFigure> _figuresShown = new List<AnalysisFigure>();
+        int _figureIndex;
 
         void Start()
         {
@@ -56,6 +66,21 @@ namespace CoolCairo
                 _paletteButtons[palette] = b;
                 b.onClick.AddListener(() => district.SetPalette(palette));
             }
+            _figuresButton = Find<Button>(HudStyle.FiguresButton);
+            _figuresButtonLabel = _figuresButton.GetComponentInChildren<TextMeshProUGUI>();
+            _figuresButton.onClick.AddListener(OpenFigures);
+            _figurePopup = Find<RectTransform>(HudStyle.FigurePopup).gameObject;
+            _figureImage = Find<RawImage>(HudStyle.FigureImage);
+            _figureFit = _figureImage.GetComponent<AspectRatioFitter>();
+            _figureTitle = Find<TextMeshProUGUI>(HudStyle.FigureTitle);
+            _figureCount = Find<TextMeshProUGUI>(HudStyle.FigureCount);
+            _figureCaption = Find<TextMeshProUGUI>(HudStyle.FigureCaption);
+            _figurePrev = Find<Button>(HudStyle.FigurePrev);
+            _figureNext = Find<Button>(HudStyle.FigureNext);
+            _figurePrev.onClick.AddListener(() => ShowFigure(_figureIndex - 1));
+            _figureNext.onClick.AddListener(() => ShowFigure(_figureIndex + 1));
+            Find<Button>(HudStyle.FigureClose).onClick.AddListener(CloseFigures);
+            _figurePopup.SetActive(false);
             Find<Button>(HudStyle.GlobeButton).onClick.AddListener(() => SceneManager.LoadScene(0));
             Find<Button>(HudStyle.ResetButton).onClick.AddListener(() => district.Model.ResetAll());
             var slider = Find<Slider>(HudStyle.BrushSlider);
@@ -113,6 +138,12 @@ namespace CoolCairo
             // Mode and tool can also change from code (e.g. the soak test), so poll them.
             if (district.Mode != _shownMode || district.Palette != _shownPalette) ShowView(district.Mode);
             if (brush.Tool != _shownTool) ShowTool(brush.Tool);
+            if (_figurePopup.activeSelf)
+            {
+                if (Input.GetKeyDown(KeyCode.Escape)) CloseFigures();
+                if (Input.GetKeyDown(KeyCode.RightArrow)) ShowFigure(_figureIndex + 1);
+                if (Input.GetKeyDown(KeyCode.LeftArrow)) ShowFigure(_figureIndex - 1);
+            }
             UpdateTooltip();
         }
 
@@ -133,6 +164,39 @@ namespace CoolCairo
                 _ => $"Heat exposure = residents × °C above {m.heatReferenceC:0.0} °C, the typical east-Cairo block. Residents: WorldPop 2024.",
             };
             ShowLegend(mode);
+
+            int count = FiguresFor(mode).Count;
+            _figuresButton.gameObject.SetActive(count > 0);
+            _figuresButtonLabel.text = count == 1 ? "Analysis map for this view  ›" : $"Analysis maps for this view ({count})  ›";
+        }
+
+        // ---------- analysis maps ----------
+
+        List<AnalysisFigure> FiguresFor(ViewMode mode) =>
+            (figures ?? new AnalysisFigure[0]).Where(f => f.view == mode && f.image != null).ToList();
+
+        void OpenFigures()
+        {
+            _figuresShown = FiguresFor(district.Mode);
+            if (_figuresShown.Count == 0) return;
+            _figurePopup.SetActive(true);
+            ShowFigure(0);
+        }
+
+        void CloseFigures() => _figurePopup.SetActive(false);
+
+        void ShowFigure(int index)
+        {
+            if (_figuresShown.Count == 0) return;
+            _figureIndex = Mathf.Clamp(index, 0, _figuresShown.Count - 1);
+            var f = _figuresShown[_figureIndex];
+            _figureImage.texture = f.image;
+            _figureFit.aspectRatio = f.image.width / (float)f.image.height;   // keep the figure's shape
+            _figureTitle.text = f.title;
+            _figureCaption.text = f.caption;
+            _figureCount.text = $"{_figureIndex + 1} / {_figuresShown.Count}";
+            _figurePrev.interactable = _figureIndex > 0;
+            _figureNext.interactable = _figureIndex < _figuresShown.Count - 1;
         }
 
         string GrowthHint()

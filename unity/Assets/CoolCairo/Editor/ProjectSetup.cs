@@ -254,9 +254,84 @@ namespace CoolCairo.EditorTools
             Assign(highlight, "district", view);
             Assign(highlight, "brush", brush);
             Assign(highlight, "material", highlightMat);
-            HudBuilder.Build(view, brush);
+            HudBuilder.Build(view, brush, AnalysisFigures());
 
             EditorSceneManager.SaveScene(scene, ScenePath);
+        }
+
+        // ---------- analysis maps ----------
+
+        const string FiguresDir = Root + "/Figures";
+
+        // Copy the analysis figures (docs/report/figures, made by analysis/report/build_report.py,
+        // the same images as the methodology report) into the project.
+        [MenuItem("CoolCairo/Import analysis maps from docs")]
+        public static void ImportFigures()
+        {
+            string src = Path.GetFullPath(Path.Combine(Application.dataPath, "../../docs/report/figures"));
+            if (!Directory.Exists(src))
+            {
+                Debug.LogError($"No figures at {src}. Run analysis/report/build_report.py first.");
+                return;
+            }
+            Directory.CreateDirectory(Path.GetFullPath(FiguresDir));
+            foreach (var file in Directory.GetFiles(src, "*.png"))
+                File.Copy(file, Path.GetFullPath(Path.Combine(FiguresDir, Path.GetFileName(file))), true);
+            AssetDatabase.Refresh();
+            foreach (var file in Directory.GetFiles(src, "*.png"))
+            {
+                // Sharp, unscaled UI images: no mipmaps, no compression blur, full size up to 2048 px.
+                var path = FiguresDir + "/" + Path.GetFileName(file);
+                var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+                importer.textureType = TextureImporterType.Default;
+                importer.mipmapEnabled = false;
+                importer.wrapMode = TextureWrapMode.Clamp;
+                importer.maxTextureSize = 2048;
+                importer.textureCompression = TextureImporterCompression.Uncompressed;
+                importer.SaveAndReimport();
+            }
+            Debug.Log($"Imported analysis maps from {src}");
+        }
+
+        // Which figure belongs to which view, with the text shown under it.
+        static AnalysisFigure[] AnalysisFigures()
+        {
+            ImportFigures();
+            AnalysisFigure F(ViewMode view, string file, string title, string caption) => new AnalysisFigure
+            {
+                view = view,
+                image = AssetDatabase.LoadAssetAtPath<Texture2D>(FiguresDir + "/" + file),
+                title = title,
+                caption = caption,
+            };
+            const string district = "Nasr City from the analysis: (a) Sentinel-2 summer photo, (b) surface materials " +
+                                    "at 10 m, (c) summer surface temperature per 90 m block, (d) heat risk: residents × °C " +
+                                    "above the typical block. White blocks in (d) are cooler than typical.";
+            var all = new[]
+            {
+                F(ViewMode.Materials, "fig2_district.png", "Nasr City: photo, materials, heat and risk", district),
+                F(ViewMode.Heat, "fig1_study_area.png", "East Cairo: summer surface temperature",
+                  "The model area. (a) Sentinel-2 summer photo; (b) Landsat summer surface temperature per 90 m block, " +
+                  "centred on the typical urban block. Bare desert (orange) is hotter than the built, irrigated city " +
+                  "(blue). The box is the Nasr City district shown in this app."),
+                F(ViewMode.Heat, "fig3_model_fit.png", "Heat model: tested on areas it never saw",
+                  "Measured vs predicted block temperature, with whole 1 km areas hidden while the model learned " +
+                  "(spatial cross-validation). Good enough to compare cooling measures, not to predict one block exactly."),
+                F(ViewMode.Heat, "fig4_hyperspectral.png", "Does hyperspectral data help?",
+                  "How well each set of satellite bands explains block surface temperature, tested on hidden 1, 2 and 3 km " +
+                  "areas. EnMAP's full spectrum clearly beats Sentinel-2. Contains modified EnMAP data © DLR [2025]."),
+                F(ViewMode.Risk, "fig2_district.png", "Nasr City: photo, materials, heat and risk", district),
+                F(ViewMode.Risk, "fig5_interventions.png", "What each cooling measure would do",
+                  "Change in Nasr City's heat exposure. Blue: each measure at full adoption in every block. Orange: cool " +
+                  "roofs and pocket parks on only the riskiest third of blocks."),
+                F(ViewMode.Growth, "fig6_growth.png", "Urban growth 2016–2023",
+                  "From Google Open Buildings Temporal: (a) block classes, same colours as this view; (b) building " +
+                  "footprint area per year; (c) mean summer surface temperature of blocks built before 2016, built " +
+                  "2016–2023 and still open."),
+            };
+            var found = all.Where(f => f.image != null).ToArray();
+            if (found.Length < all.Length) Debug.LogWarning("Some analysis maps are missing; rebuild the report figures.");
+            return found;
         }
 
         static void Assign(Object target, string field, Object value)

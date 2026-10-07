@@ -16,7 +16,7 @@ namespace CoolCairo.EditorTools
         static Sprite s_rounded, s_knob;
         static TMP_FontAsset s_font;
 
-        public static DistrictUI Build(DistrictView district, InterventionBrush brush)
+        public static DistrictUI Build(DistrictView district, InterventionBrush brush, AnalysisFigure[] figures)
         {
             s_rounded = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
             s_knob = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
@@ -40,12 +40,23 @@ namespace CoolCairo.EditorTools
             BuildKpis(root);
             BuildLegend(root);
             BuildFooter(root);
+            BuildFigurePopup(root);
             BuildTooltip(root); // Last, so it draws above everything.
 
             var ui = canvasGo.AddComponent<DistrictUI>();
             var so = new SerializedObject(ui);
             so.FindProperty("district").objectReferenceValue = district;
             so.FindProperty("brush").objectReferenceValue = brush;
+            var list = so.FindProperty("figures");
+            list.arraySize = figures.Length;
+            for (int i = 0; i < figures.Length; i++)
+            {
+                var item = list.GetArrayElementAtIndex(i);
+                item.FindPropertyRelative("view").enumValueIndex = (int)figures[i].view;
+                item.FindPropertyRelative("image").objectReferenceValue = figures[i].image;
+                item.FindPropertyRelative("title").stringValue = figures[i].title;
+                item.FindPropertyRelative("caption").stringValue = figures[i].caption;
+            }
             so.ApplyModifiedPropertiesWithoutUndo();
             return ui;
         }
@@ -90,6 +101,8 @@ namespace CoolCairo.EditorTools
             for (int k = 0; k < modes.Length; k++)
                 Flexible(Button(viewRows[k / 2], HudStyle.ViewButtonPrefix + modes[k], viewNames[k], 14).gameObject, width: 1);
             Label(side.transform, HudStyle.ViewHint, "", 13, HudStyle.Muted, wrap: true, height: 54);
+            var figures = Button(side.transform, HudStyle.FiguresButton, "Analysis maps ›", 14);
+            Fixed(figures.gameObject, -1, 34);
 
             Divider(side.transform);
             Section(side.transform, "INTERVENTION");
@@ -208,6 +221,54 @@ namespace CoolCairo.EditorTools
             rt.offsetMin = new Vector2(16 + 340 + 16, 12);
             rt.offsetMax = new Vector2(-16 - 330 - 16, 44);
             t.alignment = TextAlignmentOptions.BottomLeft;
+        }
+
+        // A large card over a dimmed screen: title, the figure (aspect kept), caption, previous/next.
+        // Hidden until the sidebar's "Analysis maps" button opens it.
+        static void BuildFigurePopup(Transform root)
+        {
+            var overlay = Panel(root, HudStyle.FigurePopup, new Color(0f, 0f, 0f, 0.72f));
+            overlay.sprite = null;   // plain full-screen dim, also blocks clicks to the map behind
+            Stretch(overlay.rectTransform, Vector2.zero, Vector2.one);
+            overlay.rectTransform.offsetMin = overlay.rectTransform.offsetMax = Vector2.zero;
+
+            var card = Panel(overlay.transform, "FigureCard", HudStyle.Panel);
+            var rt = card.rectTransform;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(1320, 900);
+            var v = card.gameObject.AddComponent<VerticalLayoutGroup>();
+            v.padding = new RectOffset(24, 24, 18, 18);
+            v.spacing = 12;
+            v.childControlWidth = v.childControlHeight = true;
+            v.childForceExpandWidth = true;
+            v.childForceExpandHeight = false;
+
+            var header = Row(card.transform, "FigureHeader", 34, 10);
+            Flexible(Label(header, HudStyle.FigureTitle, "", 20, HudStyle.Text, bold: true).gameObject, width: 1);
+            Fixed(Label(header, HudStyle.FigureCount, "", 14, HudStyle.Muted, align: TextAlignmentOptions.Right).gameObject, 70, 34);
+            Fixed(Button(header, HudStyle.FigureClose, "×", 22).gameObject, 44, 34);
+
+            // The figure keeps its own aspect ratio inside a frame that takes the remaining height.
+            var frame = new GameObject("FigureFrame", typeof(RectTransform), typeof(LayoutElement));
+            frame.transform.SetParent(card.transform, false);
+            frame.GetComponent<LayoutElement>().flexibleHeight = 1;
+            var image = new GameObject(HudStyle.FigureImage, typeof(RectTransform), typeof(RawImage), typeof(AspectRatioFitter));
+            image.transform.SetParent(frame.transform, false);
+            image.GetComponent<RawImage>().raycastTarget = false;
+            var fit = image.GetComponent<AspectRatioFitter>();
+            fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            fit.aspectRatio = 1.6f;
+
+            Label(card.transform, HudStyle.FigureCaption, "", 15, HudStyle.Muted, wrap: true, height: 64);
+
+            var nav = Row(card.transform, "FigureNav", 38, 10);
+            Fixed(Button(nav, HudStyle.FigurePrev, "‹ Previous", 14).gameObject, 160, 38);
+            var gap = new GameObject("Gap", typeof(RectTransform), typeof(LayoutElement));
+            gap.transform.SetParent(nav, false);
+            gap.GetComponent<LayoutElement>().flexibleWidth = 1;
+            Fixed(Button(nav, HudStyle.FigureNext, "Next ›", 14).gameObject, 160, 38);
+
+            overlay.gameObject.SetActive(false);
         }
 
         static void BuildTooltip(Transform root)
