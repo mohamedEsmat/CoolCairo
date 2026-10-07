@@ -132,7 +132,7 @@ Stream via STAC from Microsoft Planetary Computer (anonymous, no key). Cached to
 
 - **Esmat** — technical lead: pipeline, analysis, Unity build
 - **Liquaa Mahmoud** — team lead: 3D production, visual design, business case, ArcGIS Pro support
-- **Mahmoud** — role TBC
+- **Mahmoud Abu Zaid** — data & hyperspectral analyst (EnMAP value, workshop W7)
 
 ## Links
 

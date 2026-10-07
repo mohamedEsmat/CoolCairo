@@ -126,4 +126,4 @@ Starting the app with `-autotest` makes it drive itself through the whole flow i
 
 ## Team
 
-Liquaa Mahmoud (team lead), Mohamed Esmat (technical lead), Mahmoud.
+Liquaa Mahmoud (team lead), Mohamed Esmat (technical lead), Mahmoud Abu Zaid (data & hyperspectral analyst).
