@@ -3,7 +3,8 @@ using UnityEngine;
 namespace CoolCairo
 {
     // Orbit / pan / zoom around the district. Middle mouse or Alt+left drags orbit,
-    // Shift+middle pans, WASD pans, scroll zooms.
+    // Shift+middle pans, WASD pans, scroll zooms. Left alone for a few seconds, the camera
+    // drifts slowly around the district, like a satellite pass; any input stops it.
     public class OrbitCamera : MonoBehaviour
     {
         [SerializeField] DistrictView district;
@@ -11,8 +12,13 @@ namespace CoolCairo
         [SerializeField] float minDistance = 150f, maxDistance = 5000f;
         [SerializeField] float yaw = 20f, pitch = 55f;
         [SerializeField] float orbitSpeed = 4f, panSpeed = 1.2f, zoomSpeed = 0.12f;
+        [SerializeField] float idleSeconds = 6f, driftDegreesPerSecond = 2.5f;
 
         Vector3 _target;
+        float _lastInput, _drift;
+        Vector3 _lastMouse;
+
+        public bool Drifting => _drift > 0.01f;
 
         void Start()
         {
@@ -42,6 +48,14 @@ namespace CoolCairo
             float scroll = Input.mouseScrollDelta.y;
             if (scroll != 0f && !DistrictUI.PointerOverUI)
                 distance = Mathf.Clamp(distance * (1f - scroll * zoomSpeed), minDistance, maxDistance);
+
+            // Idle drift: eases in after idleSeconds without input, stops at once on any input.
+            if (Input.anyKey || scroll != 0f || (Input.mousePosition - _lastMouse).sqrMagnitude > 4f)
+                _lastInput = Time.time;
+            _lastMouse = Input.mousePosition;
+            bool idle = Time.time - _lastInput > idleSeconds;
+            _drift = idle ? Mathf.MoveTowards(_drift, 1f, Time.deltaTime * 0.4f) : 0f;
+            yaw += _drift * driftDegreesPerSecond * Time.deltaTime;
 
             Apply();
         }

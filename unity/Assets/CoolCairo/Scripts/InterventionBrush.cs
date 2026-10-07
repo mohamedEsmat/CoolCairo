@@ -14,12 +14,17 @@ namespace CoolCairo
         public Intervention Tool { get; set; } = Intervention.CoolRoof;
         public int Radius { get => radius; set => radius = Mathf.Clamp(value, 0, 5); }
         public int HoverBlock { get; private set; } = -1;
+        public bool Painting { get; private set; }    // left or right button held over the map
+
+        // A stroke touched these blocks (centre first); PaintFeedback flashes them.
+        public event System.Action<int, System.Collections.Generic.List<int>> Painted;
 
         readonly Plane _ground = new Plane(Vector3.up, Vector3.zero);
 
         void Update()
         {
             HoverBlock = -1;
+            Painting = false;
             var ray = cam.ScreenPointToRay(Input.mousePosition);
             if (!_ground.Raycast(ray, out float dist)) return;
             HoverBlock = district.Data.BlockAt(ray.GetPoint(dist));
@@ -27,12 +32,15 @@ namespace CoolCairo
 
             float sign = Input.GetMouseButton(0) ? 1f : Input.GetMouseButton(1) ? -1f : 0f;
             if (sign == 0f) return;
+            Painting = true;
             PaintAround(HoverBlock, sign * rate * Time.deltaTime);
         }
 
         void PaintAround(int centre, float amount)
         {
-            foreach (int block in Footprint(centre)) district.Model.Apply(Tool, block, amount);
+            var blocks = Footprint(centre);
+            foreach (int block in blocks) district.Model.Apply(Tool, block, amount);
+            Painted?.Invoke(centre, blocks);
         }
 
         // The blocks one stroke covers: a circle of the brush radius around the centre block.

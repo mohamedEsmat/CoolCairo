@@ -24,8 +24,21 @@ namespace CoolCairo
         readonly Dictionary<Intervention, Button> _toolButtons = new Dictionary<Intervention, Button>();
         readonly Dictionary<HeatPalette, Button> _paletteButtons = new Dictionary<HeatPalette, Button>();
         TextMeshProUGUI _viewHint, _toolHint, _brushValue, _legendTitle, _legendMin, _legendMax;
-        TextMeshProUGUI _deltaValue, _deltaSub, _exposureValue, _exposureSub, _residentsValue, _residentsSub;
         TextMeshProUGUI _tooltipTitle, _tooltipBody;
+        HudMotion _motion;
+
+        // KPI readouts: the number glides to its new value and the card glows green when a
+        // result improves (orange when it gets worse, e.g. while erasing).
+        class Readout
+        {
+            public TextMeshProUGUI value, sub;
+            public Image glow;
+            public float shown, target, flash;
+            public Color flashColor;
+        }
+        Readout _delta, _exposure, _residents;
+        float _beforeLst;
+        bool _kpisReady;
         RawImage _legendRamp;
         GameObject _legendScale, _legendSwatches, _riskKeys, _growthKeys, _legendPalettes;
         RectTransform _tooltip, _canvas;
@@ -37,6 +50,7 @@ namespace CoolCairo
         // Analysis maps popup
         Button _figuresButton, _figurePrev, _figureNext;
         GameObject _figurePopup;
+        RectTransform _figureCard;
         RawImage _figureImage;
         AspectRatioFitter _figureFit;
         TextMeshProUGUI _figureTitle, _figureCount, _figureCaption, _figuresButtonLabel;
@@ -70,6 +84,7 @@ namespace CoolCairo
             _figuresButtonLabel = _figuresButton.GetComponentInChildren<TextMeshProUGUI>();
             _figuresButton.onClick.AddListener(OpenFigures);
             _figurePopup = Find<RectTransform>(HudStyle.FigurePopup).gameObject;
+            _figureCard = Find<RectTransform>(HudStyle.FigureCard);
             _figureImage = Find<RawImage>(HudStyle.FigureImage);
             _figureFit = _figureImage.GetComponent<AspectRatioFitter>();
             _figureTitle = Find<TextMeshProUGUI>(HudStyle.FigureTitle);
@@ -83,6 +98,13 @@ namespace CoolCairo
             _figurePopup.SetActive(false);
             Find<Button>(HudStyle.GlobeButton).onClick.AddListener(() => SceneManager.LoadScene(0));
             Find<Button>(HudStyle.ResetButton).onClick.AddListener(() => district.Model.ResetAll());
+            var modelPanel = Find<RectTransform>(HudStyle.ModelPanel).gameObject;
+            var modelButton = Find<Button>(HudStyle.ModelButton);
+            modelButton.onClick.AddListener(() =>
+            {
+                modelPanel.SetActive(!modelPanel.activeSelf);
+                modelButton.GetComponentInChildren<TextMeshProUGUI>().text = modelPanel.activeSelf ? "[−]" : "[+]";
+            });
             var slider = Find<Slider>(HudStyle.BrushSlider);
             slider.SetValueWithoutNotify(brush.Radius);
             slider.onValueChanged.AddListener(v => { brush.Radius = Mathf.RoundToInt(v); ShowBrush(); });
@@ -90,16 +112,9 @@ namespace CoolCairo
             _viewHint = Find<TextMeshProUGUI>(HudStyle.ViewHint);
             _toolHint = Find<TextMeshProUGUI>(HudStyle.ToolHint);
             _brushValue = Find<TextMeshProUGUI>(HudStyle.BrushValue);
-            (_deltaValue, _deltaSub) = Kpi(HudStyle.KpiDelta);
-            (_exposureValue, _exposureSub) = Kpi(HudStyle.KpiExposure);
-            (_residentsValue, _residentsSub) = Kpi(HudStyle.KpiResidents);
-            // Values shrink to fit the card rather than being cut off ("44.8 → 44.0 °C").
-            foreach (var value in new[] { _deltaValue, _exposureValue, _residentsValue })
-            {
-                value.enableAutoSizing = true;
-                value.fontSizeMin = 18;
-                value.fontSizeMax = 32;
-            }
+            _delta = Kpi(HudStyle.KpiDelta);
+            _exposure = Kpi(HudStyle.KpiExposure);
+            _residents = Kpi(HudStyle.KpiResidents);
             _legendTitle = Find<TextMeshProUGUI>(HudStyle.LegendTitle);
             _legendMin = Find<TextMeshProUGUI>(HudStyle.LegendMin);
             _legendMax = Find<TextMeshProUGUI>(HudStyle.LegendMax);
@@ -121,7 +136,11 @@ namespace CoolCairo
             _growthKeys = BuildKeys("GrowthKeys", _legendScale.transform.GetSiblingIndex() + 1,
                                     district.GrowthLegend().ToArray());
             Find<TextMeshProUGUI>(HudStyle.ModelText).text = ModelSummary();
-            Find<TextMeshProUGUI>(HudStyle.Footer).text = Credits();
+            var d = district.Data;
+            Find<TextMeshProUGUI>(HudStyle.Subtitle).text =
+                $"EAST CAIRO · {d.rows}×{d.cols} BLOCKS @ {d.blockSize:0} M · SUMMER 2023–25";
+            _motion = GetComponent<HudMotion>();
+            _motion.SetTicker(Ticker());
 
             district.Model.Changed += RefreshKpis;
             ShowBrush();
@@ -144,6 +163,7 @@ namespace CoolCairo
                 if (Input.GetKeyDown(KeyCode.RightArrow)) ShowFigure(_figureIndex + 1);
                 if (Input.GetKeyDown(KeyCode.LeftArrow)) ShowFigure(_figureIndex - 1);
             }
+            AnimateKpis();
             UpdateTooltip();
         }
 
@@ -180,6 +200,7 @@ namespace CoolCairo
             _figuresShown = FiguresFor(district.Mode);
             if (_figuresShown.Count == 0) return;
             _figurePopup.SetActive(true);
+            _motion.PopIn(_figureCard, _figurePopup.GetComponent<CanvasGroup>());
             ShowFigure(0);
         }
 
@@ -233,7 +254,7 @@ namespace CoolCairo
             b.targetGraphic.color = selected ? HudStyle.Accent : HudStyle.Button;
             var label = b.GetComponentInChildren<TextMeshProUGUI>();
             label.color = selected ? HudStyle.AccentText : HudStyle.Text;
-            label.fontStyle = selected ? FontStyles.Bold : FontStyles.Normal;
+            label.fontStyle = FontStyles.UpperCase | (selected ? FontStyles.Bold : FontStyles.Normal);
         }
 
         // ---------- result cards ----------
@@ -242,33 +263,79 @@ namespace CoolCairo
         {
             var model = district.Model;
             // Before -> after, so the change reads as real temperatures, not an abstract delta.
-            float before = model.MeanLst(false), after = model.MeanLst(), delta = after - before;
+            _beforeLst = model.MeanLst(false);
+            float after = model.MeanLst(), delta = after - _beforeLst;
             int blocks = Enumerable.Range(0, district.Data.BlockCount).Count(model.IsValid);
-            bool changed = delta < -0.005f;
-            _deltaValue.text = changed ? $"{before:0.0} → {after:0.0} °C" : $"{before:0.0} °C";
-            _deltaValue.color = changed ? HudStyle.Good : HudStyle.Text;
-            _deltaSub.text = changed ? $"{Minus(delta, "0.00")} °C · average of {blocks} blocks"
-                                     : $"today · average of {blocks} blocks";
+            _delta.sub.text = delta < -0.005f ? $"{Minus(delta, "0.00")} °C · mean of {blocks} blocks"
+                                              : $"today · mean of {blocks} blocks";
+            Retarget(_delta, after, lowerIsBetter: true);
 
             float baseRisk = model.TotalExposure(false), nowRisk = model.TotalExposure();
             float pct = baseRisk > 0f ? 100f * (nowRisk - baseRisk) / baseRisk : 0f;
-            _exposureValue.text = $"{nowRisk:N0}";
-            _exposureValue.color = pct < -0.5f ? HudStyle.Good : HudStyle.Text;
-            _exposureSub.text = $"person·°C · {Minus(pct, "0")}% vs today";
+            _exposure.sub.text = $"person·°C · {Minus(pct, "0")}% vs today";
+            Retarget(_exposure, nowRisk, lowerIsBetter: true);
 
-            _residentsValue.text = $"{model.ResidentsInCooledBlocks():N0}";
-            _residentsValue.color = model.ResidentsInCooledBlocks() > 0f ? HudStyle.Good : HudStyle.Text;
-            _residentsSub.text = $"of {model.TotalResidents():N0} residents";
+            _residents.sub.text = $"of {model.TotalResidents():N0} residents";
+            Retarget(_residents, model.ResidentsInCooledBlocks(), lowerIsBetter: false);
+            _kpisReady = true;
         }
+
+        // New target for a readout; flash only on real changes after the first fill.
+        void Retarget(Readout r, float target, bool lowerIsBetter)
+        {
+            if (_kpisReady && Mathf.Abs(target - r.target) > 1e-4f)
+            {
+                bool better = lowerIsBetter ? target < r.target : target > r.target;
+                r.flash = 1f;
+                r.flashColor = better ? HudStyle.Good : HudStyle.Accent;
+            }
+            r.target = target;
+        }
+
+        // Numbers glide (count up on arrival), glows fade out.
+        void AnimateKpis()
+        {
+            float dt = Time.unscaledDeltaTime;
+            float k = 1f - Mathf.Exp(-dt * 7f);
+            foreach (var (r, eps) in new[] { (_delta, 0.005f), (_exposure, 0.5f), (_residents, 0.5f) })
+            {
+                r.shown = Mathf.Abs(r.target - r.shown) < eps ? r.target : Mathf.Lerp(r.shown, r.target, k);
+                r.flash = Mathf.Max(0f, r.flash - dt / 0.7f);
+                var c = r.flashColor;
+                c.a = 0.3f * r.flash * r.flash;
+                r.glow.color = c;
+            }
+            bool cooler = _delta.target < _beforeLst - 0.005f;
+            _delta.value.text = cooler ? $"{_beforeLst:0.0} → {_delta.shown:0.0} °C" : $"{_delta.shown:0.0} °C";
+            _delta.value.color = cooler ? HudStyle.Good : HudStyle.Text;
+            float baseRisk = district.Model.TotalExposure(false);
+            _exposure.value.text = $"{_exposure.shown:N0}";
+            _exposure.value.color = _exposure.target < baseRisk * 0.995f ? HudStyle.Good : HudStyle.Text;
+            _residents.value.text = $"{_residents.shown:N0}";
+            _residents.value.color = _residents.target > 0f ? HudStyle.Good : HudStyle.Text;
+        }
+
+        // Values shown in the KPI cards right now (the self-test checks they settle).
+        public (float delta, float exposure, float residents) ShownKpis => (_delta.shown, _exposure.shown, _residents.shown);
 
         // Proper minus sign (U+2212) and an explicit plus for positive changes.
         static string Minus(float v, string format = "0.0") =>
             v < 0f ? "−" + (-v).ToString(format) : v > 0f ? "+" + v.ToString(format) : v.ToString(format);
 
-        (TextMeshProUGUI value, TextMeshProUGUI sub) Kpi(string card)
+        Readout Kpi(string card)
         {
             var root = Find<RectTransform>(card);
-            return (FindIn<TextMeshProUGUI>(root, HudStyle.KpiValue), FindIn<TextMeshProUGUI>(root, HudStyle.KpiSub));
+            var r = new Readout
+            {
+                value = FindIn<TextMeshProUGUI>(root, HudStyle.KpiValue),
+                sub = FindIn<TextMeshProUGUI>(root, HudStyle.KpiSub),
+                glow = FindIn<Image>(root, HudStyle.KpiFlash),
+            };
+            // Values shrink to fit the card rather than being cut off ("44.8 → 44.0 °C").
+            r.value.enableAutoSizing = true;
+            r.value.fontSizeMin = 16;
+            r.value.fontSizeMax = 30;
+            return r;
         }
 
         // ---------- legend ----------
@@ -381,7 +448,7 @@ namespace CoolCairo
             float e0 = model.Exposure(h, false), e1 = model.Exposure(h);
             string temp = t1 < t0 - 0.01f ? $"{t0:0.0} °C → <color=#4CD08A>{t1:0.0} °C</color>" : $"{t0:0.0} °C";
             string expo = e1 < e0 - 0.5f ? $"{e0:N0} → <color=#4CD08A>{e1:N0}</color>" : $"{e0:N0}";
-            _tooltipTitle.text = $"Block {h}";
+            _tooltipTitle.text = $"⌜ BLOCK {h:0000} ⌝   R{h / district.Data.cols:00} · C{h % district.Data.cols:00}";
             _tooltipBody.text =
                 $"Surface temperature  <color=#E8EEF6>{temp}</color>\n" +
                 $"Residents  <color=#E8EEF6>{model.Residents(h):N0}</color>  ·  heat exposure <color=#E8EEF6>{expo}</color> person·°C\n" +
@@ -418,6 +485,25 @@ namespace CoolCairo
                     "~0.1–0.33 °C per +0.1 roof albedo (Santamouris 2014, cited in Wang et al. 2020); the effect on air " +
                     "is smaller than on surfaces and spreads beyond the district.";
             return text;
+        }
+
+        // The scrolling "downlink" along the bottom: every scene set the analysis used, the model's
+        // skill, then the required credits.
+        string Ticker()
+        {
+            var d = district.Data;
+            var parts = new List<string>();
+            foreach (var src in d.sources ?? new SourceInfo[0])
+            {
+                int n = src.sceneIds?.Length ?? 0;
+                string dates = src.firstDate == src.lastDate ? src.firstDate : $"{src.firstDate} → {src.lastDate}";
+                parts.Add($"<color=#4FD6FF>></color> {src.satellite.ToUpperInvariant()} · {n} {(n == 1 ? "SCENE" : "SCENES")} · {dates} · {src.use.ToUpperInvariant()}");
+            }
+            var m = d.model;
+            parts.Add($"<color=#4FD6FF>></color> HEAT MODEL · R² {m.r2SpatialCv:0.00} SPATIAL CV · ±{m.maeSpatialCv:0.0} °C · {m.nBlocks:N0} BLOCKS");
+            parts.Add($"<color=#4FD6FF>></color> WORLDPOP 2024 · {district.Model.TotalResidents():N0} RESIDENTS IN THIS DISTRICT");
+            parts.Add($"<color=#4FD6FF>></color> CREDITS · {Credits()}");
+            return string.Join("      ", parts);
         }
 
         string Credits()

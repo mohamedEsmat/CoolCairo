@@ -218,6 +218,7 @@ namespace CoolCairo.EditorTools
             light.type = LightType.Directional;
             light.intensity = 1.2f;
             sun.transform.rotation = Quaternion.Euler(55f, 150f, 0f);
+            sun.AddComponent<SunCycle>();   // slow swing across the sky, so shading drifts
 
             var camGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
             camGo.tag = "MainCamera";
@@ -254,7 +255,20 @@ namespace CoolCairo.EditorTools
             Assign(highlight, "district", view);
             Assign(highlight, "brush", brush);
             Assign(highlight, "material", highlightMat);
-            HudBuilder.Build(view, brush, AnalysisFigures());
+            var hud = HudBuilder.Build(view, brush, AnalysisFigures());
+
+            // Living scene: hot air over the hottest blocks, and a green pulse plus a rising
+            // "−0.6 °C" where the planner paints. Both draw with the transparent Glow shader.
+            var glowMat = EnsureMaterial("Glow", "CoolCairo/Glow");
+            var shimmer = districtGo.AddComponent<HeatShimmer>();
+            Assign(shimmer, "district", view);
+            Assign(shimmer, "material", glowMat);
+            var feedback = tools.AddComponent<PaintFeedback>();
+            Assign(feedback, "district", view);
+            Assign(feedback, "brush", brush);
+            Assign(feedback, "cam", cam);
+            Assign(feedback, "material", glowMat);
+            Assign(feedback, "labelTemplate", hud.transform.Find(HudStyle.FloatLabel));
 
             EditorSceneManager.SaveScene(scene, ScenePath);
         }

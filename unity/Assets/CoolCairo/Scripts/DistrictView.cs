@@ -55,6 +55,13 @@ namespace CoolCairo
         BuildingMesh _buildings;
         Texture2D _groundTex;
 
+        // Switching view or colour scheme cross-fades the old colours into the new ones;
+        // painting updates instantly (it already changes gradually).
+        public const float FadeSeconds = 0.4f;
+        public bool Fading => _fade < 1f;
+        float _fade = 1f;
+        Color32[] _groundFrom, _groundTo, _groundShown, _buildFrom, _buildTo;
+
         void Awake()
         {
             heatRamps = new[] { ReportRamp(), InfernoRamp(), WarmRamp() };
@@ -73,14 +80,32 @@ namespace CoolCairo
 
         public void SetMode(ViewMode mode)
         {
+            if (mode != Mode) StartFade();
             Mode = mode;
             Refresh();
         }
 
         public void SetPalette(HeatPalette palette)
         {
+            if (palette != Palette) StartFade();
             Palette = palette;
             Refresh();
+        }
+
+        // Fade from whatever is on screen now (even mid-fade) to the next Refresh's colours.
+        void StartFade()
+        {
+            if (_groundShown == null) return;
+            _groundFrom = (Color32[])_groundShown.Clone();
+            _buildFrom = (Color32[])_buildings.Colors.Clone();
+            _fade = 0f;
+        }
+
+        void Update()
+        {
+            if (!Fading) return;
+            _fade = Mathf.Min(1f, _fade + Time.deltaTime / FadeSeconds);
+            Show();
         }
 
         // Materials-view colours for the legend, in the order the legend shows them.
@@ -203,13 +228,11 @@ namespace CoolCairo
 
         void Refresh()
         {
-            var pixels = new Color32[Data.BlockCount];
-            for (int i = 0; i < Data.BlockCount; i++) pixels[i] = GroundColor(i);
-            _groundTex.SetPixels32(pixels);
-            _groundTex.Apply(false);
+            _groundTo ??= new Color32[Data.BlockCount];
+            for (int i = 0; i < Data.BlockCount; i++) _groundTo[i] = GroundColor(i);
 
             var b = Data.buildings;
-            var colors = _buildings.Colors;
+            var colors = _buildTo ??= new Color32[_buildings.Colors.Length];
             for (int i = 0; i < b.count; i++)
             {
                 int block = b.blockIndex[i];
@@ -239,7 +262,28 @@ namespace CoolCairo
                 Fill(colors, _buildings.RoofStart[i], _buildings.RoofCount[i], roof);
                 Fill(colors, _buildings.WallStart[i], _buildings.WallCount[i], walls);
             }
-            _buildings.Mesh.SetColors(colors);
+            Show();
+        }
+
+        // Upload the target colours, blended with the previous view's while a fade runs.
+        void Show()
+        {
+            _groundShown ??= new Color32[Data.BlockCount];
+            if (Fading)
+            {
+                float t = Mathf.SmoothStep(0f, 1f, _fade);
+                for (int i = 0; i < _groundTo.Length; i++) _groundShown[i] = Color32.Lerp(_groundFrom[i], _groundTo[i], t);
+                var shown = _buildings.Colors;
+                for (int i = 0; i < _buildTo.Length; i++) shown[i] = Color32.Lerp(_buildFrom[i], _buildTo[i], t);
+            }
+            else
+            {
+                Array.Copy(_groundTo, _groundShown, _groundTo.Length);
+                Array.Copy(_buildTo, _buildings.Colors, _buildTo.Length);
+            }
+            _groundTex.SetPixels32(_groundShown);
+            _groundTex.Apply(false);
+            _buildings.Mesh.SetColors(_buildings.Colors);
         }
 
         Color GroundColor(int i)

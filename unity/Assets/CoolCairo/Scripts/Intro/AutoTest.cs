@@ -84,7 +84,7 @@ namespace CoolCairo
 
         static IEnumerator Shot(string folder, string name)
         {
-            yield return new WaitForSeconds(0.4f);
+            yield return new WaitForSeconds(DistrictView.FadeSeconds + 0.3f);   // after the view cross-fade
             yield return new WaitForEndOfFrame();
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, name + ".png"));
             yield return null;

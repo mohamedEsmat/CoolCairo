@@ -12,7 +12,8 @@ namespace CoolCairo
     // Automated checks of the real app, run inside the built player:
     //   CoolCairo.exe -selftest -logFile selftest.log
     // It flies into Nasr City by itself, checks the heat colour schemes, the brush footprint and
-    // block highlight, and the analysis-maps popup, logs one "[SelfTest] PASS/FAIL" line per check
+    // block highlight, the analysis-maps popup and the live HUD effects (fades, animated readouts,
+    // paint feedback, heat shimmer, ticker, sun, idle drift), logs one "[SelfTest] PASS/FAIL" line per check
     // and a summary, then quits with exit code 0 (all passed) or 1 (any failed).
     // Does nothing unless the flag is present.
     public class SelfTest : MonoBehaviour
@@ -47,6 +48,7 @@ namespace CoolCairo
             yield return HeatPalettes(district, ui);
             yield return FootprintAndHighlight(district, brush, highlight);
             yield return AnalysisMaps(district, ui);
+            yield return LiveHud(district, ui, brush);
             Unchanged(district);
 
             Debug.Log($"[SelfTest] SUMMARY {_passed} passed, {_failed} failed" +
@@ -86,11 +88,14 @@ namespace CoolCairo
             Check("palette buttons: Report button selects Report", d.Palette == HeatPalette.Report, $"was {d.Palette}");
 
             // The map really recolours: a block's ground pixel changes with the scheme.
+            // (Switching cross-fades for 0.4 s, so read the pixels once each fade has finished.)
             d.SetMode(ViewMode.Heat);
-            var ground = (Texture2D)typeof(DistrictView).GetField("_groundTex", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(d);
+            yield return Settle(d);
+            var ground = Ground(d);
             int block = Enumerable.Range(0, d.Data.BlockCount).First(d.Model.IsValid);
             var reportPixel = ground.GetPixel(block % d.Data.cols, block / d.Data.cols);
             d.SetPalette(HeatPalette.Inferno);
+            yield return Settle(d);
             var infernoPixel = ground.GetPixel(block % d.Data.cols, block / d.Data.cols);
             Check("palette: the ground map recolours when the scheme changes", !Near(reportPixel, infernoPixel),
                   Show(reportPixel) + " vs " + Show(infernoPixel));
@@ -199,7 +204,121 @@ namespace CoolCairo
                   open.GetComponentInChildren<TextMeshProUGUI>().text.StartsWith("Analysis map for"), open.GetComponentInChildren<TextMeshProUGUI>().text);
         }
 
-        // ---------- 4. nothing else changed ----------
+        // ---------- 4. live HUD ----------
+
+        IEnumerator LiveHud(DistrictView d, DistrictUI ui, InterventionBrush brush)
+        {
+            // Smooth view changes: the map is mid-way between the two views, then lands on the new one.
+            d.SetMode(ViewMode.Heat);
+            yield return Settle(d);
+            int block = Enumerable.Range(0, d.Data.BlockCount).First(d.Model.IsValid);
+            Color Pixel() => Ground(d).GetPixel(block % d.Data.cols, block / d.Data.cols);
+            var heat = Pixel();
+            d.SetMode(ViewMode.Materials);
+            Check("fade: switching view starts a cross-fade", d.Fading);
+            float started = Time.time;
+            yield return new WaitForSeconds(FadeHalf);   // half-way; the fade eases in and out
+            var middle = Pixel();
+            yield return Settle(d);
+            float took = Time.time - started;
+            var materials = Pixel();
+            Check("fade: mid-fade colour lies between the two views, then lands on the new one",
+                  !Near(middle, heat) && !Near(middle, materials) && Near(materials, MaterialsColor(d, block)),
+                  $"{Show(heat)} → {Show(middle)} → {Show(materials)}");
+            Check("fade: finishes in about 0.4 s", took > 0.3f && took < 0.8f, $"{took:0.00} s");
+
+            // Painting: the result cards glow and count, a "−x °C" label rises, the blocks flash.
+            d.SetMode(ViewMode.Heat);
+            yield return Settle(d);
+            d.Model.ResetAll();
+            yield return new WaitForSeconds(1.5f);   // let the readouts finish their arrival count-up
+            var feedback = FindFirstObjectByType<PaintFeedback>();
+            int labelsBefore = feedback.LabelsSpawned;
+            int hot = HottestBlock(d);
+            brush.Radius = 1;
+            brush.Tool = Intervention.CoolRoof;
+            typeof(InterventionBrush).GetMethod("PaintAround", BindingFlags.NonPublic | BindingFlags.Instance)
+                .Invoke(brush, new object[] { hot, 1f });
+            yield return null;
+            var glow = Find(HudStyle.KpiExposure).transform.Find(HudStyle.KpiFlash).GetComponent<Image>();
+            Check("readouts: the exposure card glows green after cooling", glow.color.a > 0.05f && glow.color.g > glow.color.r,
+                  Show(glow.color) + $" a={glow.color.a:0.00}");
+            float target = d.Model.TotalExposure();
+            Check("readouts: the number counts towards the new value instead of jumping",
+                  Mathf.Abs(ui.ShownKpis.exposure - target) > 0.5f, $"shown {ui.ShownKpis.exposure:N1}, target {target:N1}");
+            Check("paint: a floating temperature label appears", feedback.LabelsSpawned > labelsBefore,
+                  $"{feedback.LabelsSpawned - labelsBefore} new");
+            var label = Resources.FindObjectsOfTypeAll<TextMeshProUGUI>()
+                .FirstOrDefault(t => t.name.StartsWith(HudStyle.FloatLabel) && t.gameObject.activeInHierarchy);
+            float expected = d.Model.Lst(hot) - d.Model.BaselineLst(hot);
+            Check("paint: the label shows the block's cooling", label != null && label.text == "−" + (-expected).ToString("0.0") + " °C",
+                  $"{label?.text} vs {expected:0.00}");
+            var flash = Find("PaintFlash").GetComponent<MeshFilter>().sharedMesh;
+            Check("paint: the painted blocks flash (one quad per footprint block)",
+                  flash.vertexCount == 4 * brush.Footprint(hot).Count(d.Model.IsValid), $"{flash.vertexCount} vertices");
+            yield return new WaitForSeconds(1.5f);
+            Check("readouts: the number settles on the model's value", Mathf.Abs(ui.ShownKpis.exposure - target) < 0.5f,
+                  $"shown {ui.ShownKpis.exposure:N1}, target {target:N1}");
+            Check("paint: the flash fades out after the stroke", flash.vertexCount == 0, $"{flash.vertexCount} vertices");
+            d.Model.ResetAll();
+
+            // Heat shimmer: over the hottest tenth of blocks, only in the heat views.
+            var shimmer = FindFirstObjectByType<HeatShimmer>();
+            yield return null;
+            int valid = Enumerable.Range(0, d.Data.BlockCount).Count(d.Model.IsValid);
+            int expectedHot = Enumerable.Range(0, d.Data.BlockCount).Count(b => d.Model.IsValid(b) && d.Model.Lst(b) >= shimmer.Threshold);
+            Check("shimmer: over the hottest ~10% of blocks", shimmer.HotBlocks == expectedHot &&
+                  shimmer.HotBlocks > 0.05f * valid && shimmer.HotBlocks < 0.15f * valid, $"{shimmer.HotBlocks} of {valid}");
+            var sheets = Find("HeatShimmer").GetComponent<MeshRenderer>();
+            d.SetMode(ViewMode.Materials);
+            yield return null;
+            Check("shimmer: hidden in the Materials view", !sheets.enabled);
+            d.SetMode(ViewMode.Heat);
+            yield return null;
+            Check("shimmer: shown in the Surface heat view", sheets.enabled);
+
+            // Downlink ticker: real scene sets and the required credits, scrolling.
+            string ticker = Text(HudStyle.Footer);
+            Check("ticker: lists the Landsat 9 scenes and the Copernicus credit",
+                  ticker.Contains("LANDSAT 9 · 32 SCENES") && ticker.Contains("Contains modified Copernicus Sentinel data"),
+                  ticker.Substring(0, Mathf.Min(120, ticker.Length)));
+            var tickerRt = Find(HudStyle.Footer).GetComponent<RectTransform>();
+            float x0 = tickerRt.anchoredPosition.x;
+            yield return new WaitForSeconds(0.3f);
+            Check("ticker: scrolls", !Mathf.Approximately(x0, tickerRt.anchoredPosition.x), $"{x0:0} → {tickerRt.anchoredPosition.x:0}");
+
+            // Legend title fits now (it used to be cut off), model notes fold out.
+            var title = Find(HudStyle.LegendTitle).GetComponent<TextMeshProUGUI>();
+            title.ForceMeshUpdate();
+            Check("legend: title is not cut off", !title.isTextTruncated && title.text.Contains("typical block"), title.text);
+            var notes = Find(HudStyle.ModelPanel);
+            Button(HudStyle.ModelButton).onClick.Invoke();
+            bool opened = notes.activeSelf;
+            Button(HudStyle.ModelButton).onClick.Invoke();
+            Check("model notes: the [+] button folds them out and back", opened && !notes.activeSelf);
+
+            // Popup slides in.
+            Button(HudStyle.FiguresButton).onClick.Invoke();
+            yield return null;
+            var card = Find(HudStyle.FigureCard).GetComponent<RectTransform>();
+            float y0 = card.anchoredPosition.y;
+            yield return new WaitForSeconds(0.45f);
+            Check("popup: slides up into place", y0 < -1f && Mathf.Abs(card.anchoredPosition.y) < 0.5f,
+                  $"{y0:0.0} → {card.anchoredPosition.y:0.0}");
+            Button(HudStyle.FigureClose).onClick.Invoke();
+
+            // Living scene: the sun moves; left alone, the camera drifts.
+            var sun = FindFirstObjectByType<SunCycle>().transform;
+            var r0 = sun.rotation;
+            yield return new WaitForSeconds(0.5f);
+            Check("sun: moves across the sky", Quaternion.Angle(r0, sun.rotation) > 0.05f, $"{Quaternion.Angle(r0, sun.rotation):0.000}°");
+            var cam = FindFirstObjectByType<OrbitCamera>();
+            float waited = 0f;
+            while (!cam.Drifting && waited < 12f) { waited += Time.deltaTime; yield return null; }
+            Check("camera: drifts by itself when nobody touches it", cam.Drifting, $"waited {waited:0.0} s");
+        }
+
+        // ---------- 5. nothing else changed ----------
 
         void Unchanged(DistrictView d)
         {
@@ -209,6 +328,28 @@ namespace CoolCairo
         }
 
         // ---------- helpers ----------
+
+        const float FadeHalf = DistrictView.FadeSeconds / 2f;
+
+        static IEnumerator Settle(DistrictView d)
+        {
+            float t = 0f;
+            while (d.Fading && t < 2f) { t += Time.deltaTime; yield return null; }
+        }
+
+        static Texture2D Ground(DistrictView d) =>
+            (Texture2D)typeof(DistrictView).GetField("_groundTex", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(d);
+
+        static Color MaterialsColor(DistrictView d, int block) =>
+            (Color)typeof(DistrictView).GetMethod("GroundColor", BindingFlags.NonPublic | BindingFlags.Instance)
+                .Invoke(d, new object[] { block });
+
+        // A block with residents, excess heat and dark roofs, so cool roofs clearly lower its exposure.
+        static int HottestBlock(DistrictView d) =>
+            Enumerable.Range(0, d.Data.BlockCount)
+                .Where(b => d.Model.IsValid(b) && d.Data.blocks.darkRoofFrac[b] > 0.05f)
+                .OrderByDescending(b => d.Model.Exposure(b, false) * d.Data.blocks.darkRoofFrac[b])
+                .First();
 
         void Check(string name, bool ok, string detail = "")
         {
