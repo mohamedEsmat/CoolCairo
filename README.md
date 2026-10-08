@@ -39,6 +39,8 @@ The app: at start-up it checks the real satellite archives for the scenes the an
 | WorldPop Global2 R2025A | WorldPop | 2024 | 100 m constrained population | Residents per block | CC BY 4.0 |
 | NASA Blue Marble | NASA Earth Observatory | July 2004 | True-colour mosaic | App globe only | Public domain |
 
+**Why EnMAP and not Satellite 813:** 813 hyperspectral imagery of a team's own study area is available only in the incubation phase (organizers' answer to our question, 1 Oct 2026), so the PoC uses EnMAP, the closest freely available hyperspectral data; 813 data for Cairo is our first incubation step.
+
 No account or API key is needed except for EnMAP (optional, see [Installation](#5-installation)). Intervention effects, costs researched for later and all literature sources: [`docs/intervention_research.md`](docs/intervention_research.md); every parameter below is in [`analysis/config/aoi.yaml`](analysis/config/aoi.yaml) with its source.
 
 ## 4. Technical approach
