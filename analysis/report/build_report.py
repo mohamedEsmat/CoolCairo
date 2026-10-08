@@ -238,8 +238,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ["Challenge", "813 Challenge: Urban Expansion, Land Use Change &amp; Heat Risk"],
               ["Team", "Team 46: Liquaa Mahmoud (team lead), Mohamed Esmat (technical lead), "
                "Mahmoud Abu Zaid (data & hyperspectral analyst)"],
-              ["Deliverables", "Windows desktop app, reproducible Python analysis (notebooks 01–06), "
-                               "this report, pitch video"],
+              ["Deliverables", "Windows desktop app, reproducible Python analysis (notebooks 00–06), "
+                               "this report, slides"],
               ["Report built", f"{date.today():%d %B %Y} from commit {git_commit()}"],
           ], [0.2, 0.8], shade_first_col=True),
           PageBreak()]
@@ -288,10 +288,10 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     s += [p("2  Problem and use case", H1),
           p("<b>Users.</b> City and district planners in MENA cities (first: Cairo Governorate), "
             "and the NGOs and consultancies that prepare greening and retrofit programmes for them."),
-          p("<b>Decision.</b> Where to spend a limited cooling budget: which blocks first, and "
-            "which measure there. A planner needs to see where heat and people coincide, what "
-            "drives the heat in each block, and the expected effect of a measure before committing "
-            "money."),
+          p("<b>Decision.</b> Where to cool first, and with which measure in each block, so surface "
+            "temperatures fall where people live, for their health and for the city's environment. "
+            "A planner needs to see where heat and people coincide, what drives the heat in each "
+            "block, and the expected effect of a measure before acting."),
           p("<b>Why satellites.</b> Field surveys of surface temperature and materials cannot "
             "cover a city block by block every summer. Landsat measures surface temperature every "
             "8 days (two satellites), Sentinel-2 sees materials and vegetation at 10 m every 5 days, "
