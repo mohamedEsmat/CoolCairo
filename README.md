@@ -1,5 +1,7 @@
 # CoolCairo
 
+[![Open the quick example in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mohamedEsmat/CoolCairo/blob/master/analysis/notebooks/00_quick_example.ipynb)
+
 **Block-level urban heat decision support for MENA cities, starting with Nasr City, Cairo.**
 Arab Youth Space Hackathon 2026 (UAE Space Agency / Space42), 813 Challenge: *Urban Expansion, Land Use Change & Heat Risk*. Team 46.
 
