@@ -442,6 +442,16 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "classified as dark roof at 10 m. An automatic sign check flags this and the model "
             "therefore uses the literature value for cool roofs; switching to the regression is "
             "one config line if better material data fixes the sign."),
+          p("<b>Cool coatings in practice.</b> Reflective coatings are proven and entering mass "
+            "production. A radiative-cooling coating kept container-house roofs about 24 °C cooler "
+            "at the surface than concrete in a 2.5-year field trial in Hong Kong and cut "
+            "air-conditioning energy by 10% (PolyU 2024); a similar radiative-cooling paint entered "
+            "mass production in China in 2026, reported as up to 25 °C cooler on surfaces in a "
+            "six-month test (SCMP 2026, citing <i>Science and Technology Daily</i>; not yet "
+            "independently verified). These are peak surface temperatures of the coated surface "
+            "itself and are not comparable with our block-average summer medians. Such coatings "
+            "reflect and emit more than the white paint we model, so our cool-roof effects are "
+            "conservative."),
           p("4.8  Does hyperspectral data add value?", H2),
           p("Two controlled tests compare EnMAP with Sentinel-2 on identical pixels, the same "
             "classifier and the same spatial folds, so only the spectra differ. EnMAP is also "
@@ -700,6 +710,12 @@ def story(r: Results, figs: dict[str, Path]) -> list:
         "Hendel, M. (2024). Cool pavements. arXiv:2409.12242.",
         "Santamouris, M. (2014). Cooling the cities: a review of reflective and green roof "
         "mitigation technologies. <i>Solar Energy</i> 103 (as cited in Wang et al. 2020).",
+        "The Hong Kong Polytechnic University (2024). PolyU researchers unveil novel carbon "
+        "dots-driven green radiative cooling coating. News release, 24 September 2024. "
+        "polyu.edu.hk/rio/news/2024/20240924---polyu-researchers-unveil-novel-carbon-dots-driven-"
+        "green-radiative-cooling-coating/",
+        "South China Morning Post (2026). Chinese paint cuts wall temperature 25 degrees Celsius "
+        "in summer test: report. September 2026. scmp.com/news/china/science/article/3367812.",
         "U.S. Geological Survey. Landsat 8–9 Collection 2 Level-2 Science Product Guide.",
         "Google Research. Open Buildings 2.5D Temporal Dataset.",
         "WorldPop. Global2 R2025A population counts, Egypt 2024, 100 m constrained.",
