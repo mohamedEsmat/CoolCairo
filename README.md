@@ -34,7 +34,7 @@ The app: at start-up it checks the real satellite archives for the scenes the an
 | Landsat 8/9 Collection 2, band ST_B10 | USGS, via Microsoft Planetary Computer | Jun–Aug 2023–2025, 65 scenes, scene cloud cover < 10% | Level-2 surface temperature (atmospherically corrected) | Summer surface temperature | Public domain (USGS) |
 | Sentinel-2 MSI, bands B02 B03 B04 B08 B11 B12 + SCL | ESA Copernicus, via Microsoft Planetary Computer | Jun–Aug 2023–2025, 70 granules from 58 acquisition days, cloud cover < 10% | Level-2A surface reflectance | Surface materials, vegetation, app fly-in image | Contains modified Copernicus Sentinel data [2023–2025] |
 | EnMAP hyperspectral | DLR EOC Geoservice (free account) | 22 Apr 2025, 1 scene | Level-2A surface reflectance, 30 m | Testing whether hyperspectral explains heat better | Contains modified EnMAP data © DLR [2025]; raw data may not be redistributed and is **not** in this repository |
-| OpenStreetMap buildings | OpenStreetMap, via osmnx | retrieved Sep 2026 | Vector footprints, `height` / `building:levels` tags | Roofs vs ground, 3D buildings | © OpenStreetMap contributors, ODbL |
+| OpenStreetMap buildings | OpenStreetMap, via osmnx | extract of 23 Sep 2026, committed in [`data/osm/`](data/osm) (15,129 buildings) so results reproduce | Vector footprints, `height` / `building:levels` tags | Roofs vs ground, 3D buildings | © OpenStreetMap contributors, ODbL |
 | Google Open Buildings 2.5D Temporal | Google, public tiles | annual, 2016–2023 | 4 m building presence and height rasters | Building heights, urban growth | CC BY 4.0 |
 | WorldPop Global2 R2025A | WorldPop | 2024 | 100 m constrained population | Residents per block | CC BY 4.0 |
 | NASA Blue Marble | NASA Earth Observatory | July 2004 | True-colour mosaic | App globe only | Public domain |
@@ -48,7 +48,7 @@ In execution order (code in `analysis/src/coolcairo`, run by `analysis/run_pipel
 1. **Areas and grid.** Model area: east Cairo (31.26–31.40° E, 30.00–30.12° N; Heliopolis, Nasr City, Abbassia), where the model learns. Display district: Nasr City (24 × 24 blocks). All data on one grid in UTM 36N (EPSG:32636); **90 m blocks** = 3 × 3 Landsat pixels = 9 × 9 Sentinel-2 pixels, matching the thermal band's resolution.
 2. **Surface temperature (Landsat).** Every summer scene 2023–2025 with < 10% cloud; clouds removed per pixel with the QA_PIXEL band (fill, dilated cloud, cirrus, cloud, cloud shadow); value × 0.00341802 + 149.0 − 273.15 = °C; **median per pixel** across the 65 scenes.
 3. **Surface materials (Sentinel-2).** Same window; per-pixel mask from the scene classification layer (no data, saturated, shadow, cloud, cirrus); median composite at 10 m. Rules: **NDVI > 0.30** → vegetation; brightness (mean of B02, B03, B04) **≤ 0.14** → dark (asphalt, dark roofs); bright pixels with Bare Soil Index ((B11 + B04) − (B08 + B02)) / ((B11 + B04) + (B08 + B02)) **> 0.137** → sand (the cut-off that best separates roofs from open ground, 75% balanced accuracy); the rest → pale surfaces.
-4. **Buildings.** OpenStreetMap footprints split each block into roof and ground, so dark and pale pixels become dark/pale roofs vs dark ground; sand counts only outside footprints. Heights: OSM `height` → `building:levels` × 3.2 m → Google Open Buildings 2.5D (median of at least 3 pixels in the footprint) → default 5 storeys.
+4. **Buildings.** OpenStreetMap footprints (the committed 23 Sep 2026 extract; `osm_refresh: true` in the config downloads live OSM instead) split each block into roof and ground, so dark and pale pixels become dark/pale roofs vs dark ground; sand counts only outside footprints. Heights: OSM `height` → `building:levels` × 3.2 m → Google Open Buildings 2.5D (median of at least 3 pixels in the footprint) → default 5 storeys.
 5. **Block table.** Per block: share of area of each surface, building cover, mean height, mean NDVI, median surface temperature, and residents (WorldPop resampled by area, totals kept within 0.3%).
 6. **Heat model.** Linear regression: surface temperature ~ vegetation + dark roof + dark ground + sand + building cover + mean height, on the **2,538 urban blocks** (≥ 10% building cover). Tested with **spatial cross-validation**: 5 folds of whole 1 km tiles, because neighbouring blocks share heat. Linear on purpose: the app computes every effect as a weighted sum.
 7. **Heat risk.** Heat exposure = residents × max(0, block temperature − **45.7 °C**), the median of the urban blocks (person·°C).
@@ -107,7 +107,7 @@ uv run pytest                          # unit tests (23), including the example'
 uv run python report/build_report.py   # methodology report PDF in docs/ (needs the EnMAP files)
 ```
 
-The first run streams about 1 GB from the public archives into `analysis/data/` (a cache, git-ignored) and takes tens of minutes depending on the connection; later runs read the cache and take a few minutes. No GPU needed.
+The first run streams about 1 GB from the public archives into `analysis/data/` (a cache, git-ignored); later runs read the cache. **Tested on a second, clean Windows machine** (8 Oct 2026, fresh clone, `uv sync`, each notebook run from a restarted kernel): all six ran without errors in about **29 minutes** in total (01: 18 min, mostly downloads; 06: 7.5 min; 04: 2.3 min; 02, 03 and 05 under a minute). No GPU needed.
 
 **The app:** run `CoolCairo.exe`, choose Nasr City on the globe, switch views on the left, paint with the tools at the bottom (left-drag paint, right-drag erase, Alt-drag or middle-drag orbit, scroll zoom), and read the result cards at the top right. `CoolCairo.exe -selftest -logFile selftest.log` runs 51 automated checks and exits with code 0 when all pass; `-screenshots <folder>` takes the screenshots used in the report; `-autotest` drives the whole flow in a loop.
 
@@ -119,6 +119,7 @@ The first run streams about 1 GB from the public archives into `analysis/data/` 
 | `analysis/src/coolcairo` | Pipeline modules; notebooks are thin drivers |
 | `analysis/config/aoi.yaml` | Areas, dates, thresholds and every literature value, with sources |
 | `data/sample_input` | Example input; `analysis/make_sample.py` recreates it |
+| `data/osm` | The OpenStreetMap building extract behind the published results (ODbL) |
 | `results` | Example output, written by notebook 00 / `analysis/run_example.py` |
 | `export/district.json` | Handoff from the analysis to the app |
 | `unity/Assets/CoolCairo` | The app: globe intro, 3D district, cooling tools, UI |
@@ -160,7 +161,7 @@ The first run streams about 1 GB from the public archives into `analysis/data/` 
 
 - **Surface, not air, temperature.** Satellites measure how hot surfaces get. Studies suggest city-wide cool roofs lower air temperature by about 0.1–0.33 °C per +0.1 roof albedo; the effect on air is smaller and spreads beyond the district.
 - **Block level only (90 m).** Landsat's thermal band is 100 m, so no per-building temperatures are claimed.
-- **Modest model fit** (R² 0.25). Fine for comparing measures, not for predicting one block exactly; cool roofs and cool pavements therefore use published values.
+- **Modest model fit** (R² 0.25). Fine for comparing measures, not for predicting one block exactly; cool roofs and cool pavements therefore use published values. The score also depends on which blocks are mapped: with live OpenStreetMap on 8 Oct 2026 (six more buildings, six more urban blocks) the same code gives R² 0.30 and 6,277 person·°C, which is why the published results use the committed 23 Sep extract.
 - **Dusty roofs vs sand, shadows as dark roofs.** The single-index material rules confuse them (the spot-check misses; the implausible dark-roof coefficient).
 - **OpenStreetMap gaps in Cairo.** Only 3.4% of east Cairo is mapped as roof, so the model learns from the 2,538 well-mapped blocks.
 - **Heat risk is a screening indicator** (heat × residents, WorldPop is modelled). No vulnerability yet: age, housing, access to cooling.
@@ -175,4 +176,4 @@ How we would overcome each one (effort and evidence) is on slide 13 of [the slid
 
 **Licence:** code under [MIT](LICENSE). The data keep their own licences and attributions (see [Data used](#3-data-used)); raw EnMAP data is not included.
 
-**Attribution:** Landsat (USGS) · Contains modified Copernicus Sentinel data [2023–2025] · Contains modified EnMAP data © DLR [2025] · © OpenStreetMap contributors · Google Open Buildings 2.5D Temporal (CC BY 4.0) · WorldPop 2024 (CC BY 4.0) · NASA Blue Marble · data access via Microsoft Planetary Computer and DLR EOC Geoservice. Cool-roof and cool-pavement effects: Wang, Huang & Li (2020), *Geophysical Research Letters* 47, e2020GL087853, and the sources in `docs/intervention_research.md`. Built with Python (xarray, rioxarray, odc-stac, geopandas, osmnx, scikit-learn) and Unity 6.
+**Attribution:** Landsat (USGS) · Contains modified Copernicus Sentinel data [2023–2025] · Contains modified EnMAP data © DLR [2025] · © OpenStreetMap contributors (ODbL; the extract in `data/osm/` is shared under the same licence) · Google Open Buildings 2.5D Temporal (CC BY 4.0) · WorldPop 2024 (CC BY 4.0) · NASA Blue Marble · data access via Microsoft Planetary Computer and DLR EOC Geoservice. Cool-roof and cool-pavement effects: Wang, Huang & Li (2020), *Geophysical Research Letters* 47, e2020GL087853, and the sources in `docs/intervention_research.md`. Built with Python (xarray, rioxarray, odc-stac, geopandas, osmnx, scikit-learn) and Unity 6.

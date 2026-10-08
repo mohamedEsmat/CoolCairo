@@ -290,3 +290,14 @@ def test_growth_class_codes():
     shares = pd.DataFrame({"built_2016": [0.30, 0.30, 0.02, 0.01, np.nan],
                            "built_2023": [0.32, 0.40, 0.25, 0.05, 0.2]})
     assert growth_class(shares, 2016, 2023, 0.10, 0.05).tolist() == [1, 2, 3, 0, -1]
+
+
+def test_osm_buildings_come_from_the_committed_snapshot():
+    """Live OSM changes daily; the published numbers use the 23 Sep 2026 extract in data/osm."""
+    from coolcairo.pipeline import OSM_SNAPSHOT, load_osm_buildings
+
+    if not OSM_SNAPSHOT.exists():
+        pytest.skip("snapshot not in this checkout")
+    cfg = load_config()
+    assert cfg["osm_refresh"] is False
+    assert len(load_osm_buildings(cfg)) == 15129

@@ -24,6 +24,10 @@ model_aoi:
 # Only blocks that are actually urban are used to fit the model (drops open desert).
 min_building_coverage: 0.10
 
+# OpenStreetMap buildings: false = the committed extract of 23 Sep 2026 (data/osm/), which
+# reproduces the published results; true = download live OSM (slightly different results).
+osm_refresh: false
+
 # Scene selection: summer daytime, several years, median composite (more robust than one scene).
 dates:
   years: [2023, 2024, 2025]

@@ -17,9 +17,14 @@ from coolcairo import enmap, growth, openbuildings, population, separability, st
 from coolcairo.blocks import block_features, height_raster
 from coolcairo.buildings import fetch_buildings, footprint_mask
 from coolcairo.classify import classify_sentinel2
-from coolcairo.config import DATA_DIR, Config, geobox_for, projected_bbox
+from coolcairo.config import DATA_DIR, REPO_ROOT, Config, geobox_for, projected_bbox
 
 FINE_RESOLUTION = 10  # Sentinel-2 grid (m).
+
+# OpenStreetMap changes daily, so a fresh download gives slightly different buildings and
+# results (8 Oct 2026: 6 more buildings, R² 0.30 instead of 0.25). This committed extract
+# (ODbL) is the one behind the published numbers; set `osm_refresh: true` to use live OSM.
+OSM_SNAPSHOT = REPO_ROOT / "data" / "osm" / "buildings_osm_2026-09-23.gpkg"
 
 
 def _cached_array(path: Path, build: callable) -> xr.DataArray | xr.Dataset:
@@ -48,7 +53,9 @@ def load_sentinel2(cfg: Config) -> xr.Dataset:
 
 
 def load_osm_buildings(cfg: Config) -> gpd.GeoDataFrame:
-    """OSM footprints with OSM-only heights (cached)."""
+    """OSM footprints with OSM-only heights: the committed snapshot, or live OSM (cached)."""
+    if not cfg.raw.get("osm_refresh", False) and OSM_SNAPSHOT.exists():
+        return gpd.read_file(OSM_SNAPSHOT)
     path = DATA_DIR / "buildings.gpkg"
     if path.exists():
         return gpd.read_file(path)
