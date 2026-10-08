@@ -62,7 +62,7 @@ cd analysis
 uv sync                        # locked dependencies
 uv run pytest                  # unit tests
 uv run python run_pipeline.py  # stream data, fit model, write export/district.json
-uv run jupyter lab             # notebooks 01–06, same steps with plots
+uv run jupyter lab             # notebooks 00–06 (00 runs offline in seconds; 01–06 stream the data)
 uv run python report/build_report.py  # methodology report PDF in docs/ (needs the EnMAP files)
 uv run python globe_textures.py       # app globe textures from NASA Blue Marble (already in the repo)
 ```
@@ -75,9 +75,12 @@ No account or API key is needed for the core pipeline. **EnMAP is optional:** it
 
 [`data/sample_input/`](data/sample_input/README.md) holds real example input: every 90 m block of the east-Cairo model area (material shares, building height, summer surface temperature, residents, building cover 2016/2023), plus Landsat, Sentinel-2 and building extracts for Nasr City. No download or account needed:
 
+Open **[`analysis/notebooks/00_quick_example.ipynb`](analysis/notebooks/00_quick_example.ipynb)**: it runs in about 10 seconds and is saved with its outputs, so you can read the results and maps on GitHub without running anything. To rerun it, or the same steps as a script:
+
 ```bash
 cd analysis
-uv run python run_example.py     # or: python run_example.py
+uv run jupyter lab                 # open notebooks/00_quick_example.ipynb, Restart Kernel and Run All
+uv run python run_example.py       # same steps as a script; or: python run_example.py
 ```
 
 It fits the heat model and computes cooling effects, heat risk and urban growth, writing [`results/`](results/summary.md) (JSON, CSV, three maps and a summary). The numbers match the report and the app; `uv run pytest` checks that.
@@ -108,7 +111,7 @@ Starting the app with `-autotest` makes it drive itself through the whole flow i
 | --- | --- |
 | `analysis/src/coolcairo` | Pipeline modules; notebooks are thin drivers |
 | `analysis/config/aoi.yaml` | Areas, CRS, dates, thresholds and every literature value, with sources |
-| `analysis/notebooks` | 01 data · 02 classification and M2 spot check · 03 model and heat risk · 04 export · 05 hyperspectral value · 06 urban growth |
+| `analysis/notebooks` | 00 quick example (offline, with outputs) · 01 data · 02 classification and M2 spot check · 03 model and heat risk · 04 export · 05 hyperspectral value · 06 urban growth |
 | `export/district.json` | Handoff from analysis to the app |
 | `data/sample_input` | Example input (see above); `analysis/make_sample.py` recreates it |
 | `results` | Example outputs written by `analysis/run_example.py` |
