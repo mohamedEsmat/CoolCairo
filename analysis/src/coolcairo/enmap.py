@@ -37,8 +37,9 @@ def scene_ids(path: Path = SCENE_LIST) -> list[str]:
 def _file(scene_id: str, kind: str) -> Path:
     matches = sorted(ENMAP_DIR.glob(f"{scene_id}-{kind}*"))
     if not matches:
+        folder = "analysis/" + ENMAP_DIR.relative_to(ANALYSIS_ROOT).as_posix()  # no local paths
         raise FileNotFoundError(
-            f"Missing {kind} for {scene_id} in {ENMAP_DIR}. Download it from EOC Geoservice "
+            f"Missing {kind} for {scene_id} in {folder}. Download it from EOC Geoservice "
             "(see config/enmap_scenes.txt)."
         )
     return matches[0]

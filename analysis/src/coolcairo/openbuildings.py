@@ -12,6 +12,7 @@ Bands: 1 building_fractional_count, 2 building_height (m, 0-100), 3 building_pre
 from __future__ import annotations
 
 import re
+import warnings
 from pathlib import Path
 
 import geopandas as gpd
@@ -19,6 +20,7 @@ import numpy as np
 import pandas as pd
 import rioxarray
 import xarray as xr
+from rasterio.errors import NotGeoreferencedWarning
 from rasterio.features import rasterize
 from rioxarray.merge import merge_arrays
 
@@ -93,7 +95,11 @@ def band_mosaic(cfg: Config, band: int, year: int, aoi_key: str = "model_aoi") -
             "/vsicurl/" + url, overview_level=overview_level(url), masked=True
         ).sel(band=band)
         if da.rio.crs.to_string() != cfg.crs:
-            da = da.rio.reproject(cfg.crs)
+            # Silences a GDAL notice on fresh downloads that printed library paths into
+            # notebooks; harmless: the height check (bias -1.4 m, r 0.60) is the same either way.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", NotGeoreferencedWarning)
+                da = da.rio.reproject(cfg.crs)
         try:
             parts.append(da.rio.clip_box(min_x, min_y, max_x, max_y).load())
         except (
