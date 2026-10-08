@@ -1,0 +1,15 @@
+# CoolCairo environment for conda / mamba users. From the repo root:
+#   conda env create -f environment.yml
+#   conda activate coolcairo
+# Python 3.12 from conda-forge; every package from requirements.txt, pinned to the exact
+# versions in analysis/uv.lock, so this matches the uv route (cd analysis && uv sync).
+# Then run from analysis/, e.g.:  python run_example.py   or   jupyter lab
+name: coolcairo
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - -r requirements.txt
+      - -e ./analysis

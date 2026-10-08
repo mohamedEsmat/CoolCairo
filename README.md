@@ -67,7 +67,7 @@ uv run python report/build_report.py  # methodology report PDF in docs/ (needs t
 uv run python globe_textures.py       # app globe textures from NASA Blue Marble (already in the repo)
 ```
 
-Without uv, `requirements.txt` at the repo root pins the same versions (Python 3.12): `pip install -r requirements.txt`, then `pip install --no-deps -e ./analysis`, then run the same commands with `python` instead of `uv run python`.
+Without uv, `requirements.txt` at the repo root pins the same versions (Python 3.12): `pip install -r requirements.txt`, then `pip install --no-deps -e ./analysis`, then run the same commands with `python` instead of `uv run python`. With conda or mamba: `conda env create -f environment.yml`, then `conda activate coolcairo` (same pinned versions).
 
 No account or API key is needed for the core pipeline. **EnMAP is optional:** it needs a free DLR EOC Geoservice account subscribed to the "EnMAP Access Service"; download the files for the scene in `analysis/config/enmap_scenes.txt` into `analysis/data/enmap/`. Without them the pipeline, notebooks 01–04 and 06 and the example run, and skip the hyperspectral results; only notebook 05 and the report script need them.
 
@@ -126,6 +126,10 @@ Starting the app with `-autotest` makes it drive itself through the whole flow i
 - **Materials come from Sentinel-2 rules.** A visual spot check of 20 random points against Google Maps satellite imagery (milestone M2) agrees at 16 of 18 judgeable points (89%); misses are dusty asphalt and dusty roofs read as sand. The check was not blind (done by an AI assistant that could see the labels); details per point in `docs/m2_spot_check.xlsx`.
 - **Heat risk is a screening indicator** (heat × residents). It does not include vulnerability such as age, housing or access to cooling.
 - **Costs are not yet in the app;** researched ranges are in `docs/intervention_research.md`.
+
+## Licence
+
+Code: [MIT](LICENSE). The data keep their own licences and attributions (see [Data](#data)); raw EnMAP data is not included.
 
 ## Team
 
