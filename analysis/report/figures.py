@@ -259,8 +259,10 @@ def urban_growth(r, out: Path) -> Path:
     for y_, (k, row) in zip(ys, heat.iterrows(), strict=True):
         ax.text(row.mean_lst_c + 0.1, y_, f"{row.mean_lst_c:.1f} °C  (n = {int(row.blocks):,})",
                 va="center", fontsize=7)
+        # Class name inside its bar: as a y-axis label it ran into the map in panel a.
+        ax.text(40.25, y_, names[k], va="center", fontsize=7, color="white", fontweight="bold")
     ax.axvline(r.reference_c, color=INK, lw=0.8, ls="--")
-    ax.set_yticks(ys, [names[k] for k in heat.index])
+    ax.set_yticks([])
     ax.set_xlim(40, 52)
     ax.set_title("c  Mean summer surface temperature", fontsize=8.5)
     ax.set_xlabel("°C (dashed: urban median)")
