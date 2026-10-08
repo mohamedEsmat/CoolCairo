@@ -15,6 +15,8 @@ CoolCairo maps summer heat risk block by block from free satellite data (how hot
 - **Decision:** where to spend a limited cooling budget. Which blocks first, and which measure in each: cool roofs, street trees, cool pavements or pocket parks.
 - **What they have today:** at best city-wide heat maps or individual site studies. Nothing shows, block by block, where heat, the surfaces causing it and the people exposed to it overlap, or what a measure would change before money is spent.
 - **What CoolCairo gives them:** a ranked, block-level picture of heat risk and a tool to test plans. In Nasr City, cool roofs and pocket parks on only the riskiest third of blocks remove **74%** of the district's heat exposure, more than any single measure applied everywhere: the budget goes where it helps most.
+- **Business model:** heat-risk planning as a service, city by city: a setup fee per city and a yearly licence for updates, paid pilots, and plan reports for funded cooling programmes; input data is free, so costs are mainly team time and light cloud compute. First step: a pilot with one Cairo district authority or new-city developer.
+- **SDG fit:** SDG 11 (sustainable cities), SDG 13 (climate action), SDG 3 (good health).
 
 The app: at start-up it checks the real satellite archives for the scenes the analysis used, shows a MENA globe, flies into Nasr City and shows the district in 3D (about 1,900 buildings with estimated heights) with four views (surface materials, surface heat, heat risk, urban growth 2016–2023), the matching analysis maps, and four cooling tools with live result cards (average block temperature before → after, heat exposure, residents in cooled blocks).
 
