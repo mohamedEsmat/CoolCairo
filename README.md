@@ -7,7 +7,7 @@ Arab Youth Space Hackathon 2026 (UAE Space Agency / Space42), 813 Challenge. **T
 
 CoolCairo maps summer heat risk block by block from free satellite data (how hot each 90 m block's surfaces get, what they are made of, and how many people live there) and gives city planners a 3D desktop app in which they paint cool roofs, street trees, cool pavements and pocket parks onto blocks and see the predicted effect live.
 
-**Quick links:** [demo video (YouTube)](https://youtu.be/DZX2JM0CVOk) · [quick example notebook (runs in seconds, offline)](analysis/notebooks/00_quick_example.ipynb) · [slides (PDF)](docs/CoolCairo_Slides.pdf) · [methodology report (PDF)](docs/CoolCairo_Methodology_Report.pdf) · [example results](results/summary.md)
+**Quick links:** [demo video (YouTube)](https://youtu.be/jkDC3HfMiQc) · [quick example notebook (runs in seconds, offline)](analysis/notebooks/00_quick_example.ipynb) · [slides (PDF)](docs/CoolCairo_Slides.pdf) · [methodology report (PDF)](docs/CoolCairo_Methodology_Report.pdf) · [example results](results/summary.md)
 
 **Download the app (Windows 10/11, 64-bit):** [CoolCairo-Windows-v1.0.zip](https://github.com/mohamedEsmat/CoolCairo/releases/latest). Unzip, run `CoolCairo.exe`; no install or Unity needed. Windows may warn about an unknown publisher (the app is not code-signed): **More info › Run anyway**. Internet is optional (the start-up archive check falls back to the prepared data).
 

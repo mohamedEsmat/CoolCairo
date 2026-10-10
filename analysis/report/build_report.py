@@ -239,7 +239,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ["Team", "Team 46: Dr. Liquaa Mahmoud (team lead), Eng. Mohamed Esmat (technical lead), "
                "Eng. Mahmoud Mostafa (data & hyperspectral analyst)"],
               ["Deliverables", "Windows desktop app, reproducible Python analysis (notebooks 00–06), "
-                               "this report, slides, demo video (youtu.be/DZX2JM0CVOk)"],
+                               "this report, slides, demo video (youtu.be/jkDC3HfMiQc)"],
               ["Report built", f"{date.today():%d %B %Y} from commit {git_commit()}"],
           ], [0.2, 0.8], shade_first_col=True),
           PageBreak()]
