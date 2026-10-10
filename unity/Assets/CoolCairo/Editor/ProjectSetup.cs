@@ -255,6 +255,12 @@ namespace CoolCairo.EditorTools
             Assign(highlight, "district", view);
             Assign(highlight, "brush", brush);
             Assign(highlight, "material", highlightMat);
+
+            // Coloured rings around every painted block, one colour per measure, in all views.
+            var ringMat = EnsureMaterial("Treatment", "CoolCairo/VertexColorUnlit");
+            var rings = tools.AddComponent<TreatmentOverlay>();
+            Assign(rings, "district", view);
+            Assign(rings, "material", ringMat);
             var hud = HudBuilder.Build(view, brush, AnalysisFigures());
 
             // Living scene: hot air over the hottest blocks, and a green pulse plus a rising

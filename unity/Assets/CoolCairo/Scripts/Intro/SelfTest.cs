@@ -256,6 +256,16 @@ namespace CoolCairo
             var flash = Find("PaintFlash").GetComponent<MeshFilter>().sharedMesh;
             Check("paint: the painted blocks flash (one quad per footprint block)",
                   flash.vertexCount == 4 * brush.Footprint(hot).Count(d.Model.IsValid), $"{flash.vertexCount} vertices");
+            var rings = FindFirstObjectByType<TreatmentOverlay>();
+            int treated = brush.Footprint(hot).Count(d.Model.IsValid);
+            Check("rings: every painted block keeps a cool-roof ring", rings != null && rings.RingCount == treated,
+                  $"{rings?.RingCount} rings, {treated} painted blocks");
+            var keys = Find(HudStyle.TreatmentKeys);
+            Check("rings: the legend shows the ring key once something is painted", keys != null && keys.activeInHierarchy);
+            var coolRoof = d.MaterialLegend().First(e => e.label.StartsWith("Cool roof")).color;
+            var pale = d.MaterialLegend().First(e => e.label.StartsWith("Pale")).color;
+            Check("materials: coated roofs stand out from pale roofs (distinct cyan)",
+                  coolRoof.b - coolRoof.r > 0.25f && Mathf.Abs(coolRoof.b - pale.b) > 0.2f, Show(coolRoof) + " vs " + Show(pale));
             yield return new WaitForSeconds(1.5f);
             Check("readouts: the number settles on the model's value", Mathf.Abs(ui.ShownKpis.exposure - target) < 0.5f,
                   $"shown {ui.ShownKpis.exposure:N1}, target {target:N1}");

@@ -25,8 +25,11 @@ namespace CoolCairo
         [SerializeField] Color darkSurface = new Color(0.22f, 0.22f, 0.24f);
         [SerializeField] Color vegetation = new Color(0.33f, 0.55f, 0.27f);
         [SerializeField] Color soil = new Color(0.84f, 0.70f, 0.49f);
-        [SerializeField] Color coolRoof = new Color(0.97f, 0.98f, 1f);
-        [SerializeField] Color coolPavement = new Color(0.74f, 0.76f, 0.78f);
+        // Treated surfaces get their own icy cyan / blue, used nowhere else on the map: plain
+        // white and light grey were almost invisible next to Cairo's pale beige roofs.
+        // Same colours as the treatment rings (TreatmentOverlay).
+        [SerializeField] Color coolRoof = new Color(0.66f, 0.93f, 1f);       // #A8EEFF
+        [SerializeField] Color coolPavement = new Color(0.25f, 0.62f, 0.85f); // #409ED9
         [SerializeField] Color wall = new Color(0.72f, 0.69f, 0.64f);
         [SerializeField] Color noData = new Color(0.5f, 0.5f, 0.5f);
 
@@ -115,8 +118,8 @@ namespace CoolCairo
             yield return ("Dark surface: asphalt, dark roofs", darkSurface);
             yield return ("Pale surface: concrete, pale roofs", brightSurface);
             yield return ("Bare soil / sand", soil);
-            yield return ("Roof coated white (intervention)", coolRoof);
-            yield return ("Cool pavement (intervention)", coolPavement);
+            yield return ("Cool roof, coated (your plan)", coolRoof);
+            yield return ("Cool pavement, coated (your plan)", coolPavement);
         }
 
         // Growth-view colours for the legend, in the order the legend shows them.

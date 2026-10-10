@@ -86,6 +86,14 @@ namespace CoolCairo
             yield return Shot(folder, "07_risk_after_plan");
             district.SetMode(ViewMode.Heat);
             yield return Shot(folder, "08_heat_after_plan");
+            // Materials view after the plan, plus cool pavements on the 20 blocks with the most
+            // asphalt, to show how treated surfaces look (after the report's shots, so those stay
+            // the plain roofs + parks plan).
+            var paved = Enumerable.Range(0, district.Data.BlockCount).Where(model.IsValid)
+                .OrderByDescending(b => district.Data.blocks.darkGroundFrac[b]).Take(20);
+            foreach (int b in paved) model.Apply(Intervention.CoolPavement, b, 1f);
+            district.SetMode(ViewMode.Materials);
+            yield return Shot(folder, "09_materials_after_plan");
             Debug.Log($"[AutoTest] screenshots saved to {folder}");
             Application.Quit();
         }

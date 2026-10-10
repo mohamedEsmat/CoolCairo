@@ -52,6 +52,7 @@ namespace CoolCairo
         public const string LegendScale = "LegendScale";        // Ramp + labels group
         public const string LegendSwatches = "LegendSwatches";  // Materials view
         public const string LegendPalettes = "LegendPalettes";  // Heat view colour-scheme buttons
+        public const string TreatmentKeys = "TreatmentKeys";    // Key to the rings around painted blocks
         public const string PaletteButtonPrefix = "Palette_";   // + HeatPalette name
         public const string Tooltip = "Tooltip";
         public const string TooltipTitle = "TooltipTitle";

@@ -40,7 +40,7 @@ namespace CoolCairo
         float _beforeLst;
         bool _kpisReady;
         RawImage _legendRamp;
-        GameObject _legendScale, _legendSwatches, _riskKeys, _growthKeys, _legendPalettes;
+        GameObject _legendScale, _legendSwatches, _riskKeys, _growthKeys, _legendPalettes, _treatmentKeys;
         RectTransform _tooltip, _canvas;
         Texture2D _rampTex;
         ViewMode _shownMode = (ViewMode)(-1);
@@ -135,6 +135,10 @@ namespace CoolCairo
                                   ("No residents", DistrictView.NoResidents));
             _growthKeys = BuildKeys("GrowthKeys", _legendScale.transform.GetSiblingIndex() + 1,
                                     district.GrowthLegend().ToArray());
+            // Key to the rings around painted blocks, in every view once something is painted.
+            _treatmentKeys = BuildKeys(HudStyle.TreatmentKeys, _legendPalettes.transform.GetSiblingIndex(),
+                TreatmentOverlay.Measures.Select(m => ("Ring: " + m.label.ToLowerInvariant(), m.color)).ToArray());
+            _treatmentKeys.SetActive(false);
             Find<TextMeshProUGUI>(HudStyle.ModelText).text = ModelSummary();
             var d = district.Data;
             Find<TextMeshProUGUI>(HudStyle.Subtitle).text =
@@ -262,6 +266,8 @@ namespace CoolCairo
         void RefreshKpis()
         {
             var model = district.Model;
+            _treatmentKeys.SetActive(Enumerable.Range(0, district.Data.BlockCount).Any(b =>
+                TreatmentOverlay.Measures.Any(m => model.Share(m.kind, b) >= 0.01f)));
             // Before -> after, so the change reads as real temperatures, not an abstract delta.
             _beforeLst = model.MeanLst(false);
             float after = model.MeanLst(), delta = after - _beforeLst;
