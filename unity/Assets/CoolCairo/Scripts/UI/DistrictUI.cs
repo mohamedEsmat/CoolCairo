@@ -48,12 +48,12 @@ namespace CoolCairo
         Intervention _shownTool = (Intervention)(-1);
 
         // Analysis maps popup
-        Button _figuresButton, _figurePrev, _figureNext;
+        Button _figuresButton, _figurePrev, _figureNext, _undoButton;
         GameObject _figurePopup;
         RectTransform _figureCard;
         RawImage _figureImage;
         AspectRatioFitter _figureFit;
-        TextMeshProUGUI _figureTitle, _figureCount, _figureCaption, _figuresButtonLabel;
+        TextMeshProUGUI _figureTitle, _figureCount, _figureCaption, _figuresButtonLabel, _figureKeys;
         List<AnalysisFigure> _figuresShown = new List<AnalysisFigure>();
         int _figureIndex;
 
@@ -92,12 +92,15 @@ namespace CoolCairo
             _figureCaption = Find<TextMeshProUGUI>(HudStyle.FigureCaption);
             _figurePrev = Find<Button>(HudStyle.FigurePrev);
             _figureNext = Find<Button>(HudStyle.FigureNext);
+            _figureKeys = Find<TextMeshProUGUI>(HudStyle.FigureKeys);
             _figurePrev.onClick.AddListener(() => ShowFigure(_figureIndex - 1));
             _figureNext.onClick.AddListener(() => ShowFigure(_figureIndex + 1));
             Find<Button>(HudStyle.FigureClose).onClick.AddListener(CloseFigures);
             _figurePopup.SetActive(false);
             Find<Button>(HudStyle.GlobeButton).onClick.AddListener(() => SceneManager.LoadScene(0));
             Find<Button>(HudStyle.ResetButton).onClick.AddListener(() => district.Model.ResetAll());
+            _undoButton = Find<Button>(HudStyle.UndoButton);
+            _undoButton.onClick.AddListener(() => district.Model.Undo());
             var modelPanel = Find<RectTransform>(HudStyle.ModelPanel).gameObject;
             var modelButton = Find<Button>(HudStyle.ModelButton);
             modelButton.onClick.AddListener(() =>
@@ -167,6 +170,11 @@ namespace CoolCairo
                 if (Input.GetKeyDown(KeyCode.RightArrow)) ShowFigure(_figureIndex + 1);
                 if (Input.GetKeyDown(KeyCode.LeftArrow)) ShowFigure(_figureIndex - 1);
             }
+            else if (Input.GetKeyDown(KeyCode.Z) &&
+                     (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl) ||
+                      Input.GetKey(KeyCode.LeftCommand) || Input.GetKey(KeyCode.RightCommand)))
+                district.Model.Undo();
+            _undoButton.interactable = district.Model.CanUndo;
             AnimateKpis();
             UpdateTooltip();
         }
@@ -222,6 +230,11 @@ namespace CoolCairo
             _figureCount.text = $"{_figureIndex + 1} / {_figuresShown.Count}";
             _figurePrev.interactable = _figureIndex > 0;
             _figureNext.interactable = _figureIndex < _figuresShown.Count - 1;
+            // A single map has nowhere to page to: no Previous / Next, only how to close.
+            bool many = _figuresShown.Count > 1;
+            _figurePrev.gameObject.SetActive(many);
+            _figureNext.gameObject.SetActive(many);
+            _figureKeys.text = many ? "← → TO PAGE · ESC TO CLOSE" : "ESC TO CLOSE";
         }
 
         string GrowthHint()
@@ -238,7 +251,8 @@ namespace CoolCairo
             foreach (var kv in _toolButtons) Highlight(kv.Value, kv.Key == tool);
             var m = district.Data.model;
             var model = district.Model;
-            _toolHint.text = tool switch
+            // How to use it first, then what it does.
+            _toolHint.text = "<color=#E6F1FF>Drag over blocks to paint, right-drag to erase.</color> " + tool switch
             {
                 Intervention.CoolRoof =>
                     $"Coat every roof in a block white. Per unit of area coated: {Minus(m.coolRoofDarkDeltaC)} °C on dark roofs, {Minus(m.coolRoofPaleDeltaC)} °C on pale roofs (published values).",
@@ -251,13 +265,23 @@ namespace CoolCairo
             };
         }
 
-        void ShowBrush() => _brushValue.text = brush.Radius == 0 ? "1 block" : $"radius {brush.Radius} blocks";
+        // How many blocks one dab covers away from the edges (1, 5, 13, 29, ...).
+        void ShowBrush()
+        {
+            var d = district.Data;
+            int n = brush.Footprint(d.rows / 2 * d.cols + d.cols / 2).Count;
+            _brushValue.text = n == 1 ? "1 block" : $"{n} blocks";
+        }
 
         static void Highlight(Button b, bool selected)
         {
             b.targetGraphic.color = selected ? HudStyle.Accent : HudStyle.Button;
             var label = b.GetComponentInChildren<TextMeshProUGUI>();
             label.color = selected ? HudStyle.AccentText : HudStyle.Text;
+            // Tool sub-labels are dimmed with an alpha tag; on the orange fill dimmed dark text
+            // turned brown and unreadable, so a selected button shows it at full strength.
+            label.text = selected ? label.text.Replace("<alpha=#B0>", "<alpha=#FF>")
+                                  : label.text.Replace("<alpha=#FF>", "<alpha=#B0>");
             label.fontStyle = FontStyles.UpperCase | (selected ? FontStyles.Bold : FontStyles.Normal);
         }
 
@@ -266,8 +290,9 @@ namespace CoolCairo
         void RefreshKpis()
         {
             var model = district.Model;
-            _treatmentKeys.SetActive(Enumerable.Range(0, district.Data.BlockCount).Any(b =>
-                TreatmentOverlay.Measures.Any(m => model.Share(m.kind, b) >= 0.01f)));
+            bool plan = Enumerable.Range(0, district.Data.BlockCount).Any(b =>
+                TreatmentOverlay.Measures.Any(m => model.Share(m.kind, b) >= 0.01f));
+            _treatmentKeys.SetActive(plan);
             // Before -> after, so the change reads as real temperatures, not an abstract delta.
             _beforeLst = model.MeanLst(false);
             float after = model.MeanLst(), delta = after - _beforeLst;
@@ -278,7 +303,7 @@ namespace CoolCairo
 
             float baseRisk = model.TotalExposure(false), nowRisk = model.TotalExposure();
             float pct = baseRisk > 0f ? 100f * (nowRisk - baseRisk) / baseRisk : 0f;
-            _exposure.sub.text = $"person·°C · {Minus(pct, "0")}% vs today";
+            _exposure.sub.text = plan ? $"person·°C · {Minus(pct, "0")}% vs today" : "person·°C · no plan yet";
             Retarget(_exposure, nowRisk, lowerIsBetter: true);
 
             _residents.sub.text = $"of {model.TotalResidents():N0} residents";

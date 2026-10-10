@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace CoolCairo
 {
-    // Orbit / pan / zoom around the district. Middle mouse or Alt+left drags orbit,
+    // Orbit / pan / zoom around the district. Middle mouse or Alt+left drags orbit, Q / E rotate,
     // Shift+middle pans, WASD pans, scroll zooms. Left alone for a few seconds, the camera
     // drifts slowly around the district, like a satellite pass; any input stops it.
     public class OrbitCamera : MonoBehaviour
@@ -13,6 +13,7 @@ namespace CoolCairo
         [SerializeField] float yaw = 20f, pitch = 55f;
         [SerializeField] float orbitSpeed = 4f, panSpeed = 1.2f, zoomSpeed = 0.12f;
         [SerializeField] float idleSeconds = 6f, driftDegreesPerSecond = 2.5f;
+        [SerializeField] float keyTurnDegreesPerSecond = 60f;
 
         Vector3 _target;
         float _lastInput, _drift;
@@ -36,6 +37,9 @@ namespace CoolCairo
                 yaw += Input.GetAxis("Mouse X") * orbitSpeed;
                 pitch = Mathf.Clamp(pitch - Input.GetAxis("Mouse Y") * orbitSpeed, 15f, 89f);
             }
+            // Keys, for touchpads without a middle button.
+            float turn = (Input.GetKey(KeyCode.E) ? 1f : 0f) - (Input.GetKey(KeyCode.Q) ? 1f : 0f);
+            yaw += turn * keyTurnDegreesPerSecond * Time.deltaTime;
 
             var flatRight = Quaternion.Euler(0f, yaw, 0f) * Vector3.right;
             var flatForward = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;

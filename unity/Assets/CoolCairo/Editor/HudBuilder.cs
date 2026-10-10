@@ -165,6 +165,20 @@ namespace CoolCairo.EditorTools
             VerticalFit(panel.gameObject, new RectOffset(0, 0, 0, 0), 0, fit: false);
             Label(panel, HudStyle.ModelText, "", 12, HudStyle.Muted, wrap: true);
             panel.gameObject.SetActive(false);
+
+            // How to use the mouse and keys: the district has no other place that says it.
+            Divider(side.transform);
+            Section(side.transform, "04 // CONTROLS");
+            string Key(string key, string action) => $"<color=#E6F1FF>{key,-11}</color>{action}";
+            Label(side.transform, HudStyle.Controls, string.Join("\n", new[]
+            {
+                Key("LEFT-DRAG", "paint the chosen measure"),
+                Key("RIGHT-DRAG", "erase"),
+                Key("CTRL+Z", "undo the last stroke"),
+                Key("ALT+DRAG", "rotate (or Q / E keys)"),
+                Key("W A S D", "move  ·  SCROLL zoom"),
+                Key("F11", "window / fullscreen"),
+            }), 11, HudStyle.Muted, mono: true, wrap: true);
         }
 
         static void BuildKpis(Transform root)
@@ -220,8 +234,6 @@ namespace CoolCairo.EditorTools
             var tools = Column(dock.transform, "ToolColumn", 8, 4 * 112 + 3 * 8);
             var head = Row(tools, "ToolHeader", 18, 8);
             Section(head, "03 // INTERVENTION");
-            Flexible(Label(head, "BrushHint", "L-DRAG PAINT · R-DRAG ERASE · ALT-DRAG ORBIT", 10, HudStyle.Muted,
-                           mono: true, align: TextAlignmentOptions.Right).gameObject, width: 1);
             var row = Row(tools, "Tools", 58, 8);
             var keys = new[] { "ROOF", "TREE", "ROAD", "PARK" };
             var names = new[] { "cool roofs", "street trees", "cool pavement", "pocket parks" };
@@ -233,7 +245,7 @@ namespace CoolCairo.EditorTools
                 Fixed(b.gameObject, 112, 58);
             }
             var hint = Label(tools, HudStyle.ToolHint, "", 12, HudStyle.Muted, wrap: true);
-            Fixed(hint.gameObject, -1, 34);
+            Fixed(hint.gameObject, -1, 50);
 
             var rule = Img(dock.transform, "Rule", s_solid, HudStyle.Divider);
             Fixed(rule.gameObject, 1, -1);
@@ -243,7 +255,9 @@ namespace CoolCairo.EditorTools
             Flexible(Section(brushRow, "BRUSH").gameObject, width: 1);
             Fixed(Label(brushRow, HudStyle.BrushValue, "", 12, HudStyle.Text, mono: true, align: TextAlignmentOptions.Right).gameObject, 120, 18);
             Slider(brush, HudStyle.BrushSlider, 0, 5);
-            Fixed(Button(brush, HudStyle.ResetButton, "Reset all", 12).gameObject, -1, 36);
+            var actions = Row(brush, "BrushActions", 36, 8);
+            Flexible(Button(actions, HudStyle.UndoButton, "Undo", 12).gameObject, width: 1);
+            Flexible(Button(actions, HudStyle.ResetButton, "Reset all", 12).gameObject, width: 1);
         }
 
         static void BuildLegend(Transform root)
@@ -395,7 +409,7 @@ namespace CoolCairo.EditorTools
             var nav = Row(card.transform, "FigureNav", 32, 10);
             Fixed(Button(nav, HudStyle.FigurePrev, "‹ Previous", 12).gameObject, 120, 32);
             Spacer(nav);
-            Fixed(Label(nav, "FigureKeys", "← → TO PAGE · ESC TO CLOSE", 10, HudStyle.Muted, mono: true,
+            Fixed(Label(nav, HudStyle.FigureKeys, "← → TO PAGE · ESC TO CLOSE", 10, HudStyle.Muted, mono: true,
                         align: TextAlignmentOptions.Center).gameObject, 320, 32);
             Spacer(nav);
             Fixed(Button(nav, HudStyle.FigureNext, "Next ›", 12).gameObject, 120, 32);

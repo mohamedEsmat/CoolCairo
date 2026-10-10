@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace CoolCairo
 {
@@ -16,6 +17,14 @@ namespace CoolCairo
         readonly float[][] _share;
 
         public event Action Changed;
+
+        // Undo: a copy of every share taken before each brush stroke and before Reset all.
+        const int MaxUndo = 50;
+        readonly List<float[][]> _undo = new List<float[][]>();
+
+        // Counts changes, so a stroke that changed nothing can drop its undo step.
+        public int Version { get; private set; }
+        public bool CanUndo => _undo.Count > 0;
 
         public InterventionModel(DistrictData district)
         {
@@ -75,13 +84,54 @@ namespace CoolCairo
             float next = Math.Clamp(arr[block] + amount, 0f, 1f);
             if (next == arr[block]) return;
             arr[block] = next;
+            Version++;
             Changed?.Invoke();
         }
 
         public void ResetAll()
         {
+            if (HasPlan) SaveUndo();
             foreach (var arr in _share) Array.Clear(arr, 0, arr.Length);
+            Version++;
             Changed?.Invoke();
+        }
+
+        // True when any block has any measure on it.
+        public bool HasPlan
+        {
+            get
+            {
+                foreach (var arr in _share)
+                    foreach (float v in arr)
+                        if (v > 0f) return true;
+                return false;
+            }
+        }
+
+        public void SaveUndo()
+        {
+            var copy = new float[_share.Length][];
+            for (int k = 0; k < _share.Length; k++) copy[k] = (float[])_share[k].Clone();
+            _undo.Add(copy);
+            if (_undo.Count > MaxUndo) _undo.RemoveAt(0);
+        }
+
+        // Forget the last undo step (a stroke that changed nothing).
+        public void DropUndo()
+        {
+            if (_undo.Count > 0) _undo.RemoveAt(_undo.Count - 1);
+        }
+
+        // Back to the plan before the last stroke or Reset all.
+        public bool Undo()
+        {
+            if (_undo.Count == 0) return false;
+            var last = _undo[_undo.Count - 1];
+            _undo.RemoveAt(_undo.Count - 1);
+            for (int k = 0; k < _share.Length; k++) Array.Copy(last[k], _share[k], _share[k].Length);
+            Version++;
+            Changed?.Invoke();
+            return true;
         }
 
         public float Share(Intervention kind, int block) => _share[(int)kind][block];

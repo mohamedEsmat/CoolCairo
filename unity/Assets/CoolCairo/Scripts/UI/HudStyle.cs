@@ -35,6 +35,8 @@ namespace CoolCairo
         public const string BrushSlider = "BrushSlider";
         public const string BrushValue = "BrushValue";
         public const string ResetButton = "ResetButton";
+        public const string UndoButton = "UndoButton";
+        public const string Controls = "Controls";             // Sidebar: mouse and key controls
         public const string ModelText = "ModelText";
         public const string ModelButton = "ModelButton";       // Shows / hides the model notes
         public const string ModelPanel = "ModelPanel";
@@ -72,6 +74,7 @@ namespace CoolCairo
         public const string FigureCaption = "FigureCaption";
         public const string FigurePrev = "FigurePrev";
         public const string FigureNext = "FigureNext";
+        public const string FigureKeys = "FigureKeys";
         public const string FigureClose = "FigureClose";
 
         static Color Hex(int rgb, float a = 1f) =>

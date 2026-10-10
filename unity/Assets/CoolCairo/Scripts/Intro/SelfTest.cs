@@ -202,6 +202,12 @@ namespace CoolCairo
             yield return null;
             Check("figures button: singular label for Growth (1 map)",
                   open.GetComponentInChildren<TextMeshProUGUI>().text.StartsWith("Analysis map for"), open.GetComponentInChildren<TextMeshProUGUI>().text);
+            open.onClick.Invoke();
+            yield return null;
+            Check("popup: a single map has no Previous / Next", !Button("FigurePrev").gameObject.activeSelf &&
+                  !Button("FigureNext").gameObject.activeSelf && Text("FigureKeys") == "ESC TO CLOSE", Text("FigureKeys"));
+            Button("FigureClose").onClick.Invoke();
+            yield return null;
         }
 
         // ---------- 4. live HUD ----------
@@ -232,6 +238,8 @@ namespace CoolCairo
             yield return Settle(d);
             d.Model.ResetAll();
             yield return new WaitForSeconds(1.5f);   // let the readouts finish their arrival count-up
+            Check("readouts: before a plan the exposure card says so", ExposureSub().Contains("no plan yet"),
+                  ExposureSub());
             var feedback = FindFirstObjectByType<PaintFeedback>();
             int labelsBefore = feedback.LabelsSpawned;
             int hot = HottestBlock(d);
@@ -270,6 +278,33 @@ namespace CoolCairo
             Check("readouts: the number settles on the model's value", Mathf.Abs(ui.ShownKpis.exposure - target) < 0.5f,
                   $"shown {ui.ShownKpis.exposure:N1}, target {target:N1}");
             Check("paint: the flash fades out after the stroke", flash.vertexCount == 0, $"{flash.vertexCount} vertices");
+
+            // Undo: back to the plan before the last stroke, and Reset all can be undone too.
+            float painted = d.Model.TotalExposure();
+            d.Model.SaveUndo();
+            d.Model.Apply(Intervention.PocketPark, hot, 1f);
+            Button(HudStyle.UndoButton).onClick.Invoke();
+            Check("undo: the Undo button takes back the last stroke", Mathf.Abs(d.Model.TotalExposure() - painted) < 0.01f &&
+                  d.Model.Share(Intervention.PocketPark, hot) == 0f, $"{d.Model.TotalExposure():N1} vs {painted:N1}");
+            Button(HudStyle.ResetButton).onClick.Invoke();
+            d.Model.Undo();
+            Check("undo: Reset all can be undone", Mathf.Abs(d.Model.TotalExposure() - painted) < 0.01f, $"{d.Model.TotalExposure():N1}");
+            while (d.Model.Undo()) { }   // earlier tests left steps behind
+            Check("undo: with nothing left to undo, Undo does nothing", !d.Model.CanUndo && !d.Model.Undo());
+            yield return null;
+            Check("undo: the button is greyed out with nothing to undo", !Button(HudStyle.UndoButton).interactable);
+
+            // The selected tool's small label is full-strength dark text on the orange fill.
+            brush.Tool = Intervention.Trees;
+            yield return null;
+            var toolLabel = Button(HudStyle.ToolButtonPrefix + Intervention.Trees).GetComponentInChildren<TextMeshProUGUI>().text;
+            Check("tools: the selected tool's sub-label is not dimmed", toolLabel.Contains("<alpha=#FF>") && !toolLabel.Contains("<alpha=#B0>"), toolLabel);
+            brush.Tool = Intervention.CoolRoof;
+            yield return null;
+            Check("tools: the hint says how to paint", Text(HudStyle.ToolHint).Contains("Drag over blocks to paint"));
+            Check("controls: the sidebar lists the mouse and key controls",
+                  Text(HudStyle.Controls).Contains("RIGHT-DRAG") && Text(HudStyle.Controls).Contains("CTRL+Z"));
+            Check("brush: the label counts blocks (radius 1 = 5 blocks)", Text(HudStyle.BrushValue) == "5 blocks", Text(HudStyle.BrushValue));
             d.Model.ResetAll();
 
             // Heat shimmer: over the hottest tenth of blocks, only in the heat views.
@@ -372,6 +407,8 @@ namespace CoolCairo
 
         static Button Button(string name) => Find(name).GetComponent<Button>();
         static string Text(string name) => Find(name).GetComponent<TextMeshProUGUI>().text;
+        static string ExposureSub() =>
+            Find(HudStyle.KpiExposure).transform.Find(HudStyle.KpiSub).GetComponent<TextMeshProUGUI>().text;
 
         static bool Same(List<int> a, int[] b) => a.Count == b.Length && !a.Except(b).Any();
         static bool Near(Color a, Color b) => Mathf.Abs(a.r - b.r) < 0.02f && Mathf.Abs(a.g - b.g) < 0.02f && Mathf.Abs(a.b - b.b) < 0.02f;

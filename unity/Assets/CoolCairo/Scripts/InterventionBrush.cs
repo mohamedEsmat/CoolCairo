@@ -4,6 +4,7 @@ namespace CoolCairo
 {
     // Paint interventions onto blocks: left mouse applies, right mouse (held) erases.
     // Works per block, never per building, matching the 100 m thermal resolution.
+    // Each stroke (button down to button up) is one undo step.
     public class InterventionBrush : MonoBehaviour
     {
         [SerializeField] DistrictView district;
@@ -20,9 +21,17 @@ namespace CoolCairo
         public event System.Action<int, System.Collections.Generic.List<int>> Painted;
 
         readonly Plane _ground = new Plane(Vector3.up, Vector3.zero);
+        bool _stroke;
+        int _strokeVersion;
 
         void Update()
         {
+            // Stroke ends when both buttons are up; one that changed nothing leaves no undo step.
+            if (_stroke && !Input.GetMouseButton(0) && !Input.GetMouseButton(1))
+            {
+                _stroke = false;
+                if (district.Model.Version == _strokeVersion) district.Model.DropUndo();
+            }
             HoverBlock = -1;
             Painting = false;
             var ray = cam.ScreenPointToRay(Input.mousePosition);
@@ -33,6 +42,12 @@ namespace CoolCairo
             float sign = Input.GetMouseButton(0) ? 1f : Input.GetMouseButton(1) ? -1f : 0f;
             if (sign == 0f) return;
             Painting = true;
+            if (!_stroke)
+            {
+                _stroke = true;
+                district.Model.SaveUndo();
+                _strokeVersion = district.Model.Version;
+            }
             PaintAround(HoverBlock, sign * rate * Time.deltaTime);
         }
 
