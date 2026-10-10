@@ -47,7 +47,9 @@ namespace CoolCairo.EditorTools
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
+            // Designed at 1600x900 and scaled to the screen: on a 1920x1080 display every HUD
+            // element (text, buttons, panels) is drawn 20% larger, so small labels stay readable.
+            scaler.referenceResolution = new Vector2(1600, 900);
             scaler.matchWidthOrHeight = 0.5f;
             var root = canvasGo.transform;
 
@@ -357,8 +359,12 @@ namespace CoolCairo.EditorTools
 
             var card = Glass(overlay.transform, HudStyle.FigureCard, solid: true);
             var rt = card.rectTransform;
-            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(1600, 980);   // the map fills most of it (~75% of the height)
+            // Fills the screen with a margin, whatever the canvas size; the map takes most of it.
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.offsetMin = new Vector2(40, 32);
+            rt.offsetMax = new Vector2(-40, -32);
             var v = card.gameObject.AddComponent<VerticalLayoutGroup>();
             v.padding = new RectOffset(26, 26, 18, 20);
             v.spacing = 12;

@@ -13,7 +13,7 @@ namespace CoolCairo
         public static readonly Color Chrome = Hex(0x4FD6FF, 0.28f);      // Panel outlines
         public static readonly Color ChromeBright = Hex(0x4FD6FF, 0.95f); // Corner brackets, live marks
         public static readonly Color Text = Hex(0xE6F1FF);
-        public static readonly Color Muted = Hex(0x7F93AD);
+        public static readonly Color Muted = Hex(0xA9B8CC);      // Secondary text, bright enough to read on glass
         public static readonly Color Accent = Hex(0xFF8A3D);      // Cairo orange, selected state
         public static readonly Color AccentText = Hex(0x1A0E05);  // Text on accent buttons
         public static readonly Color Good = Hex(0x4CD08A);        // Cooling / reduced exposure
