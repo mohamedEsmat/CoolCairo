@@ -34,6 +34,7 @@ namespace CoolCairo
             }
             HoverBlock = -1;
             Painting = false;
+            if (DemoRecorder.Recording) return;   // the recorder paints; the real mouse does nothing
             var ray = cam.ScreenPointToRay(Input.mousePosition);
             if (!_ground.Raycast(ray, out float dist)) return;
             HoverBlock = district.Data.BlockAt(ray.GetPoint(dist));
@@ -51,7 +52,7 @@ namespace CoolCairo
             PaintAround(HoverBlock, sign * rate * Time.deltaTime);
         }
 
-        void PaintAround(int centre, float amount)
+        internal void PaintAround(int centre, float amount)
         {
             var blocks = Footprint(centre);
             foreach (int block in blocks) district.Model.Apply(Tool, block, amount);

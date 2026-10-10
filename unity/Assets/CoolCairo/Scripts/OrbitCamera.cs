@@ -30,6 +30,14 @@ namespace CoolCairo
 
         void LateUpdate()
         {
+            if (DemoRecorder.Recording)
+            {
+                // Video footage: no mouse or keys, just the slow idle drift from the start.
+                _drift = Mathf.MoveTowards(_drift, 1f, Time.deltaTime * 0.4f);
+                yaw += _drift * driftDegreesPerSecond * Time.deltaTime;
+                Apply();
+                return;
+            }
             bool orbit = Input.GetMouseButton(2) && !Input.GetKey(KeyCode.LeftShift)
                          || Input.GetMouseButton(0) && Input.GetKey(KeyCode.LeftAlt);
             if (orbit)
