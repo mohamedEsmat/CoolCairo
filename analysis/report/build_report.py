@@ -671,8 +671,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                                  "(Google Open Buildings Temporal)."),
               ("07_risk_after_plan.png", "<b>i</b> After a plan (cool roofs and pocket parks on "
                                          "the riskiest third of blocks): live before → after "
-                                         "card."),
-              ("08_heat_after_plan.png", "<b>j</b> Surface heat after the same plan."),
+                                         "card; coloured rings mark the treated blocks."),
+              ("08_heat_after_plan.png", "<b>j</b> Surface heat after the same plan; the ring "
+                                         "key is in the legend."),
           ])]
 
     # ---------------------------------------------------------------- 9 reproducibility
