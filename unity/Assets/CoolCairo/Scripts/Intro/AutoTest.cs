@@ -36,7 +36,10 @@ namespace CoolCairo
         IEnumerator ScreenshotTour(string folder)
         {
             System.IO.Directory.CreateDirectory(folder);
-            yield return new WaitForSeconds(4.5f); // Loading screen, archive rows mid-sync.
+            // Loading screen: 4.5 s in, or once every row is done if the sync finishes sooner
+            // (the list then holds 1.5 s before fading out).
+            var loading = FindFirstObjectByType<IntroController>();
+            for (float t = 0f; t < 4.5f && loading != null && !loading.LoadingDone; t += Time.deltaTime) yield return null;
             yield return Shot(folder, "01_loading");
 
             IntroController intro = null;

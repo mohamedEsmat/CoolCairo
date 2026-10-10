@@ -7,8 +7,8 @@ using UnityEngine.SceneManagement;
 namespace CoolCairo
 {
     // App entry: satellite archive sync (loading screen) -> MENA globe -> fly-in -> 3D district.
-    // Placeholder IMGUI styling; the layout and the information shown are the contract for the
-    // designed UI.
+    // IMGUI, styled like the district HUD: dark glass panels, thin cyan outlines with corner
+    // brackets, monospaced titles and section labels.
     public class IntroController : MonoBehaviour
     {
         enum Phase { Loading, Globe, FlyIn }
@@ -20,6 +20,7 @@ namespace CoolCairo
         [SerializeField] Material markerMaterial;
         [SerializeField] Material flyInMaterial;     // CoolCairo/FadeTexture
         [SerializeField] string districtScene = "Main";
+        [SerializeField] Font monoFont;               // DejaVu Sans Mono, as in the district HUD
 
         // "Coming soon" cities stay greyed out, but with a dark outline and a label backdrop so
         // they stay readable over the bright desert.
@@ -64,7 +65,7 @@ namespace CoolCairo
         float _overlayAlpha = 1f, _fadeToBlack;
         readonly List<Transform> _markers = new List<Transform>();
         readonly List<Transform> _outlines = new List<Transform>();
-        GUIStyle _title, _subtitle, _body, _small, _bold, _marker;
+        GUIStyle _title, _subtitle, _body, _small, _bold, _marker, _section, _tile;
         Texture2D _pixel;
 
         void Start()
@@ -98,6 +99,7 @@ namespace CoolCairo
             foreach (var c in running) yield return c;
             while (_districtLoad.progress < 0.9f) yield return null;
 
+            LoadingDone = true;
             yield return new WaitForSeconds(1.5f); // Let the completed list be read.
             EnterGlobe(immediate: false);
         }
@@ -227,6 +229,8 @@ namespace CoolCairo
         string _toast;
         float _toastUntil;
         // Globe is shown and accepting clicks (used by AutoTest too).
+        // Every archive row is done and the list holds still before the fade (AutoTest's first shot).
+        public bool LoadingDone { get; private set; }
         public bool ReadyForInput => _phase == Phase.Globe && _overlayAlpha <= 0f && !globeCamera.Busy;
 
         public void ChooseCity(int index) => OnCityChosen(index);
@@ -257,27 +261,28 @@ namespace CoolCairo
             GUI.color = new Color(1, 1, 1, alpha);
             Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.02f, 0.03f, 0.06f, 0.55f));
 
-            const float w = 720f;
+            // Wide enough that every "dates" line fits on one line.
+            const float w = 820f;
             bool hasEnmap = s_syncs.Any(s => s.Source.satellite == "EnMAP");
             int rows = s_syncs.Count + (hasEnmap ? 2 : 3);
             float h = 190f + rows * 64f;
             var panel = new Rect((Screen.width - w) / 2f, (Screen.height - h) / 2f, w, h);
-            Fill(panel, new Color(0.04f, 0.06f, 0.1f, 0.88f));
+            Panel(panel);
 
             GUILayout.BeginArea(new Rect(panel.x + 28, panel.y + 22, w - 56, h - 44));
-            GUILayout.Label("CoolCairo", _title);
-            GUILayout.Label("Urban heat decision support  ·  Nasr City, Cairo", _subtitle);
+            GUILayout.Label("[ COOLCAIRO <color=#4FD6FF>//</color> NASR CITY ]", _title);
+            GUILayout.Label("Urban heat decision support  ·  East Cairo", _subtitle);
             GUILayout.Space(14);
-            GUILayout.Label("DOWNLOADING FROM SATELLITE ARCHIVE", _small);
+            GUILayout.Label("01 // DOWNLOADING FROM SATELLITE ARCHIVE", _section);
             GUILayout.Space(6);
 
             foreach (var s in s_syncs) SourceRow(s);
             if (!hasEnmap) // EnMAP not processed in this build of district.json.
-                StaticRow("EnMAP", "Hyperspectral heat drivers", "Not processed", Idle);
-            StaticRow("WorldPop 2024", $"Residents per block (census counts mapped onto satellite-detected buildings)  ·  " +
+                StaticRow("EnMAP", "HSI", "Hyperspectral heat drivers", "Not processed", Idle);
+            StaticRow("WorldPop 2024", "POP", $"Residents per block (census counts mapped onto satellite-detected buildings)  ·  " +
                       $"{_data.blocks.population.Where(p => p > 0).Sum():N0} residents in the district", "✓ Ready", Good);
             bool ready = _districtLoad.progress >= 0.9f;
-            StaticRow("Nasr City district",
+            StaticRow("Nasr City district", "3D",
                 $"{_data.BlockCount} blocks · {_data.buildings.count:N0} buildings · model R² {_data.model.r2SpatialCv:0.00}",
                 ready ? "✓ Ready" : "Preparing…", ready ? Good : Busy);
 
@@ -320,17 +325,25 @@ namespace CoolCairo
             string detail = src.satellite == "EnMAP" && hs != null && hs.available == 1
                 ? $"{src.use}  ·  224 bands  ·  {src.firstDate}  ·  explains heat R² {hs.r2Hyperspectral:0.00} vs {hs.r2Multispectral:0.00} multispectral"
                 : $"{src.use}  ·  {src.sceneIds.Length} scenes  ·  {src.firstDate} → {src.lastDate}";
-            Row(s.Preview, src.satellite, detail, status, color);
+            // EnMAP has no preview image: a tile with "HSI" (hyperspectral imager) instead.
+            Row(s.Preview, src.satellite == "EnMAP" ? "HSI" : "SAT", src.satellite, detail, status, color);
         }
 
-        void StaticRow(string name, string detail, string status, Color color) => Row(null, name, detail, status, color);
+        void StaticRow(string name, string code, string detail, string status, Color color) =>
+            Row(null, code, name, detail, status, color);
 
-        void Row(Texture2D thumb, string name, string detail, string status, Color statusColor)
+        // A row: preview thumbnail (or a coded tile when there is none), name and detail, status.
+        void Row(Texture2D thumb, string code, string name, string detail, string status, Color statusColor)
         {
             GUILayout.BeginHorizontal(GUILayout.Height(58));
             var t = GUILayoutUtility.GetRect(52, 52, GUILayout.Width(52));
             if (thumb != null) GUI.DrawTexture(t, thumb, ScaleMode.ScaleAndCrop);
-            else Fill(t, new Color(1, 1, 1, 0.06f));
+            else
+            {
+                Fill(t, new Color(Cyan.r, Cyan.g, Cyan.b, 0.10f));
+                Outline(t, new Color(Cyan.r, Cyan.g, Cyan.b, 0.45f));
+                GUI.Label(t, code, _tile);
+            }
             GUILayout.Space(12);
             GUILayout.BeginVertical();
             GUILayout.Label(name, _bold);
@@ -339,23 +352,25 @@ namespace CoolCairo
             GUILayout.FlexibleSpace();
             var prev = GUI.contentColor;
             GUI.contentColor = statusColor;
-            GUILayout.Label(status, _body, GUILayout.Width(250));
+            GUILayout.Label(status, _body, GUILayout.Width(220));
             GUI.contentColor = prev;
             GUILayout.EndHorizontal();
         }
 
         void DrawGlobeUI()
         {
-            GUI.Label(new Rect(28, 22, 600, 50), "CoolCairo", _title);
-            GUI.Label(new Rect(30, 70, 700, 30), "Urban heat across the Middle East & North Africa", _subtitle);
+            var head = new Rect(16, 16, 620, 92);
+            Panel(head);
+            GUI.Label(new Rect(head.x + 22, head.y + 12, 600, 40), "[ COOLCAIRO <color=#4FD6FF>//</color> MENA ]", _title);
+            GUI.Label(new Rect(head.x + 24, head.y + 54, 600, 30), "Urban heat across the Middle East & North Africa", _subtitle);
 
             // City list: live district first, then where the method scales next.
-            var list = new Rect(Screen.width - 300, 90, 272, 44 + Cities.Length * 28);
-            Fill(list, new Color(0.04f, 0.06f, 0.1f, 0.8f));
-            GUI.Label(new Rect(list.x + 16, list.y + 10, 240, 22), "CITIES", _small);
+            var list = new Rect(Screen.width - 316, 16, 300, 50 + Cities.Length * 28);
+            Panel(list);
+            GUI.Label(new Rect(list.x + 16, list.y + 12, 260, 22), "01 // CITIES", _section);
             for (int i = 0; i < Cities.Length; i++)
             {
-                var row = new Rect(list.x + 12, list.y + 36 + i * 28, list.width - 24, 26);
+                var row = new Rect(list.x + 12, list.y + 40 + i * 28, list.width - 24, 26);
                 var c = Cities[i];
                 var prev = GUI.contentColor;
                 GUI.contentColor = c.Live ? new Color(1f, 0.6f, 0.3f) : SoonColor;
@@ -364,8 +379,11 @@ namespace CoolCairo
                 GUI.contentColor = prev;
             }
 
-            // Labels next to the markers facing the camera.
+            // Labels next to the markers facing the camera. Placed in list order (Cairo first) at
+            // the first free spot: right, left, above, below the dot. A label with no free spot
+            // is left out (the Gulf cities sit close together); the city list still names it.
             var cam = Camera.main;
+            var placed = new List<Rect>();
             for (int i = 0; i < Cities.Length; i++)
             {
                 var p = _markers[i].position;
@@ -374,17 +392,55 @@ namespace CoolCairo
                 var style = i == 0 ? _bold : _marker;
                 var content = new GUIContent(Cities[i].Name);
                 var size = style.CalcSize(content);
-                var r = new Rect(sp.x + 12, Screen.height - sp.y - size.y / 2f, size.x + 10, size.y + 2);
+                float x = sp.x, y = Screen.height - sp.y, lw = size.x + 10, lh = size.y + 2;
+                var spots = new[]
+                {
+                    new Rect(x + 12, y - lh / 2f, lw, lh), new Rect(x - 12 - lw, y - lh / 2f, lw, lh),
+                    new Rect(x - lw / 2f, y - 12 - lh, lw, lh), new Rect(x - lw / 2f, y + 12, lw, lh),
+                };
+                int free = System.Array.FindIndex(spots, s => !placed.Any(o => o.Overlaps(Grow(s, 2f))));
+                if (free < 0) continue;
+                var r = spots[free];
+                placed.Add(r);
                 // Dark backdrop so labels read over the bright desert; grey text keeps the
                 // "coming soon" cities visibly greyed out next to the live one.
                 Fill(r, new Color(0.02f, 0.03f, 0.06f, 0.72f));
                 GUI.Label(new Rect(r.x + 5, r.y + 1, size.x, size.y), content, style);
             }
 
-            GUI.Label(new Rect(28, Screen.height - 40, 800, 24),
-                      "Drag to rotate  ·  Scroll to zoom  ·  Click Cairo to open the 3D district", _small);
+            var hint = new Rect(16, Screen.height - 52, 760, 36);
+            Panel(hint, brackets: false);
+            GUI.Label(new Rect(hint.x + 16, hint.y + 9, 740, 22),
+                      "<color=#E6F1FF>DRAG</color> rotate  ·  <color=#E6F1FF>SCROLL</color> zoom  ·  " +
+                      "<color=#E6F1FF>CLICK CAIRO</color> open the 3D district", _section);
             if (Time.time < _toastUntil)
                 GUI.Label(new Rect(Screen.width / 2f - 320, Screen.height - 90, 640, 40), _toast, _body);
+        }
+
+        static Rect Grow(Rect r, float by) => new Rect(r.x - by, r.y - by, r.width + 2 * by, r.height + 2 * by);
+
+        static readonly Color Cyan = new Color(0.31f, 0.84f, 1f);
+
+        // HUD panel: dark glass, thin cyan outline, brighter corner brackets.
+        void Panel(Rect r, bool brackets = true)
+        {
+            Fill(r, new Color(0.02f, 0.043f, 0.078f, 0.9f));
+            Outline(r, new Color(Cyan.r, Cyan.g, Cyan.b, 0.28f));
+            if (!brackets) return;
+            var c = new Color(Cyan.r, Cyan.g, Cyan.b, 0.95f);
+            const float len = 14f, th = 2f;
+            Fill(new Rect(r.xMin, r.yMin, len, th), c); Fill(new Rect(r.xMin, r.yMin, th, len), c);
+            Fill(new Rect(r.xMax - len, r.yMin, len, th), c); Fill(new Rect(r.xMax - th, r.yMin, th, len), c);
+            Fill(new Rect(r.xMin, r.yMax - th, len, th), c); Fill(new Rect(r.xMin, r.yMax - len, th, len), c);
+            Fill(new Rect(r.xMax - len, r.yMax - th, len, th), c); Fill(new Rect(r.xMax - th, r.yMax - len, th, len), c);
+        }
+
+        void Outline(Rect r, Color c)
+        {
+            Fill(new Rect(r.x, r.y, r.width, 1), c);
+            Fill(new Rect(r.x, r.yMax - 1, r.width, 1), c);
+            Fill(new Rect(r.x, r.y, 1, r.height), c);
+            Fill(new Rect(r.xMax - 1, r.y, 1, r.height), c);
         }
 
         void Fill(Rect r, Color c)
@@ -400,9 +456,15 @@ namespace CoolCairo
             if (_title != null) return;
             _pixel = Texture2D.whiteTexture;
             GUIStyle Make(int size, FontStyle fs, Color c) =>
-                new GUIStyle(GUI.skin.label) { fontSize = size, fontStyle = fs, normal = { textColor = c }, wordWrap = true };
-            _title = Make(34, FontStyle.Bold, Color.white);
-            _subtitle = Make(16, FontStyle.Normal, new Color(0.75f, 0.8f, 0.9f));
+                new GUIStyle(GUI.skin.label) { fontSize = size, fontStyle = fs, normal = { textColor = c }, wordWrap = true, richText = true };
+            _title = Make(26, FontStyle.Bold, new Color(0.9f, 0.945f, 1f));
+            _title.font = monoFont;
+            _subtitle = Make(16, FontStyle.Normal, new Color(0.66f, 0.72f, 0.80f));
+            _section = Make(12, FontStyle.Bold, Cyan);
+            _section.font = monoFont;
+            _tile = Make(13, FontStyle.Bold, Cyan);
+            _tile.font = monoFont;
+            _tile.alignment = TextAnchor.MiddleCenter;
             _body = Make(14, FontStyle.Normal, Color.white);
             _bold = Make(15, FontStyle.Bold, Color.white);
             _small = Make(12, FontStyle.Normal, new Color(0.65f, 0.7f, 0.8f));

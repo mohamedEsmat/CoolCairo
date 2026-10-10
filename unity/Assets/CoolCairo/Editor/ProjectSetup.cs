@@ -109,6 +109,7 @@ namespace CoolCairo.EditorTools
             Assign(intro, "satelliteMaterial", satMat);
             Assign(intro, "markerMaterial", markerMat);
             Assign(intro, "flyInMaterial", flyInMat);
+            Assign(intro, "monoFont", AssetDatabase.LoadAssetAtPath<Font>("Assets/CoolCairo/Fonts/DejaVuSansMono.ttf"));
             AddStars(Vector3.zero, 40f);
 
             EditorSceneManager.SaveScene(scene, IntroScenePath);
