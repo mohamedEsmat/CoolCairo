@@ -130,9 +130,9 @@ Stream via STAC from Microsoft Planetary Computer (anonymous, no key). Cached to
 
 ## Team
 
-- **Eng. Mohamed Esmat** — technical lead: pipeline, analysis, Unity build
-- **Dr. Liquaa Mahmoud** — team lead: 3D production, visual design, business case, ArcGIS Pro support
-- **Eng. Mahmoud Abu Zaid** — data & hyperspectral analyst (EnMAP value, workshop W7)
+- **Eng. Mohamed Esmat** — technical lead: the Python analysis pipeline and the Windows app
+- **Dr. Liquaa Mahmoud** — team lead: led the team, the use case and the business model; pitch and presentation
+- **Eng. Mahmoud Abu Zaid** — data & hyperspectral analyst: the EnMAP hyperspectral comparison and the data checks
 
 ## Links
 
