@@ -27,3 +27,6 @@ Thumbs.db
 
 # osmnx / Overpass download cache
 analysis/cache/
+
+# Local project notes (not published)
+CLAUDE.md
