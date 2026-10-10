@@ -371,8 +371,10 @@ namespace CoolCairo.EditorTools
             PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.WebGL.dataCaching = true;
             PlayerSettings.stripEngineCode = true;
-            // Desktop app (primary target): windowed 1600x900, resizable.
-            PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
+            // Desktop app (primary target): borderless fullscreen at the monitor's resolution
+            // (ScreenMode forces it at start); F11 switches to a resizable 1600x900 window.
+            PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
+            PlayerSettings.defaultIsNativeResolution = true;
             PlayerSettings.defaultScreenWidth = 1600;
             PlayerSettings.defaultScreenHeight = 900;
             PlayerSettings.resizableWindow = true;
