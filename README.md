@@ -177,7 +177,7 @@ How we would overcome each one (effort and evidence) is on slide 13 of [the slid
 
 ## 9. Team, licence and attribution
 
-**Team 46, Egypt:** Liquaa Mahmoud (team lead), Mohamed Esmat (technical lead), Mahmoud Abu Zaid (data & hyperspectral analyst).
+**Team 46, Egypt:** Dr. Liquaa Mahmoud (team lead), Eng. Mohamed Esmat (technical lead), Eng. Mahmoud Abu Zaid (data & hyperspectral analyst).
 
 **Licence:** code under [MIT](LICENSE). The data keep their own licences and attributions (see [Data used](#3-data-used)); raw EnMAP data is not included.
 

@@ -236,8 +236,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ["", ""],
               ["Event", "Arab Youth Space Hackathon 2026 (UAE Space Agency / Space42)"],
               ["Challenge", "813 Challenge: Urban Expansion, Land Use Change &amp; Heat Risk"],
-              ["Team", "Team 46: Liquaa Mahmoud (team lead), Mohamed Esmat (technical lead), "
-               "Mahmoud Abu Zaid (data & hyperspectral analyst)"],
+              ["Team", "Team 46: Dr. Liquaa Mahmoud (team lead), Eng. Mohamed Esmat (technical lead), "
+               "Eng. Mahmoud Abu Zaid (data & hyperspectral analyst)"],
               ["Deliverables", "Windows desktop app, reproducible Python analysis (notebooks 00–06), "
                                "this report, slides"],
               ["Report built", f"{date.today():%d %B %Y} from commit {git_commit()}"],
