@@ -132,7 +132,7 @@ Stream via STAC from Microsoft Planetary Computer (anonymous, no key). Cached to
 
 - **Eng. Mohamed Esmat** — technical lead
 - **Dr. Liquaa Mahmoud** — team lead
-- **Eng. Mahmoud Abu Zaid** — data & hyperspectral analyst
+- **Eng. Mahmoud Mostafa** — data & hyperspectral analyst
 
 ## Links
 
