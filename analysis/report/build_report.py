@@ -89,6 +89,32 @@ def p(text: str, style: ParagraphStyle = BODY) -> Paragraph:
     return Paragraph(text, style)
 
 
+# Where each cited source can be read; in-text citations and the reference list link here.
+LINKS = {
+    "wang2020": "https://doi.org/10.1029/2020GL087853",
+    "cairo2025": "https://doi.org/10.1038/s41598-025-08574-2",
+    "acpa2002": "https://trid.trb.org/View/920184",
+    "uae2023": "https://www.sciencedirect.com/science/article/pii/S2214509523001195",
+    "hendel2024": "https://arxiv.org/abs/2409.12242",
+    "santamouris2014": "https://doi.org/10.1016/j.solener.2012.07.003",
+    "polyu2024": "https://www.polyu.edu.hk/rio/news/2024/20240924---polyu-researchers-unveil-novel-"
+                 "carbon-dots-driven-green-radiative-cooling-coating/",
+    "scmp2026": "https://www.scmp.com/news/china/science/article/3367812/chinese-paint-cuts-wall-"
+                "temperature-25-degrees-celsius-summer-test-report",
+    "landsat": "https://www.usgs.gov/media/files/landsat-8-collection-2-level-2-science-product-guide",
+    "openbuildings": "https://sites.research.google/gr/open-buildings/temporal/",
+    "worldpop": "https://doi.org/10.5258/SOTON/WP00839",
+    "planetary": "https://planetarycomputer.microsoft.com/",
+    "enmap": "https://www.enmap.org/",
+    "interventions": "https://github.com/mohamedEsmat/CoolCairo/blob/master/docs/intervention_research.md",
+}
+
+
+def cite(text: str, key: str) -> str:
+    """A clickable citation or reference, in the report's link colour."""
+    return f'<a href="{LINKS[key]}" color="#08708F">{text}</a>'
+
+
 def bullets(items: list[str]) -> ListFlowable:
     return ListFlowable([ListItem(p(t), leftIndent=12, value="•") for t in items],
                         bulletType="bullet", start="•", leftIndent=12, bulletFontSize=9)
@@ -422,16 +448,16 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ["Cool roofs", "Dark and pale roofs coated white (albedo → "
                              f"{cr['albedo_after']})",
                f"{m(dl['cool_roof_dark'])} °C (dark) / {m(dl['cool_roof_pale'])} °C (pale)",
-               f"{m(cr['dts_per_albedo'], 1)} K per unit albedo (Wang et al. 2020) × albedo change; "
-               f"dark {cr['albedo_dark_roof']} (Cairo study, 2025), pale {cr['albedo_pale_roof']} "
-               "(ACPA 2002)"],
+               f"{m(cr['dts_per_albedo'], 1)} K per unit albedo ({cite('Wang et al. 2020', 'wang2020')}) "
+               f"× albedo change; dark {cr['albedo_dark_roof']} ({cite('Cairo study, 2025', 'cairo2025')}), "
+               f"pale {cr['albedo_pale_roof']} ({cite('ACPA 2002', 'acpa2002')})"],
               ["Street trees", f"Up to {caps['tree_max_share_of_dark_ground']:.0%} of dark ground "
                                "planted", f"{m(dl['trees'])} °C",
                "Our regression: vegetation minus dark ground"],
               ["Cool pavements", f"Dark ground coated, albedo {cp['albedo_before']} → "
                                  f"{cp['albedo_after']}", f"{m(dl['pavement'])} °C",
-               "Same albedo sensitivity as roofs; conservative against a UAE desert field "
-               "study (60 → 47 °C)"],
+               "Same albedo sensitivity as roofs; conservative against a "
+               f"{cite('UAE desert field study', 'uae2023')} (60 → 47 °C)"],
               ["Pocket parks", f"Up to {caps['park_max_share_of_sand']:.0%} of bare sand greened",
                f"{m(dl['park'])} °C", "Our regression: vegetation minus bare sand"],
           ], [0.15, 0.27, 0.2, 0.38]),
@@ -445,9 +471,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
           p("<b>Cool coatings in practice.</b> Reflective coatings are proven and entering mass "
             "production. A radiative-cooling coating kept container-house roofs about 24 °C cooler "
             "at the surface than concrete in a 2.5-year field trial in Hong Kong and cut "
-            "air-conditioning energy by 10% (PolyU 2024); a similar radiative-cooling paint entered "
-            "mass production in China in 2026, reported as up to 25 °C cooler on surfaces in a "
-            "six-month test (SCMP 2026, citing <i>Science and Technology Daily</i>; not yet "
+            f"air-conditioning energy by 10% ({cite('PolyU 2024', 'polyu2024')}); a similar "
+            "radiative-cooling paint entered mass production in China in 2026, reported as up to "
+            f"25 °C cooler on surfaces in a six-month test ({cite('SCMP 2026', 'scmp2026')}, citing <i>Science and Technology Daily</i>; not yet "
             "independently verified). These are peak surface temperatures of the coated surface "
             "itself and are not comparable with our block-average summer medians. Such coatings "
             "reflect and emit more than the white paint we model, so our cool-roof effects are "
@@ -607,8 +633,10 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "<b>Data provenance</b>: the app's start-up screen queries the archives for the exact "
               "scene IDs used here and shows a live preview from each satellite; scene lists are "
               "exported with the data.",
-              "<b>Unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
-              "intervention arithmetic and the export format.",
+              "<b>24 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
+              "intervention arithmetic, the export format and the quick example's numbers.",
+              "<b>64 automated checks run inside the built app</b> (<i>CoolCairo.exe -selftest</i>); "
+              "all pass, and the app exits with an error if any fails.",
               f"<b>Material classes (milestone M2).</b> {m2_text}",
           ])]
 
@@ -617,7 +645,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
           bullets([
               "<b>Surface, not air, temperature.</b> Satellites measure how hot surfaces get, at "
               "about 10:30. Studies suggest city-wide cool roofs lower air temperature by roughly "
-              "0.1–0.33 °C per +0.1 roof albedo (Santamouris 2014, cited in Wang et al. 2020); "
+              f"0.1–0.33 °C per +0.1 roof albedo ({cite('Santamouris 2014', 'santamouris2014')}, "
+              f"cited in {cite('Wang et al. 2020', 'wang2020')}); "
               "the effect on air is smaller and spreads beyond the treated blocks.",
               "<b>Block level only.</b> Landsat's thermal band is 100 m, so no per-building "
               "temperature is claimed.",
@@ -697,32 +726,36 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "repository (licence).")]
 
     # ---------------------------------------------------------------- references
+    # Each reference ends with its link (the text shown is the address itself, so a printed copy works too).
+    def ref(text: str, key: str, shown: str | None = None) -> str:
+        return f"{text} {cite(shown or LINKS[key], key)}"
+
     refs = [
-        "Wang, Y., Huang, J. &amp; Li, D. (2020). Where are white roofs more effective in cooling "
-        "the surface? <i>Geophysical Research Letters</i> 47, e2020GL087853.",
-        "The impact of increasing urban surface albedo on outdoor air and surface temperatures "
-        "during summer in newly developed areas (2025). <i>Scientific Reports</i>. "
-        "doi:10.1038/s41598-025-08574-2.",
-        "American Concrete Pavement Association (2002). Albedo: a measure of pavement surface "
-        "reflectance. <i>R&amp;T Update</i> 3.05.",
-        "Evaluation and thermal performance of cool pavement under desert weather conditions "
-        "(2023). <i>Case Studies in Construction Materials</i>. "
-        "sciencedirect.com/science/article/pii/S2214509523001195.",
-        "Hendel, M. (2024). Cool pavements. arXiv:2409.12242.",
-        "Santamouris, M. (2014). Cooling the cities: a review of reflective and green roof "
-        "mitigation technologies. <i>Solar Energy</i> 103 (as cited in Wang et al. 2020).",
-        "The Hong Kong Polytechnic University (2024). PolyU researchers unveil novel carbon "
-        "dots-driven green radiative cooling coating. News release, 24 September 2024. "
-        "polyu.edu.hk/rio/news/2024/20240924---polyu-researchers-unveil-novel-carbon-dots-driven-"
-        "green-radiative-cooling-coating/",
-        "South China Morning Post (2026). Chinese paint cuts wall temperature 25 degrees Celsius "
-        "in summer test: report. September 2026. scmp.com/news/china/science/article/3367812.",
-        "U.S. Geological Survey. Landsat 8–9 Collection 2 Level-2 Science Product Guide.",
-        "Google Research. Open Buildings 2.5D Temporal Dataset.",
-        "WorldPop. Global2 R2025A population counts, Egypt 2024, 100 m constrained.",
-        "Microsoft Planetary Computer STAC API (Landsat C2 L2, Sentinel-2 L2A).",
-        "DLR Earth Observation Center. EnMAP HSI L2A, EOC Geoservice.",
-        "Further intervention and cost sources: <i>docs/intervention_research.md</i>.",
+        ref("Wang, L., Huang, M. &amp; Li, D. (2020). Where are white roofs more effective in cooling "
+            "the surface? <i>Geophysical Research Letters</i> 47(15), e2020GL087853.", "wang2020"),
+        ref("The impact of increasing urban surface albedo on outdoor air and surface temperatures "
+            "during summer in newly developed areas (2025). <i>Scientific Reports</i>.", "cairo2025"),
+        ref("American Concrete Pavement Association (2002). Albedo: a measure of pavement surface "
+            "reflectance. <i>R&amp;T Update</i> 3.05 (TRID record).", "acpa2002"),
+        ref("Evaluation and thermal performance of cool pavement under desert weather conditions "
+            "(2023). <i>Case Studies in Construction Materials</i>.", "uae2023"),
+        ref("Hendel, M. (2024). Cool pavements. arXiv:2409.12242.", "hendel2024"),
+        ref("Santamouris, M. (2014). Cooling the cities: a review of reflective and green roof "
+            "mitigation technologies to fight heat island and improve comfort in urban environments. "
+            "<i>Solar Energy</i> 103, 682–703.", "santamouris2014"),
+        ref("The Hong Kong Polytechnic University (2024). PolyU researchers unveil novel carbon "
+            "dots-driven green radiative cooling coating. News release, 24 September 2024.",
+            "polyu2024", "polyu.edu.hk (news release)"),
+        ref("South China Morning Post (2026). Chinese paint cuts wall temperature 25 degrees Celsius "
+            "in summer test: report. September 2026.", "scmp2026", "scmp.com/news/china/science/article/3367812"),
+        ref("U.S. Geological Survey. Landsat 8–9 Collection 2 Level-2 Science Product Guide.", "landsat",
+            "usgs.gov (product guide)"),
+        ref("Google Research. Open Buildings 2.5D Temporal Dataset.", "openbuildings"),
+        ref("WorldPop. Global2 R2025A population counts, Egypt 2024, 100 m constrained.", "worldpop"),
+        ref("Microsoft Planetary Computer STAC API (Landsat C2 L2, Sentinel-2 L2A).", "planetary"),
+        ref("DLR Earth Observation Center. EnMAP HSI L2A, EOC Geoservice.", "enmap"),
+        ref("Further intervention and cost sources, each with its link:", "interventions",
+            "docs/intervention_research.md"),
     ]
     s += [p("References", H1),
           ListFlowable([ListItem(p(x, SMALL), leftIndent=16) for x in refs], bulletType="1",
