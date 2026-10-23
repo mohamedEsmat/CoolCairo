@@ -183,13 +183,20 @@ def fly_in_image(cfg: Config) -> dict:
     """
     min_lon, min_lat, max_lon, max_lat = cfg["display_aoi"]["bbox_wgs84"]
     cx, cy = (min_lon + max_lon) / 2, (min_lat + max_lat) / 2
-    h = FLY_IN_HALF_SIZE_DEG
-    box = [round(cx - h, 5), round(cy - h, 5), round(cx + h, 5), round(cy + h, 5)]
-    def covers(item: pystac.Item) -> bool:
+
+    def covers(item: pystac.Item, box: list[float]) -> bool:
         w, s, e, n = item.bbox
         return w <= box[0] and s <= box[1] and e >= box[2] and n >= box[3]
 
-    items = [i for i in search(cfg, S2_COLLECTION, box) if covers(i)]
+    # Halve the box until one tile covers it: a district near a Sentinel-2 tile edge (Sharjah)
+    # has no single scene over the full ~24 km box.
+    h = FLY_IN_HALF_SIZE_DEG
+    while True:
+        box = [round(cx - h, 5), round(cy - h, 5), round(cx + h, 5), round(cy + h, 5)]
+        items = [i for i in search(cfg, S2_COLLECTION, box) if covers(i, box)]
+        if items or h < FLY_IN_HALF_SIZE_DEG / 4:
+            break
+        h /= 2
     if not items:
         raise RuntimeError("No single Sentinel-2 scene covers the fly-in box.")
     best = min(items, key=lambda i: (i.properties["eo:cloud_cover"], -i.datetime.timestamp()))

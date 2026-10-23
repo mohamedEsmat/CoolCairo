@@ -78,7 +78,9 @@ def main() -> None:
             "lst": "Landsat 8/9 C2 L2 ST_B10, summer median",
             "materials": "Sentinel-2 L2A 4-class rules (EnMAP evaluated, notebook 05)",
             "cool_roof": "Wang, Huang & Li 2020, GRL 47, e2020GL087853 (see aoi.yaml)",
-            "buildings": "OpenStreetMap footprints, Google Open Buildings 2.5D heights",
+            "buildings": "OpenStreetMap footprints, Google Open Buildings 2.5D heights"
+            if cfg.raw.get("open_buildings", True)
+            else "OpenStreetMap footprints and height tags, default storeys elsewhere",
             "population": "WorldPop Global2 R2025A 100 m constrained, 2024 (CC BY 4.0)",
             "hyperspectral": hyper["attribution"] if hyper else "not processed",
         },
