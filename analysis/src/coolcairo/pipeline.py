@@ -87,6 +87,8 @@ def load_presence(cfg: Config, year: int) -> xr.DataArray:
 
 def add_growth(cfg: Config, blocks: pd.DataFrame) -> pd.DataFrame:
     """Blocks plus building cover in the first and last growth year and the growth class."""
+    if not cfg.raw.get("open_buildings", True):
+        return blocks
     g = cfg["growth"]
     first, last = g["first_year"], g["last_year"]
     presence = {y: load_presence(cfg, y) for y in (first, last)}
@@ -99,6 +101,8 @@ def add_growth(cfg: Config, blocks: pd.DataFrame) -> pd.DataFrame:
 
 def growth_summary(cfg: Config, blocks: pd.DataFrame) -> dict:
     """What the app's Growth view states about the blocks given (the display district)."""
+    if "growth_class" not in blocks:
+        return {"available": 0}
     g = cfg["growth"]
     cell_km2 = cfg.block_size**2 / 1e6
     return {
@@ -133,10 +137,12 @@ def load_enmap(cfg: Config) -> xr.DataArray:
 def load_buildings(cfg: Config) -> gpd.GeoDataFrame:
     """Footprints with heights: OSM tags, then Open Buildings 2.5D, then the config default."""
     osm = load_osm_buildings(cfg)
+    default = cfg["default_levels"] * cfg["storey_height_m"]
+    if not cfg.raw.get("open_buildings", True):  # No Open Buildings 2.5D coverage (e.g. UAE).
+        return openbuildings.apply_heights(osm, pd.Series(np.nan, index=osm.index), default)
     ob = openbuildings.footprint_heights(
         osm, load_open_buildings_heights(cfg), cfg["open_buildings_min_pixels"]
     )
-    default = cfg["default_levels"] * cfg["storey_height_m"]
     return openbuildings.apply_heights(osm, ob, default)
 
 
@@ -185,6 +191,8 @@ def hyperspectral_summary(cfg: Config, blocks: pd.DataFrame) -> dict | None:
     spatial CV); None when the EnMAP files are not downloaded (they need a DLR login)."""
     from coolcairo.model import FEATURES, spatial_groups, training_rows
 
+    if not cfg.raw.get("enmap", True):  # No scene listed for this city.
+        return None
     try:
         refl = load_enmap(cfg)
     except FileNotFoundError as err:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,9 +14,12 @@ from pyproj import Transformer
 
 ANALYSIS_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = ANALYSIS_ROOT.parent
-CONFIG_PATH = ANALYSIS_ROOT / "config" / "aoi.yaml"
-DATA_DIR = ANALYSIS_ROOT / "data"  # Git-ignored cache for downloaded rasters.
-EXPORT_DIR = REPO_ROOT / "export"
+# COOLCAIRO_CONFIG selects another city's config (e.g. config/aoi_sharjah.yaml). Its caches and
+# export land in COOLCAIRO_DATA_DIR / COOLCAIRO_EXPORT_DIR, so a second city never overwrites the
+# Cairo files. All three default to the Cairo paths; relative values are relative to analysis/.
+CONFIG_PATH = ANALYSIS_ROOT / os.environ.get("COOLCAIRO_CONFIG", "config/aoi.yaml")
+DATA_DIR = ANALYSIS_ROOT / os.environ.get("COOLCAIRO_DATA_DIR", "data")  # Git-ignored cache.
+EXPORT_DIR = (ANALYSIS_ROOT / os.environ.get("COOLCAIRO_EXPORT_DIR", "../export")).resolve()
 
 
 @dataclass(frozen=True)
