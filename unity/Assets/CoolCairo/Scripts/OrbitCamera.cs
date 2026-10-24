@@ -21,6 +21,24 @@ namespace CoolCairo
 
         public bool Drifting => _drift > 0.01f;
 
+        // Fly-to (the plan panel's riskiest-blocks list): target and distance glide to a goal.
+        Vector3 _flyFrom, _flyTo;
+        float _flyFromDist, _flyToDist, _flyT = 1f;
+        const float FlySeconds = 0.9f;
+
+        public Vector3 Target => _target;
+
+        public void FocusOn(Vector3 point, float viewDistance = 700f)
+        {
+            _flyFrom = _target;
+            _flyTo = point;
+            _flyFromDist = distance;
+            _flyToDist = Mathf.Clamp(viewDistance, minDistance, maxDistance);
+            _flyT = 0f;
+            _lastInput = Time.time;   // a fly-to is input: no idle drift right after it
+            _drift = 0f;
+        }
+
         void Start()
         {
             var d = district.Data;
@@ -60,6 +78,14 @@ namespace CoolCairo
             float scroll = Input.mouseScrollDelta.y;
             if (scroll != 0f && !DistrictUI.PointerOverUI)
                 distance = Mathf.Clamp(distance * (1f - scroll * zoomSpeed), minDistance, maxDistance);
+
+            if (_flyT < 1f)
+            {
+                _flyT = Mathf.Min(1f, _flyT + Time.deltaTime / FlySeconds);
+                float e = _flyT * _flyT * (3f - 2f * _flyT);   // ease in and out
+                _target = Vector3.Lerp(_flyFrom, _flyTo, e);
+                distance = Mathf.Lerp(_flyFromDist, _flyToDist, e);
+            }
 
             // Idle drift: eases in after idleSeconds without input, stops at once on any input.
             if (Input.anyKey || scroll != 0f || (Input.mousePosition - _lastMouse).sqrMagnitude > 4f)

@@ -16,17 +16,35 @@ namespace CoolCairo
         const float HoverWidth = 6f, AreaWidth = 3f;   // metres
         const float HoverLift = 0.8f, AreaLift = 0.6f; // above the ground plane, below any roof
 
-        MeshFilter _hover, _area;
+        MeshFilter _hover, _area, _focus;
         int _shownBlock = -2, _shownRadius = -1;
+        float _focusUntil;
+
+        const float FocusWidth = 9f, FocusLift = 1.0f, FocusSeconds = 4f;
 
         void Start()
         {
             _area = Outline("BrushArea", HudStyle.Accent);
             _hover = Outline("HoverOutline", Color.white);
+            _focus = Outline("FocusOutline", HudStyle.ChromeBright);
         }
+
+        // Marks one block for a few seconds (the block the plan panel just flew to).
+        public void Focus(int block)
+        {
+            Fill(_focus.sharedMesh, new List<int> { block }, FocusWidth, FocusLift);
+            _focusUntil = Time.time + FocusSeconds;
+        }
+
+        public bool FocusShown => _focus != null && _focus.sharedMesh.vertexCount > 0;
 
         void Update()
         {
+            if (_focusUntil > 0f && Time.time > _focusUntil)
+            {
+                _focusUntil = 0f;
+                Fill(_focus.sharedMesh, new List<int>(), FocusWidth, FocusLift);
+            }
             int block = DistrictUI.PointerOverUI ? -1 : brush.HoverBlock;
             if (block == _shownBlock && brush.Radius == _shownRadius) return;
             _shownBlock = block;

@@ -48,6 +48,7 @@ namespace CoolCairo
             yield return HeatPalettes(district, ui);
             yield return FootprintAndHighlight(district, brush, highlight);
             yield return AnalysisMaps(district, ui);
+            yield return PlanPanel(district);
             yield return LiveHud(district, ui, brush);
             Unchanged(district);
 
@@ -210,7 +211,76 @@ namespace CoolCairo
             yield return null;
         }
 
-        // ---------- 4. live HUD ----------
+        // ---------- 4. plan results panel ----------
+
+        IEnumerator PlanPanel(DistrictView d)
+        {
+            var panel = FindFirstObjectByType<PlanDashboard>();
+            var model = d.Model;
+            while (model.Undo()) { }   // earlier tests left steps behind
+            model.ResetAll();          // start from no plan at all
+            Check("plan panel: closed at start, the button opens it", panel != null && !panel.Open &&
+                  InvokeAndReturn(() => Button(PlanDashboard.ToggleName).onClick.Invoke(), () => panel.Open));
+            yield return null;
+
+            // One measure in every block, as the report: −41 / −24 / −52 / −60 %.
+            float before = model.TotalExposure(false);
+            var pct = new[] { Intervention.CoolRoof, Intervention.Trees, Intervention.CoolPavement, Intervention.PocketPark }
+                .Select(k => 100f * (before - model.ExposureIfEverywhere(k)) / before).ToArray();
+            Check("plan panel: one measure everywhere matches the report (−41/−24/−52/−60%)",
+                  Mathf.RoundToInt(pct[0]) == 41 && Mathf.RoundToInt(pct[1]) == 24 &&
+                  Mathf.RoundToInt(pct[2]) == 52 && Mathf.RoundToInt(pct[3]) == 60,
+                  string.Join(" / ", pct.Select(p => p.ToString("0.0"))));
+
+            // The targeted plan: the report's −74% (6,460 → 1,686 person·°C, 22,588 residents).
+            Button(PlanDashboard.TargetedName).onClick.Invoke();
+            yield return null;
+            float after = model.TotalExposure();
+            Check("plan panel: the targeted plan removes 74% (6,460 → 1,686 person·°C)",
+                  Mathf.Abs(after - 1686f) < 1f && Text(PlanDashboard.HeadlineName) == "−74%",
+                  $"{after:N1}, headline {Text(PlanDashboard.HeadlineName)}");
+            int valid = Enumerable.Range(0, d.Data.BlockCount).Count(model.IsValid);
+            Check("plan panel: it treats the riskiest third of blocks, 22,588 residents cooled",
+                  model.TreatedBlocks() == valid / 3 && Mathf.Abs(model.ResidentsInCooledBlocks() - 22588f) < 1f,
+                  $"{model.TreatedBlocks()} of {valid} blocks, {model.ResidentsInCooledBlocks():N0} residents");
+            var removed = model.ExposureRemovedByMeasure();
+            Check("plan panel: the measures' shares add up to the total removed (roofs + parks only)",
+                  Mathf.Abs(removed.Sum() - (before - after)) < 0.5f && removed[(int)Intervention.Trees] == 0f &&
+                  removed[(int)Intervention.CoolPavement] == 0f && removed[(int)Intervention.CoolRoof] > 0f &&
+                  removed[(int)Intervention.PocketPark] > 0f,
+                  $"sum {removed.Sum():N1} vs {before - after:N1}");
+
+            // Riskiest blocks: ten, most exposure first; a click flies there and outlines the block.
+            Button(PlanDashboard.TabRiskiest).onClick.Invoke();
+            yield return null;
+            var shown = panel.RiskBlocksShown.ToList();
+            int top = Enumerable.Range(0, d.Data.BlockCount).OrderByDescending(b => model.Exposure(b)).First();
+            bool sorted = shown.Zip(shown.Skip(1), (a, b) => model.Exposure(a) >= model.Exposure(b)).All(x => x);
+            Check("plan panel: the riskiest list shows 10 blocks, most exposure first",
+                  shown.Count == 10 && sorted && shown[0] == top, $"{shown.Count} rows, first {shown.FirstOrDefault()} vs {top}");
+            Button(PlanDashboard.RiskRowPrefix + 0).onClick.Invoke();
+            yield return new WaitForSeconds(1.2f);
+            var cam = FindFirstObjectByType<OrbitCamera>();
+            float s = d.Data.blockSize;
+            var centre = new Vector3((top % d.Data.cols + 0.5f) * s, 0f, (top / d.Data.cols + 0.5f) * s);
+            Check("plan panel: a click flies the camera to the block and outlines it",
+                  Vector3.Distance(cam.Target, centre) < 1f && FindFirstObjectByType<BlockHighlight>().FocusShown,
+                  $"target {cam.Target}, block centre {centre}");
+
+            Check("plan panel: one Undo takes the targeted plan back", model.Undo() && !model.HasPlan);
+            Button(PlanDashboard.TabResults).onClick.Invoke();
+            Button(PlanDashboard.ToggleName).onClick.Invoke();
+            yield return null;
+            Check("plan panel: the button closes it again", !panel.Open);
+        }
+
+        static bool InvokeAndReturn(System.Action action, System.Func<bool> result)
+        {
+            action();
+            return result();
+        }
+
+        // ---------- 5. live HUD ----------
 
         IEnumerator LiveHud(DistrictView d, DistrictUI ui, InterventionBrush brush)
         {
@@ -363,7 +433,7 @@ namespace CoolCairo
             Check("camera: drifts by itself when nobody touches it", cam.Drifting, $"waited {waited:0.0} s");
         }
 
-        // ---------- 5. nothing else changed ----------
+        // ---------- 6. nothing else changed ----------
 
         void Unchanged(DistrictView d)
         {

@@ -116,7 +116,7 @@ uv run python report/build_report.py   # methodology report PDF in docs/ (needs 
 
 The first run streams about 1 GB from the public archives into `analysis/data/` (a cache, git-ignored); later runs read the cache. **Tested on a second, clean Windows machine** (8 Oct 2026, fresh clone, `uv sync`, each notebook run from a restarted kernel): all six ran without errors in about **29 minutes** in total (01: 18 min, mostly downloads; 06: 7.5 min; 04: 2.3 min; 02, 03 and 05 under a minute). No GPU needed.
 
-**The app:** run `CoolCairo.exe`, choose Nasr City on the globe, switch views on the left, paint with the tools at the bottom (left-drag paint, right-drag erase, Alt-drag or middle-drag orbit, scroll zoom), and read the result cards at the top right. `CoolCairo.exe -selftest -logFile selftest.log` runs 64 automated checks and exits with code 0 when all pass; `-screenshots <folder>` takes the screenshots used in the report; `-autotest` drives the whole flow in a loop.
+**The app:** run `CoolCairo.exe`, choose Nasr City on the globe, switch views on the left, paint with the tools at the bottom (left-drag paint, right-drag erase, Alt-drag or middle-drag orbit, scroll zoom), and read the result cards at the top right. Press **P** (or **PLAN RESULTS** under the cards) for the plan panel: heat exposure removed so far, a one-click targeted plan (cool roofs + pocket parks on the riskiest third of blocks, the report's −74%), each measure's share of the removal, one measure everywhere vs your plan, and the ten riskiest blocks (click one to fly there). `CoolCairo.exe -selftest -logFile selftest.log` runs 73 automated checks and exits with code 0 when all pass; `-screenshots <folder>` takes the screenshots used in the report; `-autotest` drives the whole flow in a loop.
 
 **Where things are:**
 
@@ -162,7 +162,7 @@ The first run streams about 1 GB from the public archives into `analysis/data/` 
 - **Heat model:** spatial cross-validation (above), so the score reflects areas the model never saw.
 - **Materials:** a spot check of 20 random points (fixed seed) against Google Maps satellite imagery (milestone M2) agrees at 16 of 18 judgeable points (89%); the misses are dusty asphalt and a dusty roof read as sand. The check was not blind (done by an AI assistant that could see the labels); details per point in [`docs/m2_spot_check.xlsx`](docs/m2_spot_check.xlsx).
 - **Building heights:** Google Open Buildings 2.5D vs 165 OSM-tagged heights: bias −1.4 m, mean error 6.2 m, r = 0.60.
-- **App:** 64 automated checks run inside the built app; the example's numbers are checked by unit tests against the report.
+- **App:** 73 automated checks run inside the built app; the example's numbers are checked by unit tests against the report.
 
 **Where it breaks:**
 

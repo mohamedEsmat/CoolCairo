@@ -152,6 +152,12 @@ namespace CoolCairo
             district.Model.Changed += RefreshKpis;
             ShowBrush();
             RefreshKpis();
+
+            // Plan results panel (built at runtime in the same style); P opens it too.
+            var controls = Find<TextMeshProUGUI>(HudStyle.Controls);
+            controls.text += "\n<color=#E6F1FF>P          </color>plan results panel";
+            gameObject.AddComponent<PlanDashboard>().Init(district, _legendTitle.font, _tooltipBody.font,
+                                                          Find<RectTransform>(HudStyle.KpiDelta));
         }
 
         void OnDestroy()

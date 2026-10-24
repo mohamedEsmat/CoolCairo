@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace CoolCairo
 {
@@ -57,14 +58,40 @@ namespace CoolCairo
         public float DeltaLst(int block)
         {
             if (!IsValid(block)) return 0f;
+            return MeasureDelta(Intervention.CoolRoof, block) + MeasureDelta(Intervention.Trees, block)
+                 + MeasureDelta(Intervention.CoolPavement, block) + MeasureDelta(Intervention.PocketPark, block);
+        }
+
+        // One measure's part of a block's Delta LST in the current plan (the parts add up).
+        public float MeasureDelta(Intervention kind, int block)
+        {
+            if (!IsValid(block)) return 0f;
             var b = _d.blocks;
             var m = _d.model;
-            float roof = Share(Intervention.CoolRoof, block)
-                         * (m.coolRoofDarkDeltaC * b.darkRoofFrac[block] + m.coolRoofPaleDeltaC * b.paleRoofFrac[block]);
-            float trees = (m.vegFrac - m.darkGroundFrac) * TreePlantedFrac(block);
-            float pavement = m.coolPavementDeltaC * PavementCoatedFrac(block);
-            float parks = m.pocketParkDeltaC * ParkGreenedFrac(block);
-            return roof + trees + pavement + parks;
+            return kind switch
+            {
+                Intervention.CoolRoof => Share(Intervention.CoolRoof, block)
+                    * (m.coolRoofDarkDeltaC * b.darkRoofFrac[block] + m.coolRoofPaleDeltaC * b.paleRoofFrac[block]),
+                Intervention.Trees => (m.vegFrac - m.darkGroundFrac) * TreePlantedFrac(block),
+                Intervention.CoolPavement => m.coolPavementDeltaC * PavementCoatedFrac(block),
+                _ => m.pocketParkDeltaC * ParkGreenedFrac(block),
+            };
+        }
+
+        // Delta LST of one measure at full adoption in a block, on its own (no other measures):
+        // coolcairo.interventions.full_adoption_deltas. Pavements then coat all the dark ground.
+        public float FullAdoptionDelta(Intervention kind, int block)
+        {
+            if (!IsValid(block)) return 0f;
+            var b = _d.blocks;
+            var m = _d.model;
+            return kind switch
+            {
+                Intervention.CoolRoof => m.coolRoofDarkDeltaC * b.darkRoofFrac[block] + m.coolRoofPaleDeltaC * b.paleRoofFrac[block],
+                Intervention.Trees => (m.vegFrac - m.darkGroundFrac) * TreeMaxShare * b.darkGroundFrac[block],
+                Intervention.CoolPavement => m.coolPavementDeltaC * b.darkGroundFrac[block],
+                _ => m.pocketParkDeltaC * ParkMaxShare * b.soilFrac[block],
+            };
         }
 
         public float Lst(int block) => BaselineLst(block) + DeltaLst(block);
@@ -85,8 +112,91 @@ namespace CoolCairo
             if (next == arr[block]) return;
             arr[block] = next;
             Version++;
-            Changed?.Invoke();
+            if (_batch == 0) Changed?.Invoke();
         }
+
+        // Many changes as one: listeners hear about them once, at the end.
+        int _batch;
+        void Batch(Action changes)
+        {
+            int before = Version;
+            _batch++;
+            try { changes(); }
+            finally { _batch--; }
+            if (_batch == 0 && Version != before) Changed?.Invoke();
+        }
+
+        // The report's targeted plan: the riskiest third of valid blocks by today's heat exposure,
+        // ties broken by surface temperature, hottest first (coolcairo.interventions.targeted_plan_delta).
+        public List<int> TargetedPlanBlocks()
+        {
+            // Stable ordering, as AutoTest and DemoRecorder rank, so all three cool the same blocks.
+            var ranked = Enumerable.Range(0, _d.BlockCount).Where(IsValid)
+                .OrderByDescending(b => Exposure(b, false)).ThenByDescending(BaselineLst).ToList();
+            return ranked.GetRange(0, ranked.Count / 3);
+        }
+
+        // Cool roofs + pocket parks on TargetedPlanBlocks, added to the current plan; one undo step.
+        public void ApplyTargetedPlan()
+        {
+            SaveUndo();
+            int before = Version;
+            Batch(() =>
+            {
+                foreach (int b in TargetedPlanBlocks())
+                {
+                    Apply(Intervention.CoolRoof, b, 1f);
+                    Apply(Intervention.PocketPark, b, 1f);
+                }
+            });
+            if (Version == before) DropUndo();
+        }
+
+        // District heat exposure if one measure were applied in every block at full adoption,
+        // on its own (coolcairo.interventions.exposure_reduction_summary).
+        public float ExposureIfEverywhere(Intervention kind)
+        {
+            float sum = 0f;
+            for (int i = 0; i < _d.BlockCount; i++)
+            {
+                if (!IsValid(i)) continue;
+                sum += Residents(i) * Math.Max(0f, BaselineLst(i) + FullAdoptionDelta(kind, i) - _d.model.heatReferenceC);
+            }
+            return sum;
+        }
+
+        // Heat exposure the current plan removes, split by measure. In each block the removal is
+        // shared out in proportion to each measure's part of the block's cooling, so the four
+        // parts add up to the total removed.
+        public float[] ExposureRemovedByMeasure()
+        {
+            var removed = new float[_share.Length];
+            for (int i = 0; i < _d.BlockCount; i++)
+            {
+                float delta = DeltaLst(i);
+                if (delta >= -1e-6f) continue;
+                float gone = Exposure(i, false) - Exposure(i);
+                if (gone <= 0f) continue;
+                for (int k = 0; k < removed.Length; k++) removed[k] += gone * MeasureDelta((Intervention)k, i) / delta;
+            }
+            return removed;
+        }
+
+        // Blocks with any measure on them.
+        public int TreatedBlocks()
+        {
+            int n = 0;
+            for (int i = 0; i < _d.BlockCount; i++)
+                foreach (var arr in _share)
+                    if (arr[i] >= 0.01f) { n++; break; }
+            return n;
+        }
+
+        // The blocks with the most heat exposure right now (with the plan), most first; only
+        // blocks that still have some. Ties by surface temperature, as the targeted plan.
+        public List<int> RiskiestBlocks(int count) =>
+            Enumerable.Range(0, _d.BlockCount).Where(b => Exposure(b) > 0f)
+                .OrderByDescending(b => Exposure(b)).ThenByDescending(Lst).Take(count).ToList();
 
         public void ResetAll()
         {
