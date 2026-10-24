@@ -75,8 +75,10 @@ def find_tiles(url_list: list[str], bbox_wgs84: list[float]) -> list[str]:
 
 
 def year_url(url: str, year: int) -> str:
-    """Same tile in another year's layer: only the dated folder differs (`<id>_<year>_06_30`)."""
-    return re.sub(r"/(\d+)_\d{4}_06_30/", rf"/\g<1>_{year}_06_30/", url)
+    """Same tile in another year's layer: only the dated folder differs (`<id>_<year>_06_30`).
+
+    The id is a hex S2 cell token: digits only for Cairo (14584), with letters elsewhere (128fc)."""
+    return re.sub(r"/([0-9a-f]+)_\d{4}_06_30/", rf"/\g<1>_{year}_06_30/", url)
 
 
 def height_mosaic(cfg: Config, aoi_key: str = "model_aoi") -> xr.DataArray:
@@ -90,7 +92,9 @@ def band_mosaic(cfg: Config, band: int, year: int, aoi_key: str = "model_aoi") -
     """One band of one year's layer over the AOI in the project CRS (4 m); NaN where no data."""
     min_x, min_y, max_x, max_y = projected_bbox(cfg[aoi_key]["bbox_wgs84"], cfg.crs, 1)
     parts = []
-    for url in (year_url(u, year) for u in tile_urls()):
+    # A city other than Cairo names its own tile list (config key open_buildings_tiles).
+    tiles = ANALYSIS_ROOT / cfg.raw.get("open_buildings_tiles", "config/open_buildings_tiles.txt")
+    for url in (year_url(u, year) for u in tile_urls(tiles)):
         da = rioxarray.open_rasterio(
             "/vsicurl/" + url, overview_level=overview_level(url), masked=True
         ).sel(band=band)

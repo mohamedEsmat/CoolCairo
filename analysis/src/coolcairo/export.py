@@ -92,6 +92,16 @@ def _building_arrays(
     }
 
 
+def _height_shares(buildings: gpd.GeoDataFrame) -> dict[str, float]:
+    """Share of buildings per height source: OSM height tag, OSM storeys, Open Buildings, default."""
+    if "height_source" not in buildings or len(buildings) == 0:
+        return {}
+    shares = buildings.height_source.value_counts(normalize=True)
+    keys = {"osm_height": "osmHeight", "osm_levels": "osmLevels",
+            "open_buildings": "openBuildings", "default": "default"}
+    return {out: round(float(shares.get(src, 0.0)), 4) for src, out in keys.items()}
+
+
 def write_district(
     path: Path,
     *,
@@ -115,6 +125,7 @@ def write_district(
     hyperspectral: dict | None = None,
     fly_in: dict | None = None,
     growth: dict | None = None,
+    city: str = "",
 ) -> dict:
     c = fit.coefficients
     payload = {
@@ -161,6 +172,10 @@ def write_district(
         "flyIn": fly_in or {},
         # Urban growth summary for the Growth view; "available": 0 when not computed.
         "growth": growth or {"available": 0},
+        # City of the district, and where the display buildings' heights come from (shares),
+        # so the app can say what data each city has.
+        "city": city,
+        "heightSources": _height_shares(buildings),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")

@@ -90,6 +90,7 @@ def main() -> None:
         fly_in=fly_in_image(cfg),
         growth=grown,
         preview_bbox_wgs84=cfg["model_aoi"]["bbox_wgs84"],
+        city=cfg["display_aoi"].get("city", "Cairo"),
     )
     print(f"[{time.time() - t0:.0f}s] display: {rows}x{cols} blocks, "
           f"{len(disp_buildings)} buildings -> export/district.json")
