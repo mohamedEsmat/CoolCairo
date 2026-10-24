@@ -27,14 +27,14 @@ namespace CoolCairo
     {
         const string StacSearch = "https://planetarycomputer.microsoft.com/api/stac/v1/search";
         const string DataBbox = "https://planetarycomputer.microsoft.com/api/data/v1/item/bbox/";
-        const int TimeoutSeconds = 20;
+        const int TimeoutSeconds = 12;
         const int PageSize = 100;
 
         [Serializable] class SearchResponse { public Feature[] features; }
         [Serializable] class Feature { public string id; }
         [Serializable] class SearchBody { public string[] collections; public string[] ids; public int limit; }
 
-        public static IEnumerator Run(SourceSync sync, float[] bbox)
+        public static IEnumerator Run(SourceSync sync, float[] bbox, string cityKey = "cairo")
         {
             var src = sync.Source;
             sync.State = SyncState.Querying;
@@ -70,9 +70,20 @@ namespace CoolCairo
             }
             sync.Found = found;
 
-            sync.State = SyncState.Downloading;
             string latest = src.sceneIds[src.sceneIds.Length - 1];
             sync.LatestSceneDate = src.lastDate;
+            // The preview image ships with the app (same render, analysis/report/app_images.py):
+            // the scene list is still checked live above, but no slow image render is awaited.
+            string slug = System.Text.RegularExpressions.Regex.Replace(src.satellite.ToLowerInvariant(), "[^a-z0-9]+", "_").Trim('_');
+            var bundled = Resources.Load<Texture2D>($"Districts/{cityKey}/preview_{slug}");
+            if (bundled != null)
+            {
+                sync.Preview = bundled;
+                sync.State = SyncState.Complete;
+                Debug.Log($"{src.satellite}: archive confirmed {found}/{src.sceneIds.Length} scenes; preview shipped with the app.");
+                yield break;
+            }
+            sync.State = SyncState.Downloading;
             string box = string.Join(",", bbox.Select(v => v.ToString(CultureInfo.InvariantCulture)));
             string url = $"{DataBbox}{box}/256x256.png?collection={src.collection}&item={latest}&{src.previewQuery}";
             using (var img = UnityWebRequestTexture.GetTexture(url))

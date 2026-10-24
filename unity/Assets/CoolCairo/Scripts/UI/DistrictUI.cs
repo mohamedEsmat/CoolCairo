@@ -37,6 +37,7 @@ namespace CoolCairo
             public Color flashColor;
         }
         Readout _delta, _exposure, _residents;
+        TextMeshProUGUI _kpiTitle;   // the temperature card's title: AVG, or TREATED with a plan
         float _beforeLst;
         bool _kpisReady;
         RawImage _legendRamp;
@@ -116,6 +117,7 @@ namespace CoolCairo
             _toolHint = Find<TextMeshProUGUI>(HudStyle.ToolHint);
             _brushValue = Find<TextMeshProUGUI>(HudStyle.BrushValue);
             _delta = Kpi(HudStyle.KpiDelta);
+            _kpiTitle = FindIn<TextMeshProUGUI>(Find<RectTransform>(HudStyle.KpiDelta), "Title");
             _exposure = Kpi(HudStyle.KpiExposure);
             _residents = Kpi(HudStyle.KpiResidents);
             _legendTitle = Find<TextMeshProUGUI>(HudStyle.LegendTitle);
@@ -144,8 +146,12 @@ namespace CoolCairo
             _treatmentKeys.SetActive(false);
             Find<TextMeshProUGUI>(HudStyle.ModelText).text = ModelSummary();
             var d = district.Data;
+            bool cairo = CityCatalog.CairoSelected;
             Find<TextMeshProUGUI>(HudStyle.Subtitle).text =
-                $"EAST CAIRO · {d.rows}×{d.cols} BLOCKS @ {d.blockSize:0} M · SUMMER 2023–25";
+                $"{(cairo ? "EAST CAIRO" : d.CityName.ToUpperInvariant())} · {d.rows}×{d.cols} BLOCKS @ {d.blockSize:0} M · SUMMER 2023–25";
+            // Top bar title names the district shown (built as "[ COOLCAIRO // NASR CITY ]").
+            var title = FindIn<TextMeshProUGUI>(Find<RectTransform>(HudStyle.TopBar), "Title");
+            if (title != null) title.text = $"[ COOLCAIRO <color=#4FD6FF>//</color> {d.name.ToUpperInvariant()} ]";
             _motion = GetComponent<HudMotion>();
             _motion.SetTicker(Ticker());
 
@@ -199,7 +205,8 @@ namespace CoolCairo
                 ViewMode.Materials => "What surfaces are made of, per 90 m block (Sentinel-2, summer 2023–25): dark vs pale roofs, asphalt, sand and greenery.",
                 ViewMode.Heat => "Land surface temperature per 90 m block: median of summer 2023–25 Landsat 8/9 scenes. Surface, not air, temperature.",
                 ViewMode.Growth => GrowthHint(),
-                _ => $"Heat exposure = residents × °C above {m.heatReferenceC:0.0} °C, the typical east-Cairo block. Residents: WorldPop 2024.",
+                _ => $"Heat exposure = residents × °C above {m.heatReferenceC:0.0} °C, the typical " +
+                     $"{(CityCatalog.CairoSelected ? "east-Cairo" : district.Data.CityName)} block. Residents: WorldPop 2024.",
             };
             ShowLegend(mode);
 
@@ -210,8 +217,45 @@ namespace CoolCairo
 
         // ---------- analysis maps ----------
 
-        List<AnalysisFigure> FiguresFor(ViewMode mode) =>
-            (figures ?? new AnalysisFigure[0]).Where(f => f.view == mode && f.image != null).ToList();
+        // Cairo's analysis maps come with the scene (the report's figures); every other city has
+        // its own set in Resources/Districts/<key>/, drawn by the same code (city_figures.py).
+        AnalysisFigure[] _cityFigures;
+
+        List<AnalysisFigure> FiguresFor(ViewMode mode)
+        {
+            var all = CityCatalog.CairoSelected ? figures ?? new AnalysisFigure[0]
+                    : _cityFigures ??= CityFigures(CityCatalog.Selected, district.Data);
+            return all.Where(f => f.view == mode && f.image != null).ToList();
+        }
+
+        public static AnalysisFigure[] CityFigures(CityCatalog.City city, DistrictData d)
+        {
+            Texture2D Img(string file) => Resources.Load<Texture2D>($"Districts/{city.Key}/{file}");
+            AnalysisFigure F(ViewMode view, string file, string title, string caption) =>
+                new AnalysisFigure { view = view, image = Img(file), title = title, caption = caption };
+            string district = $"{d.name} from the analysis: (a) Sentinel-2 summer photo, (b) surface materials at 10 m, " +
+                              "(c) summer surface temperature per 90 m block, (d) heat risk: residents × °C above the " +
+                              "typical block. White blocks in (d) are cooler than typical.";
+            var list = new List<AnalysisFigure>
+            {
+                F(ViewMode.Materials, "fig2_district", $"{d.name}: photo, materials, heat and risk", district),
+                F(ViewMode.Heat, "fig1_study_area", $"{city.Name}: summer surface temperature",
+                  $"The model area around {d.name}. (a) Sentinel-2 summer photo; (b) Landsat summer surface temperature " +
+                  "per 90 m block, centred on the typical urban block. The box is the district shown in this app."),
+                F(ViewMode.Heat, "fig3_model_fit", "Heat model: tested on areas it never saw",
+                  "Measured vs predicted block temperature, with whole 1 km areas hidden while the model learned " +
+                  "(spatial cross-validation). Same pipeline and settings as Cairo; a test run, not yet validated on the ground."),
+                F(ViewMode.Risk, "fig2_district", $"{d.name}: photo, materials, heat and risk", district),
+                F(ViewMode.Risk, "fig5_interventions", "What each cooling measure would do",
+                  $"Change in {d.name}'s heat exposure. Blue: each measure at full adoption in every block. Orange: cool " +
+                  "roofs and pocket parks on only the riskiest third of blocks."),
+            };
+            if (d.HasGrowth)
+                list.Add(F(ViewMode.Growth, "fig6_growth", $"Urban growth {d.growth.firstYear}–{d.growth.lastYear}",
+                    "From Google Open Buildings Temporal: (a) block classes, same colours as this view; (b) building " +
+                    "footprint area per year; (c) mean summer surface temperature of blocks built before, built since and still open."));
+            return list.Where(f => f.image != null).ToArray();
+        }
 
         void OpenFigures()
         {
@@ -300,11 +344,25 @@ namespace CoolCairo
                 TreatmentOverlay.Measures.Any(m => model.Share(m.kind, b) >= 0.01f));
             _treatmentKeys.SetActive(plan);
             // Before -> after, so the change reads as real temperatures, not an abstract delta.
-            _beforeLst = model.MeanLst(false);
-            float after = model.MeanLst(), delta = after - _beforeLst;
+            // With a plan: the blocks it treats (the district mean also counts every untreated
+            // block, so it moves far less; the plan panel shows it). Without: the district mean.
+            var treated = model.TreatedCooling();
             int blocks = Enumerable.Range(0, district.Data.BlockCount).Count(model.IsValid);
-            _delta.sub.text = delta < -0.005f ? $"{Minus(delta, "0.00")} °C · mean of {blocks} blocks"
-                                              : $"today · mean of {blocks} blocks";
+            float after;
+            if (treated.blocks > 0)
+            {
+                _beforeLst = treated.before;
+                after = treated.after;
+                _kpiTitle.text = "⌜ SURFACE TEMP · TREATED ⌝";
+                _delta.sub.text = $"{treated.blocks} {(treated.blocks == 1 ? "block" : "blocks")} · up to {Minus(treated.maxCooling)} °C";
+            }
+            else
+            {
+                _beforeLst = model.MeanLst(false);
+                after = model.MeanLst();
+                _kpiTitle.text = "⌜ SURFACE TEMP · AVG ⌝";
+                _delta.sub.text = $"today · mean of {blocks} blocks";
+            }
             Retarget(_delta, after, lowerIsBetter: true);
 
             float baseRisk = model.TotalExposure(false), nowRisk = model.TotalExposure();
@@ -494,6 +552,8 @@ namespace CoolCairo
             if (district.Data.HasGrowth && b.builtFirst[h] >= 0f && b.builtLast[h] >= 0f)
                 _tooltipBody.text += $"\nBuilding cover {district.Data.growth.firstYear} → {district.Data.growth.lastYear}: " +
                                      $"{b.builtFirst[h]:P0} → {b.builtLast[h]:P0}";
+            string note = TreatNote(model, district.Data, h);
+            if (note.Length > 0) _tooltipBody.text += "\n" + note;
 
             // Follow the mouse, flipping sides near the screen edges.
             RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvas, Input.mousePosition, null, out var local);
@@ -504,6 +564,20 @@ namespace CoolCairo
             if (pos.x + tip.x > size.x - 8f) pos.x -= tip.x + 36f;
             if (pos.y - tip.y < 8f) pos.y += tip.y + 36f;
             _tooltip.anchoredPosition = pos;
+        }
+
+        // A block the four measures can hardly change (under 5% of it is roofs, asphalt or the park
+        // share of sand): say so, and name the likely cause when people live there but no roofs
+        // are mapped, so a tiny effect is explained before anyone asks.
+        public static string TreatNote(InterventionModel model, DistrictData d, int block)
+        {
+            if (!model.IsValid(block)) return "";
+            float treatable = model.TreatableShare(block);
+            if (treatable >= 0.05f) return "";
+            string cause = d.blocks.roofFrac[block] <= 0f && model.Residents(block) >= 1f
+                ? "No roofs mapped, though residents live here (likely an OpenStreetMap gap). "
+                : "Mostly pale paving and greenery, which these measures do not change. ";
+            return $"<color=#FFB84D>Little to treat: {cause}The measures can change at most {treatable:P0} of this block.</color>";
         }
 
         // ---------- texts from district.json ----------
@@ -553,7 +627,11 @@ namespace CoolCairo
             var h = district.Data.hyperspectral;
             if (h != null && h.available == 1) parts.Add(h.attribution);
             parts.Add("Residents: WorldPop 2024 (CC BY 4.0)");
-            parts.Add("Buildings and growth: © OpenStreetMap contributors, Google Open Buildings 2.5D Temporal (CC BY 4.0)");
+            var hs = district.Data.heightSources;
+            bool openBuildings = !district.Data.HasHeightSources || hs.openBuildings > 0f || district.Data.HasGrowth;
+            parts.Add(openBuildings
+                ? "Buildings and growth: © OpenStreetMap contributors, Google Open Buildings 2.5D Temporal (CC BY 4.0)"
+                : "Buildings: © OpenStreetMap contributors (heights from OSM tags, else 5 storeys)");
             parts.Add("Data access: Microsoft Planetary Computer, DLR EOC Geoservice");
             return string.Join("  ·  ", parts);
         }

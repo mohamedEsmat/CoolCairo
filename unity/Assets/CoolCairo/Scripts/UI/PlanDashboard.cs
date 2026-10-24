@@ -17,7 +17,10 @@ namespace CoolCairo
     public class PlanDashboard : MonoBehaviour
     {
         public const string ToggleName = "PlanToggle", PanelName = "PlanPanel", TargetedName = "PlanTargeted";
-        public const string TabResults = "PlanTab_Results", TabRiskiest = "PlanTab_Riskiest";
+        public const string TabResults = "PlanTab_Results", TabRiskiest = "PlanTab_Riskiest", TabBuild = "PlanTab_Build";
+        public const string BuildMeasurePrefix = "PlanBuild_", BuildRankPrefix = "PlanRank_", BuildApply = "PlanBuildApply";
+        public const string BuildShare = "PlanBuildShare", BuildAdoption = "PlanBuildAdoption", BuildPreview = "PlanBuildPreview";
+        public const string BuildDefaults = "PlanBuildDefaults";
         public const string HeadlineName = "PlanHeadline", RiskRowPrefix = "PlanRisk_";
 
         static readonly string[] MeasureNames = { "Cool roofs", "Street trees", "Cool pavements", "Pocket parks" };
@@ -32,9 +35,23 @@ namespace CoolCairo
         Sprite _solid, _frame, _bracket;
         TMP_FontAsset _mono, _sans;
 
-        RectTransform _panel, _resultsPage, _riskPage;
+        RectTransform _panel, _resultsPage, _riskPage, _buildPage;
         CanvasGroup _panelGroup;
-        Button _toggle, _tabResults, _tabRiskiest;
+        Button _toggle, _tabResults, _tabRiskiest, _tabBuild;
+
+        // Plan builder: which measures, how many of the ranked blocks, ranked by what, how far.
+        // Defaults are the report's targeted plan (roofs + parks, riskiest third, full adoption).
+        public readonly bool[] BuildMeasures = new bool[4];
+        public RankBy BuildRank { get; private set; }
+        public float BuildShareValue { get; private set; }     // 0..1 of valid blocks
+        public float BuildAdoptionValue { get; private set; }  // 0..1 of each measure's potential
+        readonly Dictionary<Intervention, Button> _measureToggles = new Dictionary<Intervention, Button>();
+        readonly Dictionary<RankBy, Button> _rankToggles = new Dictionary<RankBy, Button>();
+        Slider _shareSlider, _adoptionSlider;
+        TextMeshProUGUI _shareLabel, _adoptionLabel, _previewPct, _previewText;
+        public InterventionModel.PlanPreview LastPreview { get; private set; }
+        enum Page { Results, Build, Riskiest }
+        Page _page;
         TextMeshProUGUI _toggleLabel, _headline, _headlineSub, _treated;
         readonly (RectTransform fill, TextMeshProUGUI value)[] _measureBars = new (RectTransform, TextMeshProUGUI)[4];
         readonly (RectTransform fill, TextMeshProUGUI value)[] _compareBars = new (RectTransform, TextMeshProUGUI)[5];
@@ -93,14 +110,73 @@ namespace CoolCairo
             }
         }
 
-        public void ShowRiskiest(bool riskiest)
+        public void ShowRiskiest(bool riskiest) => ShowPage(riskiest ? Page.Riskiest : Page.Results);
+
+        void ShowPage(Page page)
         {
-            _riskiestShown = riskiest;
-            _resultsPage.gameObject.SetActive(!riskiest);
-            _riskPage.gameObject.SetActive(riskiest);
-            Tab(_tabResults, !riskiest);
-            Tab(_tabRiskiest, riskiest);
+            _page = page;
+            _riskiestShown = page == Page.Riskiest;
+            _resultsPage.gameObject.SetActive(page == Page.Results);
+            _buildPage.gameObject.SetActive(page == Page.Build);
+            _riskPage.gameObject.SetActive(page == Page.Riskiest);
+            Tab(_tabResults, page == Page.Results);
+            Tab(_tabBuild, page == Page.Build);
+            Tab(_tabRiskiest, page == Page.Riskiest);
             Refresh();
+            if (page == Page.Build) RefreshBuilder();
+        }
+
+        // ---------- plan builder ----------
+
+        public void SetBuildMeasure(Intervention kind, bool on) { BuildMeasures[(int)kind] = on; RefreshBuilder(); }
+        public void SetBuildRank(RankBy by) { BuildRank = by; RefreshBuilder(); }
+
+        public void BuilderDefaults()
+        {
+            for (int k = 0; k < 4; k++) BuildMeasures[k] = (Intervention)k == Intervention.CoolRoof || (Intervention)k == Intervention.PocketPark;
+            BuildRank = RankBy.HeatRisk;
+            _shareSlider?.SetValueWithoutNotify(33);
+            _adoptionSlider?.SetValueWithoutNotify(20);
+            BuildShareValue = 1f / 3f;   // exactly a third, as the report
+            BuildAdoptionValue = 1f;
+            RefreshBuilder();
+        }
+
+        // Slider in whole percent; 33 means exactly one third, the report's plan.
+        void OnShareSlider(float v) { BuildShareValue = Mathf.RoundToInt(v) == 33 ? 1f / 3f : v / 100f; RefreshBuilder(); }
+        void OnAdoptionSlider(float v) { BuildAdoptionValue = v * 0.05f; RefreshBuilder(); }
+
+        public void ApplyBuilderPlan()
+        {
+            if (!BuildMeasures.Any(x => x)) return;
+            _district.Model.ApplyPlan(BuildMeasures, BuildRank, BuildShareValue, BuildAdoptionValue);
+        }
+
+        void RefreshBuilder()
+        {
+            if (_buildPage == null) return;
+            foreach (var kv in _measureToggles) Tab(kv.Value, BuildMeasures[(int)kv.Key]);
+            foreach (var kv in _rankToggles) Tab(kv.Value, BuildRank == kv.Key);
+            var model = _district.Model;
+            int valid = Enumerable.Range(0, _district.Data.BlockCount).Count(model.IsValid);
+            int blocks = model.PlanBlocks(BuildRank, BuildShareValue).Count;
+            string rank = BuildRank switch { RankBy.Temperature => "hottest", RankBy.Residents => "most populated", RankBy.CoolingPotential => "most coolable", _ => "riskiest" };
+            _shareLabel.text = $"{rank} {Mathf.RoundToInt(BuildShareValue * 100)}% · {blocks} of {valid} blocks";
+            _adoptionLabel.text = $"{BuildAdoptionValue:P0} of each measure's potential";
+            if (!BuildMeasures.Any(x => x))
+            {
+                _previewPct.text = "–";
+                _previewText.text = "Choose at least one measure.";
+                return;
+            }
+            float before = model.TotalExposure(false);
+            LastPreview = model.Preview(BuildMeasures, BuildRank, BuildShareValue, BuildAdoptionValue);
+            float pct = before > 0f ? 100f * (before - LastPreview.exposure) / before : 0f;
+            _previewPct.text = $"−{pct:0}%";
+            _previewPct.color = pct > 0.5f ? HudStyle.Good : HudStyle.Text;
+            _previewText.text = $"heat exposure {before:N0} → {LastPreview.exposure:N0} person·°C\n" +
+                                $"residents in above-typical heat {model.ResidentsAboveTypical(false):N0} → {LastPreview.residentsAboveTypical:N0}\n" +
+                                $"{LastPreview.blocks} blocks · district mean {model.MeanLst(false):0.0} → {LastPreview.meanLst:0.0} °C";
         }
 
         // Camera to a block and a short outline on it.
@@ -125,9 +201,15 @@ namespace CoolCairo
             _headline.color = RemovedPct > 0.5f ? HudStyle.Good : HudStyle.Text;
             _headlineSub.text = $"of today's heat exposure\n{before:N0} → {now:N0} person·°C";
             int treated = model.TreatedBlocks();
+            var cooled = model.TreatedCooling();
+            float aboveBefore = model.ResidentsAboveTypical(false), aboveNow = model.ResidentsAboveTypical();
+            float abovePct = aboveBefore > 0f ? 100f * (aboveBefore - aboveNow) / aboveBefore : 0f;
             _treated.text = plan
-                ? $"{treated} {(treated == 1 ? "block" : "blocks")} treated · {model.ResidentsInCooledBlocks():N0} residents in cooled blocks"
-                : "No plan yet: paint measures, or use the targeted plan above.";
+                ? $"<color=#E6F1FF>Residents in above-typical heat: {aboveBefore:N0} → {aboveNow:N0} (−{abovePct:0}%)</color>\n" +
+                  $"Treated blocks {cooled.before:0.0} → {cooled.after:0.0} °C (up to {cooled.maxCooling:0.0}) · " +
+                  $"district average {model.MeanLst(false):0.00} → {model.MeanLst():0.00} °C\n" +
+                  $"{treated} {(treated == 1 ? "block" : "blocks")} treated · {model.ResidentsInCooledBlocks():N0} residents in cooled blocks"
+                : $"No plan yet: paint measures, or use the targeted plan above. {aboveBefore:N0} residents live in above-typical heat today.";
 
             var removed = model.ExposureRemovedByMeasure();
             for (int k = 0; k < Kinds.Length; k++)
@@ -193,15 +275,20 @@ namespace CoolCairo
 
             var tabs = Row(_panel, "PlanTabs", 26, 6);
             _tabResults = MakeButton(tabs, TabResults, "Results", 11, out _);
+            _tabBuild = MakeButton(tabs, TabBuild, "Build plan", 11, out _);
             _tabRiskiest = MakeButton(tabs, TabRiskiest, "Riskiest 10", 11, out _);
             Flex(_tabResults.gameObject);
+            Flex(_tabBuild.gameObject);
             Flex(_tabRiskiest.gameObject);
-            _tabResults.onClick.AddListener(() => ShowRiskiest(false));
-            _tabRiskiest.onClick.AddListener(() => ShowRiskiest(true));
+            _tabResults.onClick.AddListener(() => ShowPage(Page.Results));
+            _tabBuild.onClick.AddListener(() => ShowPage(Page.Build));
+            _tabRiskiest.onClick.AddListener(() => ShowPage(Page.Riskiest));
 
             BuildResults();
+            BuildBuilder();
             BuildRiskiest();
-            ShowRiskiest(false);
+            BuilderDefaults();
+            ShowPage(Page.Results);
 
             // Under the popup and the hover card, which stay on top of everything.
             foreach (var top in new[] { HudStyle.FigurePopup, HudStyle.Tooltip })
@@ -213,7 +300,7 @@ namespace CoolCairo
 
         void BuildResults()
         {
-            _resultsPage = Page("PlanResults");
+            _resultsPage = MakePage("PlanResults");
             Section(_resultsPage, "⌜ HEAT EXPOSURE REMOVED ⌝");
             var head = Row(_resultsPage, "PlanHead", 44, 12);
             _headline = Label(head, HeadlineName, "0%", 34, HudStyle.Text, mono: true, bold: true);
@@ -221,6 +308,7 @@ namespace CoolCairo
             _headlineSub = Label(head, "PlanHeadSub", "", 11, HudStyle.Muted, mono: true, wrap: true);
             Flex(_headlineSub.gameObject);
             _treated = Label(_resultsPage, "PlanTreated", "", 11, HudStyle.Muted, wrap: true);
+            _treated.richText = true;
 
             var targeted = MakeButton(_resultsPage, TargetedName, "▶  Targeted plan: roofs + parks on the riskiest third", 10, out var tl);
             tl.fontStyle = FontStyles.Normal;
@@ -240,9 +328,80 @@ namespace CoolCairo
             _compareBars[4] = BarRow(_resultsPage, "PlanCompare_Plan", "Your plan", HudStyle.Good, bold: true);
         }
 
+        void BuildBuilder()
+        {
+            _buildPage = MakePage("PlanBuilder");
+            Section(_buildPage, "MEASURES");
+            var row = Row(_buildPage, "PlanBuildMeasures", 26, 6);
+            var keys = new[] { "Roofs", "Trees", "Roads", "Parks" };
+            for (int k = 0; k < Kinds.Length; k++)
+            {
+                var kind = Kinds[k];
+                var b = MakeButton(row, BuildMeasurePrefix + kind, keys[k], 10, out _);
+                Flex(b.gameObject);
+                b.onClick.AddListener(() => SetBuildMeasure(kind, !BuildMeasures[(int)kind]));
+                _measureToggles[kind] = b;
+            }
+
+            Section(_buildPage, "RANK BLOCKS BY");
+            row = Row(_buildPage, "PlanBuildRank", 26, 6);
+            foreach (var (by, label) in new[] { (RankBy.HeatRisk, "Heat risk"), (RankBy.Temperature, "Hottest"), (RankBy.Residents, "Residents"), (RankBy.CoolingPotential, "Potential") })
+            {
+                var b = MakeButton(row, BuildRankPrefix + by, label, 10, out _);
+                Flex(b.gameObject);
+                b.onClick.AddListener(() => SetBuildRank(by));
+                _rankToggles[by] = b;
+            }
+
+            var head = Row(_buildPage, "PlanBuildShareHead", 16, 6);
+            Section(head, "TARGET");
+            _shareLabel = Label(head, "PlanBuildShareLabel", "", 10, HudStyle.Text, mono: true, align: TextAlignmentOptions.MidlineRight);
+            Flex(_shareLabel.gameObject);
+            _shareSlider = CloneSlider(_buildPage, BuildShare, 5, 100, OnShareSlider);
+
+            head = Row(_buildPage, "PlanBuildAdoptionHead", 16, 6);
+            Section(head, "ADOPTION");
+            _adoptionLabel = Label(head, "PlanBuildAdoptionLabel", "", 10, HudStyle.Text, mono: true, align: TextAlignmentOptions.MidlineRight);
+            Flex(_adoptionLabel.gameObject);
+            _adoptionSlider = CloneSlider(_buildPage, BuildAdoption, 5, 20, OnAdoptionSlider);   // 25..100% in 5% steps
+
+            Divider(_buildPage);
+            Section(_buildPage, "THIS PLAN WOULD REMOVE");
+            var preview = Row(_buildPage, "PlanBuildPreviewRow", 44, 12);
+            _previewPct = Label(preview, BuildPreview, "", 30, HudStyle.Good, mono: true, bold: true);
+            Fixed(_previewPct.gameObject, 104, 44);
+            _previewText = Label(preview, "PlanBuildPreviewText", "", 10, HudStyle.Muted, mono: true, wrap: true);
+            Flex(_previewText.gameObject);
+
+            row = Row(_buildPage, "PlanBuildActions", 28, 6);
+            var apply = MakeButton(row, BuildApply, "▶  Apply this plan", 11, out _);
+            Flex(apply.gameObject);
+            apply.onClick.AddListener(ApplyBuilderPlan);
+            var defaults = MakeButton(row, BuildDefaults, "Report plan", 10, out _);
+            Fixed(defaults.gameObject, 110, 28);
+            defaults.onClick.AddListener(BuilderDefaults);
+            Label(_buildPage, "PlanBuildNote", "Potential: blocks where these measures remove the most heat exposure (skips hot blocks with nothing to treat). " +
+                  "Applying replaces the current plan; Undo takes it back.",
+                  10, HudStyle.Muted, wrap: true);
+        }
+
+        // A copy of the HUD's brush slider, so the builder's sliders look and work the same.
+        Slider CloneSlider(Transform parent, string name, float min, float max, UnityEngine.Events.UnityAction<float> onChange)
+        {
+            var source = transform.GetComponentsInChildren<Slider>(true).First(s => s.name == HudStyle.BrushSlider);
+            var s = Instantiate(source, parent);
+            s.name = name;
+            s.onValueChanged.RemoveAllListeners();
+            s.minValue = min;
+            s.maxValue = max;
+            s.wholeNumbers = true;
+            s.onValueChanged.AddListener(onChange);
+            return s;
+        }
+
         void BuildRiskiest()
         {
-            _riskPage = Page("PlanRiskiest");
+            _riskPage = MakePage("PlanRiskiest");
             Section(_riskPage, "RISKIEST BLOCKS NOW · CLICK TO FLY THERE");
             for (int i = 0; i < RiskRows; i++)
             {
@@ -278,7 +437,7 @@ namespace CoolCairo
             return (frt, v);
         }
 
-        RectTransform Page(string name)
+        RectTransform MakePage(string name)
         {
             var rt = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
             rt.SetParent(_panel, false);

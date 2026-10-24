@@ -35,10 +35,13 @@ namespace CoolCairo
             Debug.Log("[SelfTest] start");
             IntroController intro = null;
             while ((intro = FindFirstObjectByType<IntroController>()) == null || !intro.ReadyForInput) yield return null;
+            CityFiles();
             intro.ChooseCity(0);
 
             DistrictView district = null;
             while ((district = FindFirstObjectByType<DistrictView>()) == null || district.Model == null) yield return null;
+            Check("cities: choosing Cairo opens Nasr City", CityCatalog.CairoSelected && district.Data.name == "Nasr City",
+                  district.Data.name);
             var ui = FindFirstObjectByType<DistrictUI>();
             var brush = FindFirstObjectByType<InterventionBrush>();
             var highlight = FindFirstObjectByType<BlockHighlight>();
@@ -51,6 +54,7 @@ namespace CoolCairo
             yield return PlanPanel(district);
             yield return LiveHud(district, ui, brush);
             Unchanged(district);
+            yield return SecondCity();
 
             Debug.Log($"[SelfTest] SUMMARY {_passed} passed, {_failed} failed" +
                       (_failed > 0 ? ": " + string.Join("; ", _failures) : ""));
@@ -223,6 +227,38 @@ namespace CoolCairo
                   InvokeAndReturn(() => Button(PlanDashboard.ToggleName).onClick.Invoke(), () => panel.Open));
             yield return null;
 
+            // Plan builder: its defaults are the report's plan; any other plan previews exactly
+            // what applying it does.
+            Button(PlanDashboard.TabBuild).onClick.Invoke();
+            yield return null;
+            Check("plan builder: the default plan previews the report's −74% (1,686 person·°C, 192 blocks)",
+                  Mathf.Abs(panel.LastPreview.exposure - 1686f) < 1f && panel.LastPreview.blocks == 192 &&
+                  Text(PlanDashboard.BuildPreview) == "−74%",
+                  $"{panel.LastPreview.exposure:N1}, {panel.LastPreview.blocks} blocks, {Text(PlanDashboard.BuildPreview)}");
+            Button(PlanDashboard.BuildMeasurePrefix + Intervention.CoolRoof).onClick.Invoke();
+            Button(PlanDashboard.BuildMeasurePrefix + Intervention.PocketPark).onClick.Invoke();
+            Button(PlanDashboard.BuildMeasurePrefix + Intervention.Trees).onClick.Invoke();
+            Find(PlanDashboard.BuildShare).GetComponent<Slider>().value = 100;
+            yield return null;
+            float treesEverywhere = model.ExposureIfEverywhere(Intervention.Trees);
+            Check("plan builder: street trees in every block preview the report's one-measure figure (−24%)",
+                  Mathf.Abs(panel.LastPreview.exposure - treesEverywhere) < 0.5f,
+                  $"{panel.LastPreview.exposure:N1} vs {treesEverywhere:N1}");
+            Button(PlanDashboard.BuildApply).onClick.Invoke();
+            yield return null;
+            Check("plan builder: applying gives exactly the preview, and one Undo takes it back",
+                  Mathf.Abs(model.TotalExposure() - panel.LastPreview.exposure) < 0.5f && model.Undo() && !model.HasPlan,
+                  $"{model.TotalExposure():N1} vs {panel.LastPreview.exposure:N1}");
+            Button(PlanDashboard.BuildDefaults).onClick.Invoke();
+            var roofsParks = new[] { true, false, false, true };
+            var byRisk = model.Preview(roofsParks, RankBy.HeatRisk, 1f / 3f, 1f);
+            var byPotential = model.Preview(roofsParks, RankBy.CoolingPotential, 1f / 3f, 1f);
+            Check("plan builder: ranking by cooling potential removes at least as much as by heat risk (same blocks count)",
+                  byPotential.blocks == byRisk.blocks && byPotential.exposure <= byRisk.exposure + 0.01f,
+                  $"potential {byPotential.exposure:N1} vs risk {byRisk.exposure:N1} person·°C");
+            Button(PlanDashboard.TabResults).onClick.Invoke();
+            yield return null;
+
             // One measure in every block, as the report: −41 / −24 / −52 / −60 %.
             float before = model.TotalExposure(false);
             var pct = new[] { Intervention.CoolRoof, Intervention.Trees, Intervention.CoolPavement, Intervention.PocketPark }
@@ -243,6 +279,18 @@ namespace CoolCairo
             Check("plan panel: it treats the riskiest third of blocks, 22,588 residents cooled",
                   model.TreatedBlocks() == valid / 3 && Mathf.Abs(model.ResidentsInCooledBlocks() - 22588f) < 1f,
                   $"{model.TreatedBlocks()} of {valid} blocks, {model.ResidentsInCooledBlocks():N0} residents");
+            float aboveBefore = model.ResidentsAboveTypical(false), aboveAfter = model.ResidentsAboveTypical();
+            var cooled = model.TreatedCooling();
+            Check("plan panel: residents in above-typical heat 10,517 → 2,503; treated blocks cool 1.33 °C, up to 3.2",
+                  Mathf.Abs(aboveBefore - 10517f) < 1f && Mathf.Abs(aboveAfter - 2503f) < 1f &&
+                  cooled.blocks == 192 && Mathf.Abs(cooled.after - cooled.before + 1.33f) < 0.01f &&
+                  Mathf.Abs(cooled.maxCooling + 3.23f) < 0.01f,
+                  $"{aboveBefore:N0} → {aboveAfter:N0}; {cooled.blocks} blocks {cooled.before:0.00} → {cooled.after:0.00}, max {cooled.maxCooling:0.00}");
+            yield return null;
+            Check("readouts: with a plan the temperature card shows the treated blocks",
+                  Find(HudStyle.KpiDelta).transform.Find(HudStyle.KpiSub).GetComponent<TextMeshProUGUI>().text.StartsWith("192 blocks · up to −3.2") &&
+                  Find(HudStyle.KpiDelta).GetComponentsInChildren<TextMeshProUGUI>().Any(t => t.text.Contains("TREATED")),
+                  Find(HudStyle.KpiDelta).transform.Find(HudStyle.KpiSub).GetComponent<TextMeshProUGUI>().text);
             var removed = model.ExposureRemovedByMeasure();
             Check("plan panel: the measures' shares add up to the total removed (roofs + parks only)",
                   Mathf.Abs(removed.Sum() - (before - after)) < 0.5f && removed[(int)Intervention.Trees] == 0f &&
@@ -431,6 +479,78 @@ namespace CoolCairo
             float waited = 0f;
             while (!cam.Drifting && waited < 12f) { waited += Time.deltaTime; yield return null; }
             Check("camera: drifts by itself when nobody touches it", cam.Drifting, $"waited {waited:0.0} s");
+        }
+
+        // ---------- 7. cities ----------
+
+        // Every live city's district file is in the build and is a usable district.
+        void CityFiles()
+        {
+            var bad = new List<string>();
+            foreach (var city in CityCatalog.All.Where(c => c.Live && c.Key != "cairo"))
+            {
+                var text = Resources.Load<TextAsset>("Districts/" + city.Key);
+                if (text == null) { bad.Add(city.Name + " missing"); continue; }
+                var d = DistrictData.FromJson(text.text);
+                int valid = d.blocks.valid.Count(v => v == 1);
+                int maps = DistrictUI.CityFigures(city, d).Length;
+                if (d.CityName != city.Name || d.name != city.District || valid < 100 || d.buildings.count < 100 ||
+                    d.model.r2SpatialCv <= 0f || d.sources == null || d.sources.Length == 0 || !d.HasHeightSources ||
+                    maps != (d.HasGrowth ? 6 : 5))
+                    bad.Add($"{city.Name} ({d.CityName}/{d.name}, {valid} blocks, {d.buildings.count} buildings, " +
+                            $"R² {d.model.r2SpatialCv:0.00}, {maps} analysis maps)");
+            }
+            Check("cities: every live city's district file and analysis maps load (blocks, buildings, model, sources, heights, maps)",
+                  bad.Count == 0, string.Join("; ", bad));
+        }
+
+        // Back to the globe, choose Casablanca: its own district, title and data, no Cairo maps.
+        IEnumerator SecondCity()
+        {
+            Button(HudStyle.GlobeButton).onClick.Invoke();
+            IntroController intro = null;
+            float waited = 0f;
+            while (((intro = FindFirstObjectByType<IntroController>()) == null || !intro.ReadyForInput) && waited < 20f)
+            { waited += Time.unscaledDeltaTime; yield return null; }
+            int index = Array.FindIndex(CityCatalog.All, c => c.Key == "casablanca");
+            intro?.ChooseCity(index);
+            DistrictView d = null;
+            waited = 0f;
+            while (((d = FindFirstObjectByType<DistrictView>()) == null || d.Model == null || d.Data.name != "Hay Mohammadi") && waited < 60f)
+            { waited += Time.unscaledDeltaTime; yield return null; }
+            yield return null;
+            yield return null;
+            bool loaded = d != null && d.Data.name == "Hay Mohammadi";
+            Check("cities: back on the globe, choosing Casablanca opens Hay Mohammadi", loaded,
+                  d == null ? "no district" : d.Data.name);
+            if (!loaded) yield break;
+            var top = Find(HudStyle.TopBar).GetComponentsInChildren<TextMeshProUGUI>().First(t => t.name == "Title").text;
+            Check("cities: the top bar and subtitle name the new district and city",
+                  top.Contains("HAY MOHAMMADI") && Text(HudStyle.Subtitle).StartsWith("CASABLANCA"), top + " | " + Text(HudStyle.Subtitle));
+            d.SetMode(ViewMode.Heat);
+            yield return null;
+            var mapsButton = Find(HudStyle.FiguresButton);
+            string mapsLabel = mapsButton.GetComponentInChildren<TextMeshProUGUI>().text;
+            Check("cities: Casablanca has its own analysis maps (2 for Surface heat) and no Growth view",
+                  mapsButton.activeSelf && mapsLabel.Contains("(2)") && !Find(HudStyle.ViewButtonPrefix + ViewMode.Growth).activeSelf,
+                  mapsLabel);
+            Button(HudStyle.FiguresButton).onClick.Invoke();
+            yield return null;
+            var shown = Find(HudStyle.FigureImage).GetComponent<RawImage>().texture;
+            Check("cities: the popup shows Casablanca's map, not Cairo's",
+                  shown != null && shown.name == "fig1_study_area" && Text(HudStyle.FigureTitle).StartsWith("Casablanca"),
+                  $"{shown?.name} / {Text(HudStyle.FigureTitle)}");
+            Button(HudStyle.FigureClose).onClick.Invoke();
+            yield return null;
+            var notes = Enumerable.Range(0, d.Data.BlockCount).Where(d.Model.IsValid)
+                .Select(b => (little: d.Model.TreatableShare(b) < 0.05f, note: DistrictUI.TreatNote(d.Model, d.Data, b))).ToList();
+            Check("tooltip: 'little to treat' appears exactly on blocks under 5% treatable",
+                  notes.All(n => n.little == n.note.Contains("Little to treat")),
+                  $"{notes.Count(n => n.little)} such blocks of {notes.Count}");
+            float exposure = d.Model.TotalExposure(false);
+            d.Model.ApplyTargetedPlan();
+            Check("cities: the targeted plan cuts Casablanca's heat exposure", exposure > 0f && d.Model.TotalExposure() < exposure,
+                  $"{exposure:N0} → {d.Model.TotalExposure():N0}");
         }
 
         // ---------- 6. nothing else changed ----------

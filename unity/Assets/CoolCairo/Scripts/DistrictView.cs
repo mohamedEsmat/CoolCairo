@@ -69,7 +69,8 @@ namespace CoolCairo
         {
             heatRamps = new[] { ReportRamp(), InfernoRamp(), WarmRamp() };
             riskRamp = DefaultRiskRamp();
-            Data = DistrictData.FromJson(districtJson.text);
+            // The city chosen on the globe, or Cairo (the scene's own data) when none was chosen.
+            Data = DistrictData.FromJson(CityCatalog.SelectedJson ?? districtJson.text);
             Model = new InterventionModel(Data);
             Model.Changed += Refresh;
             ComputeHeatRange();

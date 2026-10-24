@@ -6,6 +6,12 @@ namespace CoolCairo
 {
     public enum Intervention { CoolRoof, Trees, CoolPavement, PocketPark }
 
+    // How the plan builder chooses blocks: most heat exposure, hottest surface or most residents
+    // today (ties broken by surface temperature, as the report's targeted plan).
+    // CoolingPotential: heat exposure the chosen measures can actually remove in the block, so a
+    // plan skips hot blocks that have nothing to treat (no roofs, asphalt or sand mapped).
+    public enum RankBy { HeatRisk, Temperature, Residents, CoolingPotential }
+
     // C# port of analysis/src/coolcairo/interventions.py. Keep the two in sync.
     // Pure arithmetic on precomputed coefficients from district.json: no model solving at runtime.
     // All temperatures are land SURFACE temperature (Landsat LST), not air temperature.
@@ -63,19 +69,119 @@ namespace CoolCairo
         }
 
         // One measure's part of a block's Delta LST in the current plan (the parts add up).
-        public float MeasureDelta(Intervention kind, int block)
+        public float MeasureDelta(Intervention kind, int block) =>
+            MeasureDeltaWith(kind, block, Share(Intervention.CoolRoof, block), Share(Intervention.Trees, block),
+                             Share(Intervention.CoolPavement, block), Share(Intervention.PocketPark, block));
+
+        // The same arithmetic for any shares (0..1 of each measure's full adoption in the block),
+        // so the plan builder can preview a plan without applying it.
+        float MeasureDeltaWith(Intervention kind, int block, float roof, float trees, float pavement, float park)
         {
             if (!IsValid(block)) return 0f;
             var b = _d.blocks;
             var m = _d.model;
+            float planted = trees * TreeMaxShare * b.darkGroundFrac[block];
             return kind switch
             {
-                Intervention.CoolRoof => Share(Intervention.CoolRoof, block)
-                    * (m.coolRoofDarkDeltaC * b.darkRoofFrac[block] + m.coolRoofPaleDeltaC * b.paleRoofFrac[block]),
-                Intervention.Trees => (m.vegFrac - m.darkGroundFrac) * TreePlantedFrac(block),
-                Intervention.CoolPavement => m.coolPavementDeltaC * PavementCoatedFrac(block),
-                _ => m.pocketParkDeltaC * ParkGreenedFrac(block),
+                Intervention.CoolRoof => roof * (m.coolRoofDarkDeltaC * b.darkRoofFrac[block] + m.coolRoofPaleDeltaC * b.paleRoofFrac[block]),
+                Intervention.Trees => (m.vegFrac - m.darkGroundFrac) * planted,
+                Intervention.CoolPavement => m.coolPavementDeltaC * pavement * (b.darkGroundFrac[block] - planted),
+                _ => m.pocketParkDeltaC * park * ParkMaxShare * b.soilFrac[block],
             };
+        }
+
+        float DeltaWith(int block, float roof, float trees, float pavement, float park)
+        {
+            float sum = 0f;
+            foreach (Intervention k in Enum.GetValues(typeof(Intervention)))
+                sum += MeasureDeltaWith(k, block, roof, trees, pavement, park);
+            return sum;
+        }
+
+        // ---------- plan builder ----------
+
+        // Share of a block the four measures can change at all: roofs (cool roofs), dark ground
+        // (street trees, then cool pavements on the rest) and the park cap of bare sand.
+        public float TreatableShare(int block)
+        {
+            if (!IsValid(block)) return 0f;
+            var b = _d.blocks;
+            return b.roofFrac[block] + b.darkGroundFrac[block] + ParkMaxShare * b.soilFrac[block];
+        }
+
+        // Heat exposure these measures (at this adoption) would remove from one block, from today.
+        public float RemovableExposure(int block, bool[] measures, float adoption)
+        {
+            if (!IsValid(block)) return 0f;
+            float S(Intervention k) => measures != null && measures[(int)k] ? adoption : 0f;
+            float delta = DeltaWith(block, S(Intervention.CoolRoof), S(Intervention.Trees), S(Intervention.CoolPavement), S(Intervention.PocketPark));
+            float after = Residents(block) * Math.Max(0f, BaselineLst(block) + delta - _d.model.heatReferenceC);
+            return Exposure(block, false) - after;
+        }
+
+        // Valid blocks in the builder's order (stable, as the report's targeted plan).
+        public List<int> RankBlocks(RankBy by, bool[] measures = null, float adoption = 1f)
+        {
+            var valid = Enumerable.Range(0, _d.BlockCount).Where(IsValid);
+            var ordered = by switch
+            {
+                RankBy.Temperature => valid.OrderByDescending(BaselineLst),
+                RankBy.Residents => valid.OrderByDescending(Residents).ThenByDescending(BaselineLst),
+                RankBy.CoolingPotential => valid.OrderByDescending(b => RemovableExposure(b, measures, adoption))
+                                                .ThenByDescending(b => Exposure(b, false)).ThenByDescending(BaselineLst),
+                _ => valid.OrderByDescending(b => Exposure(b, false)).ThenByDescending(BaselineLst),
+            };
+            return ordered.ToList();
+        }
+
+        // The blocks a plan covers: the first `share` of the ranking (1/3 of 576 = 192, as the report).
+        public List<int> PlanBlocks(RankBy by, float share, bool[] measures = null, float adoption = 1f)
+        {
+            var ranked = RankBlocks(by, measures, adoption);
+            int n = Math.Clamp((int)Math.Floor(ranked.Count * share + 1e-4f), 0, ranked.Count);
+            return ranked.GetRange(0, n);
+        }
+
+        public struct PlanPreview { public float exposure, residentsCooled, residentsAboveTypical, meanLst; public int blocks; }
+
+        // What a plan would do from today's district (nothing applied): the builder's preview.
+        public PlanPreview Preview(bool[] measures, RankBy by, float share, float adoption)
+        {
+            var chosen = new HashSet<int>(PlanBlocks(by, share, measures, adoption));
+            float S(Intervention k) => measures[(int)k] ? adoption : 0f;
+            var p = new PlanPreview { blocks = chosen.Count };
+            float lstSum = 0f;
+            int n = 0;
+            for (int i = 0; i < _d.BlockCount; i++)
+            {
+                if (!IsValid(i)) continue;
+                float delta = chosen.Contains(i)
+                    ? DeltaWith(i, S(Intervention.CoolRoof), S(Intervention.Trees), S(Intervention.CoolPavement), S(Intervention.PocketPark))
+                    : 0f;
+                float lst = BaselineLst(i) + delta;
+                p.exposure += Residents(i) * Math.Max(0f, lst - _d.model.heatReferenceC);
+                if (lst > _d.model.heatReferenceC) p.residentsAboveTypical += Residents(i);
+                if (delta < -0.01f) p.residentsCooled += Residents(i);
+                lstSum += lst;
+                n++;
+            }
+            p.meanLst = n == 0 ? 0f : lstSum / n;
+            return p;
+        }
+
+        // Replace the current plan with the builder's plan; one undo step.
+        public void ApplyPlan(bool[] measures, RankBy by, float share, float adoption)
+        {
+            SaveUndo();
+            var chosen = PlanBlocks(by, share, measures, adoption);
+            Batch(() =>
+            {
+                foreach (var arr in _share) Array.Clear(arr, 0, arr.Length);
+                Version++;
+                foreach (int b in chosen)
+                    for (int k = 0; k < _share.Length; k++)
+                        if (measures[k]) Apply((Intervention)k, b, Math.Clamp(adoption, 0f, 1f));
+            });
         }
 
         // Delta LST of one measure at full adoption in a block, on its own (no other measures):
@@ -297,6 +403,38 @@ namespace CoolCairo
             float sum = 0f;
             for (int i = 0; i < _d.BlockCount; i++) sum += Residents(i);
             return sum;
+        }
+
+        // Residents living in blocks hotter than the typical block (the heat-exposure reference).
+        public float ResidentsAboveTypical(bool withInterventions = true)
+        {
+            float sum = 0f;
+            for (int i = 0; i < _d.BlockCount; i++)
+            {
+                if (!IsValid(i)) continue;
+                float lst = withInterventions ? Lst(i) : BaselineLst(i);
+                if (lst > _d.model.heatReferenceC) sum += Residents(i);
+            }
+            return sum;
+        }
+
+        // The blocks the plan treats (any measure on them, as TreatedBlocks): how many, their mean
+        // surface temperature before and after, and the largest cooling of one block. A treated
+        // block with nothing to change (no roofs, no sand) counts, at zero cooling.
+        public (int blocks, float before, float after, float maxCooling) TreatedCooling()
+        {
+            int n = 0;
+            float before = 0f, after = 0f, max = 0f;
+            for (int i = 0; i < _d.BlockCount; i++)
+            {
+                if (!IsValid(i) || !_share.Any(arr => arr[i] >= 0.01f)) continue;
+                float delta = DeltaLst(i);
+                n++;
+                before += BaselineLst(i);
+                after += BaselineLst(i) + delta;
+                max = Math.Min(max, delta);
+            }
+            return n == 0 ? (0, 0f, 0f, 0f) : (n, before / n, after / n, max);
         }
 
         // Residents living in blocks whose surface temperature the interventions lowered.

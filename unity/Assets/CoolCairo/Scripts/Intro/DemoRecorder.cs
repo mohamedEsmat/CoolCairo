@@ -83,7 +83,7 @@ namespace CoolCairo
             // A1: the archive sync, until the list has held a moment after the last row.
             Begin("A1");
             IntroController intro = null;
-            while ((intro = FindFirstObjectByType<IntroController>()) == null || !intro.LoadingDone) yield return null;
+            while ((intro = FindFirstObjectByType<IntroController>()) == null || !intro.ReadyForInput) yield return null;
             yield return Hold(1.2f);
 
             // A2: the globe settles on the Middle East, then the fly-in into Nasr City.

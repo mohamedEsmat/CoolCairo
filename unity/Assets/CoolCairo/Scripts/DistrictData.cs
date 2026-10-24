@@ -26,6 +26,12 @@ namespace CoolCairo
         public HyperspectralInfo hyperspectral;
         public FlyInInfo flyIn;          // Sentinel-2 close-up for the globe fly-in.
         public GrowthInfo growth;        // Urban growth summary (Growth view).
+        public string city;              // e.g. "Casablanca" (empty in older exports: Cairo)
+        public HeightSources heightSources;   // where the buildings' heights come from
+
+        public string CityName => string.IsNullOrEmpty(city) ? "Cairo" : city;
+        public bool HasHeightSources => heightSources != null &&
+            heightSources.osmHeight + heightSources.osmLevels + heightSources.openBuildings + heightSources.@default > 0.5f;
 
         public bool HasGrowth => growth != null && growth.available == 1
                                  && blocks.growthClass != null && blocks.growthClass.Length == BlockCount;
@@ -84,6 +90,16 @@ namespace CoolCairo
         public int denserBlocks;
         public float denserMin;      // Cover gain that makes a built-up block "denser".
         public string source;
+    }
+
+    // Shares of the district's buildings by height source (export.py _height_shares).
+    [Serializable]
+    public class HeightSources
+    {
+        public float osmHeight;      // OSM height tag
+        public float osmLevels;      // OSM storeys x storey height
+        public float openBuildings;  // Google Open Buildings 2.5D estimate
+        public float @default;       // the config default (5 storeys): no height data
     }
 
     [Serializable]
