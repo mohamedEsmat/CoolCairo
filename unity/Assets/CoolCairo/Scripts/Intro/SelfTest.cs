@@ -314,6 +314,14 @@ namespace CoolCairo
             Check("plan panel: a click flies the camera to the block and outlines it",
                   Vector3.Distance(cam.Target, centre) < 1f && FindFirstObjectByType<BlockHighlight>().FocusShown,
                   $"target {cam.Target}, block centre {centre}");
+            yield return new WaitForSeconds(4.5f);   // longer than a plain focus outline lasts
+            var dui = FindFirstObjectByType<DistrictUI>();
+            var card = Find(HudStyle.Tooltip);
+            Check("plan panel: the chosen block stays outlined and its info card opens (pinned)",
+                  dui.PinnedBlock == top && FindFirstObjectByType<BlockHighlight>().FocusShown && card.activeSelf &&
+                  Text(HudStyle.TooltipTitle).Contains($"BLOCK {top:0000}") && Text(HudStyle.TooltipTitle).Contains("PINNED"),
+                  $"pinned {dui.PinnedBlock}, card {card.activeSelf}, title {Text(HudStyle.TooltipTitle)}");
+            dui.Unpin();
 
             Check("plan panel: one Undo takes the targeted plan back", model.Undo() && !model.HasPlan);
             Button(PlanDashboard.TabResults).onClick.Invoke();

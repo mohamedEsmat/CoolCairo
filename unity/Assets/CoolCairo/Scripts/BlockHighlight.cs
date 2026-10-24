@@ -29,11 +29,17 @@ namespace CoolCairo
             _focus = Outline("FocusOutline", HudStyle.ChromeBright);
         }
 
-        // Marks one block for a few seconds (the block the plan panel just flew to).
-        public void Focus(int block)
+        // Marks one block (the block the plan panel just flew to), for a few seconds or until cleared.
+        public void Focus(int block, float seconds = FocusSeconds)
         {
             Fill(_focus.sharedMesh, new List<int> { block }, FocusWidth, FocusLift);
-            _focusUntil = Time.time + FocusSeconds;
+            _focusUntil = Time.time + seconds;
+        }
+
+        public void ClearFocus()
+        {
+            _focusUntil = 0f;
+            Fill(_focus.sharedMesh, new List<int>(), FocusWidth, FocusLift);
         }
 
         public bool FocusShown => _focus != null && _focus.sharedMesh.vertexCount > 0;

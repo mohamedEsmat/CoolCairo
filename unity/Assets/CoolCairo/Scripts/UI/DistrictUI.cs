@@ -530,11 +530,34 @@ namespace CoolCairo
 
         // ---------- hover card ----------
 
+        // A block chosen in the plan panel's riskiest list: outlined and its card kept open, next
+        // to the block, until another is chosen, Esc is pressed or the map is clicked.
+        int _pinned = -1;
+        public int PinnedBlock => _pinned;
+
+        public void PinBlock(int block)
+        {
+            _pinned = block;
+            FindFirstObjectByType<BlockHighlight>()?.Focus(block, float.PositiveInfinity);
+        }
+
+        public void Unpin()
+        {
+            if (_pinned < 0) return;
+            _pinned = -1;
+            FindFirstObjectByType<BlockHighlight>()?.ClearFocus();
+        }
+
         void UpdateTooltip()
         {
             int h = brush.HoverBlock;
             var model = district.Model;
-            bool show = h >= 0 && model.IsValid(h) && !PointerOverUI;
+            bool hovering = h >= 0 && model.IsValid(h) && !PointerOverUI;
+            if (_pinned >= 0 && (Input.GetKeyDown(KeyCode.Escape) || (hovering && Input.GetMouseButtonDown(0)))) Unpin();
+            // While a block is pinned its card stays, whatever the mouse hovers.
+            bool pinnedCard = _pinned >= 0;
+            if (pinnedCard) h = _pinned;
+            bool show = hovering || pinnedCard;
             if (_tooltip.gameObject.activeSelf != show) _tooltip.gameObject.SetActive(show);
             if (!show) return;
 
@@ -555,8 +578,13 @@ namespace CoolCairo
             string note = TreatNote(model, district.Data, h);
             if (note.Length > 0) _tooltipBody.text += "\n" + note;
 
-            // Follow the mouse, flipping sides near the screen edges.
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvas, Input.mousePosition, null, out var local);
+            if (pinnedCard) _tooltipTitle.text += "   <color=#FF8A3D>PINNED · ESC</color>";
+
+            // Follow the mouse (or sit next to the pinned block), flipping sides near the screen edges.
+            Vector2 anchor = Input.mousePosition;
+            if (pinnedCard && Camera.main != null)
+                anchor = Camera.main.WorldToScreenPoint(district.Data.BlockCentre(h));
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvas, anchor, null, out var local);
             var size = _canvas.rect.size;
             var pos = local + size / 2f + new Vector2(18f, -18f);
             LayoutRebuilder.ForceRebuildLayoutImmediate(_tooltip);

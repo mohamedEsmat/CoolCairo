@@ -185,7 +185,9 @@ namespace CoolCairo
             var d = _district.Data;
             float s = d.blockSize;
             _camera?.FocusOn(new Vector3((block % d.cols + 0.5f) * s, 0f, (block / d.cols + 0.5f) * s));
-            _highlight?.Focus(block);
+            var ui = GetComponent<DistrictUI>();
+            if (ui != null) ui.PinBlock(block);   // outline stays and the block's card opens
+            else _highlight?.Focus(block);
         }
 
         // ---------- numbers ----------
