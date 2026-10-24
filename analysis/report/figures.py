@@ -97,7 +97,7 @@ def study_area(r, out: Path) -> Path:
     for ax in axes:
         ax.add_patch(Rectangle((disp[0], disp[1]), disp[2] - disp[0], disp[3] - disp[1],
                                fill=False, ec=INK, lw=1.4))
-        ax.text(disp[0], disp[3] + 150, "Nasr City (app)", fontsize=7.5, color=INK,
+        ax.text(disp[0], disp[3] + 150, f"{cfg['display_aoi']['name']} (app)", fontsize=7.5, color=INK,
                 bbox={"fc": "white", "ec": "none", "alpha": 0.75, "pad": 1})
         _scale_bar(ax, 2000, "2 km")
     return _save(fig, out / "fig1_study_area.png")
@@ -196,7 +196,7 @@ def interventions(r, out: Path) -> Path:
         ax.barh(i, -v, height=0.6, color=colour)
         ax.text(-v + 1, i, f"−{-v:.0f}%", va="center", fontsize=7.5, color=INK)
     ax.set_yticks(range(len(rows)), [n for n, _, _ in rows])
-    ax.set_xlabel("Reduction in heat exposure (%), Nasr City display district, full adoption")
+    ax.set_xlabel(f"Reduction in heat exposure (%), {r.cfg['display_aoi']['name']} display district, full adoption")
     ax.set_xlim(0, 85)
     ax.grid(axis="x", color=GRID, lw=0.5), ax.set_axisbelow(True)
     ax.tick_params(axis="y", length=0, labelcolor=INK)
@@ -254,16 +254,19 @@ def urban_growth(r, out: Path) -> Path:
     colours = {BUILT_BEFORE: "#737a8a", NEWLY_BUILT: "#eb6834", OPEN: "#a08f6c"}
     names = {BUILT_BEFORE: "Built before 2016", NEWLY_BUILT: "Built 2016–23", OPEN: "Still open"}
     ys = np.arange(len(heat))[::-1]
-    ax.barh(ys, heat.mean_lst_c - 40, left=40, height=0.6,
+    # 40-52 °C fits Cairo; cooler or hotter cities widen the axis to fit their blocks.
+    lo = min(40.0, float(np.floor(heat.mean_lst_c.min() - 2)))
+    hi = max(52.0, float(np.ceil(heat.mean_lst_c.max() + 3)))
+    ax.barh(ys, heat.mean_lst_c - lo, left=lo, height=0.6,
             color=[colours[k] for k in heat.index])
     for y_, (k, row) in zip(ys, heat.iterrows(), strict=True):
         ax.text(row.mean_lst_c + 0.1, y_, f"{row.mean_lst_c:.1f} °C  (n = {int(row.blocks):,})",
                 va="center", fontsize=7)
         # Class name inside its bar: as a y-axis label it ran into the map in panel a.
-        ax.text(40.25, y_, names[k], va="center", fontsize=7, color="white", fontweight="bold")
+        ax.text(lo + 0.25, y_, names[k], va="center", fontsize=7, color="white", fontweight="bold")
     ax.axvline(r.reference_c, color=INK, lw=0.8, ls="--")
     ax.set_yticks([])
-    ax.set_xlim(40, 52)
+    ax.set_xlim(lo, hi)
     ax.set_title("c  Mean summer surface temperature", fontsize=8.5)
     ax.set_xlabel("°C (dashed: urban median)")
     ax.tick_params(axis="y", length=0, labelcolor=INK)

@@ -1,0 +1,9 @@
+# Google Open Buildings 2.5D Temporal v1, 2023 tiles intersecting model_aoi (aoi_algiers.yaml).
+# Derived with coolcairo.openbuildings.find_tiles() from urls/DZA_2023.txt in the HDX zip
+# (S2 cells 128fc and 128e4): https://data.humdata.org/dataset/google-open-buildings-temporal
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/128fc_2023_06_30/tile_FfXJnNM5sJU.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/128fc_2023_06_30/tile_zcuVy5yQVvM.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/128fc_2023_06_30/tile_cc_qd2NAnzg.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/128fc_2023_06_30/tile_tFN8N252s4g.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/128e4_2023_06_30/tile_R6DKd-xgNmo.tif
+https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/128e4_2023_06_30/tile_kQrWeisSw4M.tif
