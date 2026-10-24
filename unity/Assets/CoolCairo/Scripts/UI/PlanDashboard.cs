@@ -36,6 +36,7 @@ namespace CoolCairo
         TMP_FontAsset _mono, _sans;
 
         RectTransform _panel, _resultsPage, _riskPage, _buildPage;
+        GameObject _legend;   // the colour key sits under the panel; hidden while the panel is open
         CanvasGroup _panelGroup;
         Button _toggle, _tabResults, _tabRiskiest, _tabBuild;
 
@@ -75,6 +76,7 @@ namespace CoolCairo
             _bracket = styleSource.GetComponentsInChildren<Image>(true).First(i => i.name == "Bracket").sprite;
             _camera = FindFirstObjectByType<OrbitCamera>();
             _highlight = FindFirstObjectByType<BlockHighlight>();
+            _legend = GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == HudStyle.Legend)?.gameObject;
             Build();
             district.Model.Changed += Refresh;
             Refresh();
@@ -99,6 +101,7 @@ namespace CoolCairo
         public void SetOpen(bool open)
         {
             _panel.gameObject.SetActive(open);
+            if (_legend != null) _legend.SetActive(!open);
             _toggleLabel.text = open ? "▾  PLAN RESULTS" : "▸  PLAN RESULTS";
             _toggle.targetGraphic.color = open ? HudStyle.Accent : HudStyle.Button;
             _toggleLabel.color = open ? HudStyle.AccentText : HudStyle.Text;

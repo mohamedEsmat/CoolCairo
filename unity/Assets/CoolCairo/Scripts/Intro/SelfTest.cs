@@ -225,6 +225,7 @@ namespace CoolCairo
             model.ResetAll();          // start from no plan at all
             Check("plan panel: closed at start, the button opens it", panel != null && !panel.Open &&
                   InvokeAndReturn(() => Button(PlanDashboard.ToggleName).onClick.Invoke(), () => panel.Open));
+            Check("plan panel: the colour key under it hides while it is open", !Find(HudStyle.Legend).activeSelf);
             yield return null;
 
             // Plan builder: its defaults are the report's plan; any other plan previews exactly
@@ -327,7 +328,7 @@ namespace CoolCairo
             Button(PlanDashboard.TabResults).onClick.Invoke();
             Button(PlanDashboard.ToggleName).onClick.Invoke();
             yield return null;
-            Check("plan panel: the button closes it again", !panel.Open);
+            Check("plan panel: the button closes it again, the colour key comes back", !panel.Open && Find(HudStyle.Legend).activeSelf);
         }
 
         static bool InvokeAndReturn(System.Action action, System.Func<bool> result)
