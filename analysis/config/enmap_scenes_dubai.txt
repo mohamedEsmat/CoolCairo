@@ -1,0 +1,6 @@
+# EnMAP L2A scene for Dubai (Al Karama), found via DLR's public STAC catalogue on 26 Oct 2026:
+#   https://geoservice.dlr.de/eoc/ogc/stac/v1  collection ENMAP_HSI_L2A, bbox = display_aoi
+# 2022-08-05 07:47 UTC, 0% cloud, summer; 10 other daytime scenes, several partial or cloudy.
+# Save the files to analysis/data/dubai/enmap/ (git-ignored). EnMAP data (c) DLR.
+
+ENMAP01-____L2A-DT0000002184_20220805T074757Z_001_V010502_20251014T005126Z

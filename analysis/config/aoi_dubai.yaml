@@ -125,8 +125,8 @@ growth:
   last_year: 2023
 
 # Data available for this city (checked 24 Oct 2026).
-# EnMAP needs a DLR login and a manual download: not processed for this city.
-enmap: false
+# EnMAP: one daytime scene over the district (DLR login, manual download into data/dubai/enmap/).
+enmap_scene_list: config/enmap_scenes_dubai.txt
 # No Google Open Buildings 2.5D Temporal tiles here (HDX country lists, 24 Oct 2026):
 # heights from OSM tags, else the default; no urban-growth view.
 open_buildings: false

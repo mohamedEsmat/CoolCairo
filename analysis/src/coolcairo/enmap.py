@@ -1,7 +1,8 @@
 """EnMAP L2A surface reflectance on the project grid.
 
 Files come from DLR's EOC Geoservice (login required, so downloaded manually) into
-analysis/data/enmap/; scene IDs are listed in config/enmap_scenes.txt.
+analysis/data/enmap/ (data/<city>/enmap/ for other cities); scene IDs are listed in
+config/enmap_scenes.txt, or the file named by the city config's `enmap_scene_list`.
 Licence: EnMAP data (c) DLR. Derived outputs must say "Contains modified EnMAP data (c) DLR
 [year]"; raw data must never be published in downloadable form (see CLAUDE.md).
 """
@@ -29,7 +30,12 @@ LAND_CLASS = 1  # QL_QUALITY_CLASSES: 1 land, 2 water, 3 background (checked aga
 BAD_WINDOWS_NM = [(0, 420), (1330, 1480), (1780, 1990), (2400, 3000)]
 
 
-def scene_ids(path: Path = SCENE_LIST) -> list[str]:
+def scene_ids(path: Path | None = None) -> list[str]:
+    if path is None:
+        from coolcairo.config import load_config
+
+        listed = load_config().raw.get("enmap_scene_list")
+        path = ANALYSIS_ROOT / listed if listed else SCENE_LIST
     lines = path.read_text(encoding="utf-8").splitlines()
     return [ln.strip() for ln in lines if ln.strip() and not ln.startswith("#")]
 

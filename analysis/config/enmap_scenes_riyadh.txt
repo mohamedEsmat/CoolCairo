@@ -1,0 +1,6 @@
+# EnMAP L2A scene for Riyadh (Al Malaz), found via DLR's public STAC catalogue on 26 Oct 2026:
+#   https://geoservice.dlr.de/eoc/ogc/stac/v1  collection ENMAP_HSI_L2A, bbox = display_aoi
+# 2023-03-29 08:07 UTC, 0% cloud; 3 other daytime scenes.
+# Save the files to analysis/data/riyadh/enmap/ (git-ignored). EnMAP data (c) DLR.
+
+ENMAP01-____L2A-DT0000011434_20230329T080705Z_003_V010502_20251127T065918Z

@@ -1,0 +1,6 @@
+# EnMAP L2A scene for Casablanca (Hay Mohammadi), found via DLR's public STAC catalogue on 26 Oct 2026:
+#   https://geoservice.dlr.de/eoc/ogc/stac/v1  collection ENMAP_HSI_L2A, bbox = display_aoi
+# 2024-01-17 11:42 UTC, 48% cloud over the whole scene; the only daytime scene. Usable only if the district is clear.
+# Save the files to analysis/data/casablanca/enmap/ (git-ignored). EnMAP data (c) DLR.
+
+ENMAP01-____L2A-DT0000058148_20240117T114200Z_002_V010502_20260202T064531Z
