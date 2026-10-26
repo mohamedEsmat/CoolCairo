@@ -217,6 +217,8 @@ def urban_growth(r, out: Path) -> Path:
     b = gr["blocks"]
     g = cfg["growth"]
     codes = growth_class(b, gr["first"], gr["last"], g["built_block_min"], g["denser_min"])
+    if g.get("exclude_water"):  # sea blocks left blank, as in growth_results
+        codes = codes.where(b.ndvi_mean >= 0, -1)
     disp = projected_bbox(cfg["display_aoi"]["bbox_wgs84"], cfg.crs, cfg.block_size)
 
     fig = plt.figure(figsize=(7.2, 3.9))
@@ -260,10 +262,14 @@ def urban_growth(r, out: Path) -> Path:
     ax.barh(ys, heat.mean_lst_c - lo, left=lo, height=0.6,
             color=[colours[k] for k in heat.index])
     for y_, (k, row) in zip(ys, heat.iterrows(), strict=True):
-        ax.text(row.mean_lst_c + 0.1, y_, f"{row.mean_lst_c:.1f} °C  (n = {int(row.blocks):,})",
-                va="center", fontsize=7)
-        # Class name inside its bar: as a y-axis label it ran into the map in panel a.
-        ax.text(lo + 0.25, y_, names[k], va="center", fontsize=7, color="white", fontweight="bold")
+        value = f"{row.mean_lst_c:.1f} °C  (n = {int(row.blocks):,})"
+        # Class name inside its bar (as a y-axis label it ran into the map in panel a); a bar too
+        # short for it (a mild city) gets the name after the bar, before the value.
+        if row.mean_lst_c - lo >= 0.25 + 0.022 * (hi - lo) * len(names[k]):
+            ax.text(row.mean_lst_c + 0.1, y_, value, va="center", fontsize=7)
+            ax.text(lo + 0.25, y_, names[k], va="center", fontsize=7, color="white", fontweight="bold")
+        else:
+            ax.text(row.mean_lst_c + 0.1, y_, f"{names[k]}:  {value}", va="center", fontsize=7)
     ax.axvline(r.reference_c, color=INK, lw=0.8, ls="--")
     ax.set_yticks([])
     ax.set_xlim(lo, hi)

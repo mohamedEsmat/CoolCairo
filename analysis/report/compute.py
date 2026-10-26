@@ -85,6 +85,8 @@ def growth_results(cfg: object, blocks: pd.DataFrame, display: pd.DataFrame) -> 
     def per_block(presence_min: float) -> pd.DataFrame:
         merged = growth.attach(blocks, growth.block_built_share(presence, cfg, presence_min))
         merged["transition"] = growth.transitions(merged, first, last, g["built_block_min"])
+        if g.get("exclude_water"):  # coastal city: sea blocks (NDVI < 0) are not "open land"
+            merged.loc[merged.ndvi_mean < 0, "transition"] = "water"
         return merged
 
     main = per_block(g["presence_min"])
