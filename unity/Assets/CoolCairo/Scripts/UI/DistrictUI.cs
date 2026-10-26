@@ -24,7 +24,7 @@ namespace CoolCairo
         readonly Dictionary<Intervention, Button> _toolButtons = new Dictionary<Intervention, Button>();
         readonly Dictionary<HeatPalette, Button> _paletteButtons = new Dictionary<HeatPalette, Button>();
         TextMeshProUGUI _viewHint, _toolHint, _brushValue, _legendTitle, _legendMin, _legendMax;
-        TextMeshProUGUI _tooltipTitle, _tooltipBody;
+        TextMeshProUGUI _tooltipTitle, _tooltipBody, _exitLabel;
         HudMotion _motion;
 
         // KPI readouts: the number glides to its new value and the card glows green when a
@@ -98,7 +98,14 @@ namespace CoolCairo
             _figureNext.onClick.AddListener(() => ShowFigure(_figureIndex + 1));
             Find<Button>(HudStyle.FigureClose).onClick.AddListener(CloseFigures);
             _figurePopup.SetActive(false);
-            Find<Button>(HudStyle.GlobeButton).onClick.AddListener(() => SceneManager.LoadScene(0));
+            var globeButton = Find<Button>(HudStyle.GlobeButton);
+            // Exit sits right of GLOBE, styled like it; a second click within 3 s quits (QuitGuard).
+            var exitButton = Instantiate(globeButton, globeButton.transform.parent);
+            exitButton.name = HudStyle.ExitButton;
+            _exitLabel = exitButton.GetComponentInChildren<TextMeshProUGUI>();
+            _exitLabel.text = "EXIT";
+            exitButton.onClick.AddListener(() => QuitGuard.Press());
+            globeButton.onClick.AddListener(() => { QuitGuard.Disarm(); SceneManager.LoadScene(0); });
             Find<Button>(HudStyle.ResetButton).onClick.AddListener(() => district.Model.ResetAll());
             _undoButton = Find<Button>(HudStyle.UndoButton);
             _undoButton.onClick.AddListener(() => district.Model.Undo());
@@ -173,6 +180,7 @@ namespace CoolCairo
 
         void Update()
         {
+            _exitLabel.text = QuitGuard.Armed ? "<color=#FF8A3D>CONFIRM?</color>" : "EXIT";
             // Mode and tool can also change from code (e.g. the soak test), so poll them.
             if (district.Mode != _shownMode || district.Palette != _shownPalette) ShowView(district.Mode);
             if (brush.Tool != _shownTool) ShowTool(brush.Tool);

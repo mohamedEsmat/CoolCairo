@@ -28,6 +28,7 @@ namespace CoolCairo
         public const string Kpis = "Kpis";
         public const string Dock = "Dock";                     // Bottom tool dock
         public const string GlobeButton = "GlobeButton";
+        public const string ExitButton = "ExitButton";      // made at runtime next to the globe button
         public const string ViewButtonPrefix = "View_";        // + ViewMode name
         public const string ViewHint = "ViewHint";
         public const string ToolButtonPrefix = "Tool_";        // + Intervention name

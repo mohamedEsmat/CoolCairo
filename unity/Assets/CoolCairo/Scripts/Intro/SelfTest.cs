@@ -459,6 +459,12 @@ namespace CoolCairo
             yield return new WaitForSeconds(0.3f);
             Check("ticker: scrolls", !Mathf.Approximately(x0, tickerRt.anchoredPosition.x), $"{x0:0} → {tickerRt.anchoredPosition.x:0}");
 
+            // Exit next to GLOBE: the first click only asks to confirm, so the app keeps running.
+            Check("header: an EXIT button next to GLOBE; one click only asks to confirm",
+                  Find(HudStyle.ExitButton) != null &&
+                  InvokeAndReturn(() => Button(HudStyle.ExitButton).onClick.Invoke(), () => QuitGuard.Armed));
+            QuitGuard.Disarm();
+
             // Legend title fits now (it used to be cut off), model notes fold out.
             var title = Find(HudStyle.LegendTitle).GetComponent<TextMeshProUGUI>();
             title.ForceMeshUpdate();

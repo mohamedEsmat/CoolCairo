@@ -53,7 +53,7 @@ namespace CoolCairo
         float _fadeToBlack;
         readonly List<Transform> _markers = new List<Transform>();
         readonly List<Transform> _outlines = new List<Transform>();
-        GUIStyle _title, _subtitle, _body, _small, _bold, _marker, _section, _tile;
+        GUIStyle _title, _subtitle, _body, _small, _bold, _marker, _section, _tile, _exitStyle;
         Texture2D _pixel;
 
         void Start()
@@ -427,6 +427,11 @@ namespace CoolCairo
             GUI.Label(new Rect(head.x + 22, head.y + 12, 600, 40), "[ COOLCAIRO <color=#4FD6FF>//</color> MENA ]", _title);
             GUI.Label(new Rect(head.x + 24, head.y + 54, 600, 30), "Urban heat across the Middle East & North Africa", _subtitle);
 
+            // Exit, bottom right; a second click within 3 s quits (QuitGuard).
+            var exit = new Rect(Screen.width - 136, Screen.height - 60, 120, 40);
+            Panel(exit, brackets: false);
+            if (GUI.Button(exit, QuitGuard.Armed ? "<color=#FF8A3D>CONFIRM?</color>" : "EXIT", _exitStyle)) QuitGuard.Press();
+
             // City list: live districts first, then where the method scales next.
             var list = new Rect(Screen.width - 376, 16, 360, 50 + Cities.Length * 28);
             Panel(list);
@@ -530,6 +535,7 @@ namespace CoolCairo
             _tile.alignment = TextAnchor.MiddleCenter;
             _body = Make(14, FontStyle.Normal, Color.white);
             _bold = Make(15, FontStyle.Bold, Color.white);
+            _exitStyle = new GUIStyle(_bold) { alignment = TextAnchor.MiddleCenter, wordWrap = false };
             _small = Make(12, FontStyle.Normal, new Color(0.65f, 0.7f, 0.8f));
             _body.hover.textColor = Color.white;
             _marker = Make(13, FontStyle.Normal, new Color(0.80f, 0.82f, 0.86f));
