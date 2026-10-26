@@ -511,7 +511,7 @@ namespace CoolCairo
                 int maps = DistrictUI.CityFigures(city, d).Length;
                 if (d.CityName != city.Name || d.name != city.District || valid < 100 || d.buildings.count < 100 ||
                     d.model.r2SpatialCv <= 0f || d.sources == null || d.sources.Length == 0 || !d.HasHeightSources ||
-                    maps != (d.HasGrowth ? 6 : 5))
+                    maps != 5 + (d.HasGrowth ? 1 : 0) + (d.hyperspectral != null && d.hyperspectral.available == 1 ? 1 : 0))
                     bad.Add($"{city.Name} ({d.CityName}/{d.name}, {valid} blocks, {d.buildings.count} buildings, " +
                             $"R² {d.model.r2SpatialCv:0.00}, {maps} analysis maps)");
             }

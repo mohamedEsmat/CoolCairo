@@ -302,7 +302,7 @@ namespace CoolCairo
 
             foreach (var s in syncs) SourceRow(s);
             if (!hasEnmap) // EnMAP was not processed for this city.
-                StaticRow("EnMAP", "HSI", "Hyperspectral heat drivers  ·  needs a scene ordered from DLR for this city",
+                StaticRow("EnMAP", "HSI", "Hyperspectral heat drivers  ·  no cloud-free EnMAP scene over this district yet",
                           "Not available", Idle);
             BuildingsRow();
             GrowthRow();

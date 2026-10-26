@@ -125,8 +125,9 @@ growth:
   last_year: 2023
 
 # Data available for this city (checked 24 Oct 2026).
-# EnMAP: one daytime scene over the district (DLR login, manual download into data/casablanca/enmap/).
-enmap_scene_list: config/enmap_scenes_casablanca.txt
+# EnMAP: the only daytime scene (config/enmap_scenes_casablanca.txt, 17 Jan 2024) has cloud over
+# the district (checked 26 Oct 2026), so it is not used.
+enmap: false
 # No Google Open Buildings 2.5D Temporal tiles here (HDX country lists, 24 Oct 2026):
 # heights from OSM tags, else the default; no urban-growth view.
 open_buildings: false

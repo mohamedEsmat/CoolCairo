@@ -258,6 +258,12 @@ namespace CoolCairo
                   $"Change in {d.name}'s heat exposure. Blue: each measure at full adoption in every block. Orange: cool " +
                   "roofs and pocket parks on only the riskiest third of blocks."),
             };
+            var hs = d.hyperspectral;
+            if (hs != null && hs.available == 1)   // after the heat model, as for Cairo
+                list.Insert(3, F(ViewMode.Heat, "fig4_hyperspectral", "Does hyperspectral data help?",
+                    $"How well each set of satellite bands explains block surface temperature, tested on hidden 1, 2 and 3 km " +
+                    $"areas: R² {hs.r2Hyperspectral:0.00} with EnMAP vs {hs.r2Multispectral:0.00} with Sentinel-2 (our features + spectra). " +
+                    $"One EnMAP scene, {hs.acquired}. {hs.attribution}."));
             if (d.HasGrowth)
                 list.Add(F(ViewMode.Growth, "fig6_growth", $"Urban growth {d.growth.firstYear}–{d.growth.lastYear}",
                     "From Google Open Buildings Temporal: (a) block classes, same colours as this view; (b) building " +

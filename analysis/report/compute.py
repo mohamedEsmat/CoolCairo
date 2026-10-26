@@ -76,6 +76,26 @@ def cv_predictions(train: pd.DataFrame, tile: int, folds: int) -> np.ndarray:
     return pred
 
 
+def heat_r2_table(cfg: object, train: pd.DataFrame, refl) -> pd.DataFrame:
+    """Spatial-CV R² of block heat per feature set (rows) and held-out tile size (columns)."""
+    bands = list(enmap.S2_PASSBANDS_NM)
+    ours = train[FEATURES].to_numpy()
+    spec = {
+        "Sentinel-2 (6 bands)": separability.block_spectra(
+            load_sentinel2(cfg)[bands].to_array("feature"), 9, train),
+        "EnMAP reduced to Sentinel-2 bands": separability.block_spectra(
+            enmap.simulate_sentinel2(refl).to_array("feature"), 3, train),
+        "EnMAP full spectrum": separability.block_spectra(refl, 3, train),
+    }
+    sets = {"Our model features": ours, **spec,
+            "Our features + Sentinel-2": np.hstack([ours, spec["Sentinel-2 (6 bands)"]]),
+            "Our features + EnMAP": np.hstack([ours, spec["EnMAP full spectrum"]])}
+    return pd.DataFrame({
+        t: separability.heat_r2(sets, train.lst_c.to_numpy(), spatial_groups(train, t), cfg["cv_folds"])
+        for t in (1000, 2000, 3000)
+    })
+
+
 def growth_results(cfg: object, blocks: pd.DataFrame, display: pd.DataFrame) -> dict:
     """Urban growth 2016-2023 per block, its link to summer heat, and threshold sensitivity."""
     g = cfg["growth"]
@@ -161,21 +181,7 @@ def compute() -> Results:
     fused = separability.fused_accuracy(s2_30[bands].to_array("feature"), refl, labels,
                                         refl.x.values, refl.y.values, cfg["cv_tile_size"],
                                         cfg["cv_folds"])
-    ours = train[FEATURES].to_numpy()
-    spec = {
-        "Sentinel-2 (6 bands)": separability.block_spectra(
-            load_sentinel2(cfg)[bands].to_array("feature"), 9, train),
-        "EnMAP reduced to Sentinel-2 bands": separability.block_spectra(
-            enmap.simulate_sentinel2(refl).to_array("feature"), 3, train),
-        "EnMAP full spectrum": separability.block_spectra(refl, 3, train),
-    }
-    sets = {"Our model features": ours, **spec,
-            "Our features + Sentinel-2": np.hstack([ours, spec["Sentinel-2 (6 bands)"]]),
-            "Our features + EnMAP": np.hstack([ours, spec["EnMAP full spectrum"]])}
-    heat = pd.DataFrame({
-        t: separability.heat_r2(sets, train.lst_c.to_numpy(), spatial_groups(train, t), cfg["cv_folds"])
-        for t in (1000, 2000, 3000)
-    })
+    heat = heat_r2_table(cfg, train, refl)
 
     # M2 spot check (filled in by a person; may still be empty).
     sheet = REPO_ROOT / "docs" / "m2_spot_check.xlsx"

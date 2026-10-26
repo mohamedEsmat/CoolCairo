@@ -174,7 +174,7 @@ def hyperspectral(r, out: Path) -> Path:
                 ax.text(v + 0.006, yy, f"{v:.2f}", va="center", fontsize=7, color=INK)
     ax.set_yticks(pos, t.index)
     ax.set_xlabel("Spatial cross-validated R² of block surface temperature")
-    ax.set_xlim(0, 0.65)
+    ax.set_xlim(0, max(0.65, float(t.max().max()) + 0.07))   # room for the labels
     ax.grid(axis="x", color=GRID, lw=0.5), ax.set_axisbelow(True)
     ax.tick_params(axis="y", length=0, labelcolor=INK)
     for s in ("top", "right", "left"):
