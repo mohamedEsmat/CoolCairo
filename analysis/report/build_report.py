@@ -10,6 +10,7 @@ Output: docs/CoolCairo_Methodology_Report.pdf (figures in docs/report/figures).
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from collections import Counter
@@ -50,6 +51,9 @@ OUT_PDF = REPO_ROOT / "docs" / "CoolCairo_Methodology_Report.pdf"
 FIG_DIR = REPO_ROOT / "docs" / "report" / "figures"
 SHOT_DIR = REPO_ROOT / "docs" / "report" / "screenshots"
 ENMAP_CREDIT = "Contains modified EnMAP data © DLR [2025]"
+ENMAP_CREDIT_ALL = "Contains modified EnMAP data © DLR [2022–2025]"
+CITY_DIR = REPO_ROOT / "unity" / "Assets" / "CoolCairo" / "Resources" / "Districts"
+TEST_CITIES = ("algiers", "casablanca", "dubai", "riyadh")
 
 INK, MUTED, ACCENT, RULE, SHADE = (colors.HexColor(c) for c in
                                    ("#1f2328", "#5f6670", "#2a78d6", "#d9dbde", "#f3f5f8"))
@@ -169,6 +173,26 @@ def screenshot_grid(shots: list[tuple[str, str]]) -> Table:
     return t
 
 
+def test_cities() -> list[dict]:
+    """Headline numbers for each test city, read from the district file the app loads."""
+    out = []
+    for key in TEST_CITIES:
+        d = json.loads((CITY_DIR / f"{key}.json").read_text(encoding="utf-8"))
+        b, mdl = d["blocks"], d["model"]
+        ref = mdl["heatReferenceC"]
+        rows = [(t, n) for v, t, n in zip(b["valid"], b["lstC"], b["population"]) if v]
+        lst = sorted(t for t, _ in rows)
+        out.append({
+            "city": d["city"], "district": d["name"], "n_model": mdl["nBlocks"],
+            "r2": mdl["r2SpatialCv"], "mae": mdl["maeSpatialCv"],
+            "lst_median": lst[len(lst) // 2],
+            "residents": sum(n for _, n in rows),
+            "exposure": sum(n * max(0.0, t - ref) for t, n in rows),
+            "hyper": d["hyperspectral"], "growth": d["growth"],
+        })
+    return out
+
+
 def git_commit() -> str:
     try:
         out = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT,
@@ -226,6 +250,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     cr, cp = cfg["cool_roof"], cfg["cool_pavement"]
     fly = r.district["flyIn"]
     m2 = r.m2
+    tc = test_cities()
+    tch = [c for c in tc if c["hyper"]["available"]]
     if m2["checked"]:
         m2_text = (f"{m2['points']} stratified random points (5 per class) were compared with "
                    "Google Maps satellite imagery (Airbus, 2026). "
@@ -278,7 +304,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "satellite data into a planning tool that answers one question per city block: <i>how "
             "hot is it, why, how many people live there, and what would a cooling measure "
             "change?</i> Nasr City is the first district built and tested; the free, region-wide "
-            "data lets the same method run in any city."),
+            "data lets the same method run in any city, and the same pipeline already runs, "
+            "unchanged, for four test cities: Algiers, Casablanca, Dubai and Riyadh."),
           p("We measure summer land surface temperature (LST) with Landsat 8/9, map surface "
             "materials with Sentinel-2, add building footprints and heights (OpenStreetMap, Google "
             "Open Buildings) and residents (WorldPop), and aggregate everything to 90 m blocks. A "
@@ -308,6 +335,10 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               f"R² <b>{h.loc['Our features + EnMAP', 1000]:.2f}</b> (with our features) versus "
               f"{h.loc['Our features + Sentinel-2', 1000]:.2f} with Sentinel-2. For separating "
               "buildings from desert, EnMAP adds nothing beyond a multi-year Sentinel-2 composite.",
+              "<b>Four test cities</b> (Section 5.6): the unchanged pipeline reaches spatial R² "
+              f"{min(c['r2'] for c in tc):.2f}–{max(c['r2'] for c in tc):.2f}, and in every test city "
+              "with a cloud-free EnMAP scene (Algiers, Dubai, Riyadh) EnMAP again explains block "
+              "heat better than Sentinel-2.",
           ])]
 
     # ---------------------------------------------------------------- 2 use case
@@ -325,8 +356,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
           p("<b>Why the MENA region.</b> Its cities share the problem: a desert climate, dark roofs "
             "and asphalt, sandy lots, and fast growth onto the desert. Every dataset used here is "
             "free and covers the whole region, so the method runs in any city. Nasr City is the "
-            "first one built and tested; the other cities on the app's globe are the next step, "
-            "not a result."),
+            "first one built and tested. The same pipeline also runs, with Cairo's settings, for "
+            "a district in each of four test cities (Section 5.6); these are a test of transfer, "
+            "not validated results."),
           p("<b>Why Nasr City first.</b> A dense, planned district with flat concrete roofs, "
             "wide asphalt streets and leftover sandy lots: all four measures apply, and its regular "
             "grid makes block-level results easy to read. It borders open desert, which makes the "
@@ -360,9 +392,10 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                "Materials, vegetation, imagery", "Contains modified Copernicus Sentinel data "
                                                  f"[{years[0]}–{years[-1]}]"],
               ["EnMAP L2A (DLR EOC Geoservice)",
-               f"One scene, {r.district['hyperspectral']['acquired']}, {en_bands} usable bands "
-               "(420–2400 nm, water-vapour windows removed)", "Hyperspectral tests",
-               f"{ENMAP_CREDIT}. Raw data not redistributed"],
+               f"Cairo: one scene, {r.district['hyperspectral']['acquired']}, {en_bands} usable "
+               "bands (420–2400 nm, water-vapour windows removed). Test cities: one daytime scene "
+               "each over Algiers, Dubai and Riyadh (Section 5.6)", "Hyperspectral tests",
+               f"{ENMAP_CREDIT_ALL}. Raw data not redistributed"],
               ["OpenStreetMap (osmnx)", f"{r.extra['n_buildings_model']:,} building footprints, "
                "height and level tags", "Roofs, heights", "© OpenStreetMap contributors, ODbL"],
               ["Google Open Buildings 2.5D Temporal", "Annual layers 2016–2023, 4 m: heights (2023), building presence (growth)",
@@ -583,7 +616,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
           p("<b>Decision.</b> The app's materials stay on Sentinel-2, which covers every summer "
             "and every city. EnMAP's value is in explaining heat: the app reports the EnMAP result "
             "with its attribution, and a hyperspectral-based model is the main upgrade path once "
-            "more cloud-free summer EnMAP scenes over Cairo exist.")]
+            "more cloud-free summer EnMAP scenes over Cairo exist. The same block-heat test in "
+            "three more cities gives the same answer (Section 5.6).")]
 
     s += [p("5.5  Urban growth and heat", H2),
           p(f"Across the model area, building footprint area grew from {gam[g0]:.1f} km² in {g0} "
@@ -619,6 +653,60 @@ def story(r: Results, figs: dict[str, Path]) -> list:
           p("<b>Table 4.</b> Sensitivity to the building-presence cut-off: absolute areas "
             "shift, but growth and the number of newly built blocks stay similar.", CAPTION)]
 
+    def enmap_cell(c: dict) -> str:
+        hy = c["hyper"]
+        if not hy["available"]:
+            return "no cloud-free scene"
+        return (f"{hy['r2Multispectral']:.2f} → <b>{hy['r2Hyperspectral']:.2f}</b> "
+                f"({date.fromisoformat(hy['acquired']):%d %b %Y})")
+
+    s += [CondPageBreak(90 * mm), p("5.6  Test cities", H2),
+          p("To test whether the method transfers, the same pipeline and settings run for one "
+            "district in each of four more MENA cities: only the geography, projection and "
+            "WorldPop file change (<i>analysis/config/aoi_&lt;city&gt;.yaml</i>, written by "
+            "<i>make_city_configs.py</i>). Each city gets its own model area, model fit, heat "
+            "reference (its own urban median) and app district, with the same data window "
+            f"({period}). All four run in the app next to Nasr City."),
+          table([["City (district)", "Model blocks", "Spatial R² (MAE)", "Median block LST",
+                  "Residents (display)", "Heat exposure", "Sentinel-2 → EnMAP R²"]]
+                + [["Cairo (Nasr City)", f"{f.n_blocks:,}",
+                    f"{f.r2_spatial_cv:.2f} (±{f.mae_spatial_cv:.1f} °C)",
+                    f"{float(d.lst_c.median()):.1f} °C", f"{e.residents:,.0f}",
+                    f"{e.exposure_person_degC:,.0f}",
+                    f"{h.loc['Our features + Sentinel-2', 1000]:.2f} → "
+                    f"<b>{h.loc['Our features + EnMAP', 1000]:.2f}</b> "
+                    f"({date.fromisoformat(r.district['hyperspectral']['acquired']):%d %b %Y})"]]
+                + [[f"{c['city']} ({c['district']})", f"{c['n_model']:,}",
+                    f"{c['r2']:.2f} (±{c['mae']:.1f} °C)", f"{c['lst_median']:.1f} °C",
+                    f"{c['residents']:,.0f}", f"{c['exposure']:,.0f}", enmap_cell(c)]
+                   for c in tc],
+                [0.19, 0.1, 0.14, 0.12, 0.13, 0.11, 0.21]),
+          p("<b>Table 5.</b> Test cities next to Cairo. Spatial R² with 1 km held-out tiles; "
+            "median LST, residents and heat exposure (person·°C above each city's own urban "
+            "median) for the app's display district; last column: block-heat R² with our features "
+            "plus Sentinel-2 versus plus EnMAP spectra, same blocks and folds (Section 5.4).",
+            CAPTION),
+          p(f"<b>The model transfers at a similar, modest level.</b> Spatial R² ranges from "
+            f"{min(c['r2'] for c in tc):.2f} to {max(c['r2'] for c in tc):.2f}, against "
+            f"{f.r2_spatial_cv:.2f} in Cairo: enough to rank blocks, as in Cairo, not to predict "
+            "one block. As in Cairo, every city uses the literature value for cool roofs."),
+          p(f"<b>Hyperspectral data helps in every city tested.</b> In all {len(tch)} test cities "
+            "with a usable EnMAP scene, EnMAP spectra explain block heat better than Sentinel-2 "
+            "with the same features, blocks and folds: "
+            + "; ".join(f"{c['city']} {c['hyper']['r2Multispectral']:.2f} → "
+                        f"{c['hyper']['r2Hyperspectral']:.2f}" for c in tch)
+            + ". The scenes come from different seasons and years (2022–2024), so the gain does "
+              "not depend on one date. Casablanca's only daytime scene (17 January 2024) has "
+              "cloud over the district and is not used."),
+          p("<b>Data gaps.</b> Google Open Buildings 2.5D Temporal covers Algiers but not "
+            "Casablanca, Dubai or Riyadh, where most heights are a 5-storey default and there is "
+            "no growth view. In Algiers, building area in the display district grew from "
+            f"{tc[0]['growth']['builtFirstKm2']:.2f} to {tc[0]['growth']['builtLastKm2']:.2f} km² "
+            f"({tc[0]['growth']['firstYear']}–{tc[0]['growth']['lastYear']}), with "
+            f"{tc[0]['growth']['newBlocks']} newly built blocks; blocks over the sea (NDVI &lt; 0) "
+            "are left out of the growth classes. The test cities have no material spot check or "
+            "local validation yet.")]
+
     # ---------------------------------------------------------------- 6 quality
     s += [p("6  Quality control and validation", H1),
           bullets([
@@ -635,8 +723,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "exported with the data.",
               "<b>24 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
               "intervention arithmetic, the export format and the quick example's numbers.",
-              "<b>64 automated checks run inside the built app</b> (<i>CoolCairo.exe -selftest</i>); "
-              "all pass, and the app exits with an error if any fails.",
+              "<b>90 automated checks run inside the built app</b> (<i>CoolCairo.exe -selftest</i>), "
+              "including that every test city's data and maps load; all pass in release v1.2, and "
+              "the app exits with an error if any fails.",
               f"<b>Material classes (milestone M2).</b> {m2_text}",
           ])]
 
@@ -659,8 +748,11 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "small year-to-year changes are partly noise; only the 2016 → 2023 change is used. "
               f"{osm_missing:.0%} of newly built blocks have almost no OpenStreetMap footprints "
               "yet, so the heat model's roof features under-represent the newest areas.",
-              "<b>One EnMAP scene</b> (April, not summer). The hyperspectral result is a strong "
-              "signal, not yet a production model.",
+              "<b>One EnMAP scene per city</b> (Cairo in April; only Dubai's is mid-summer). The "
+              "hyperspectral result is a strong, repeated signal, not yet a production model.",
+              "<b>Test cities use Cairo's settings unchanged</b> (material thresholds, cut-offs, "
+              "measures) and have no local validation; they show that the method transfers, not "
+              "that their numbers are final.",
               "<b>Heat risk is a screening indicator</b> (heat × residents). It leaves out "
               "vulnerability such as age, housing quality and access to cooling, and WorldPop "
               "counts are modelled, not census.",
@@ -685,8 +777,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ("01_loading.png", "<b>a</b> Satellite archive sync: the app queries Planetary "
                                  "Computer and DLR for the scenes used and shows a live preview "
                                  "from each satellite."),
-              ("02_globe.png", "<b>b</b> MENA globe (NASA Blue Marble, 2.4 km). Nasr City is the "
-                               "analysed district; other cities show where the method scales next."),
+              ("02_globe.png", "<b>b</b> MENA globe (NASA Blue Marble, 2.4 km). Five live "
+                               "cities: Cairo (Nasr City) and the four test cities."),
               ("02b_approach.png", "<b>c</b> Approach, ~760 km up: a 500 m Blue Marble image of "
                                    "Egypt and the Middle East keeps the descent sharp."),
               ("03_flyin.png", f"<b>d</b> End of the fly-in: 10 m Sentinel-2 image of Cairo "
@@ -715,13 +807,17 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               ["Unit tests", "uv run pytest"],
               ["Data, model, export for the app", "uv run python run_pipeline.py"],
               ["Notebooks 01–06", "uv run jupyter lab"],
+              ["Test city (data, model, export)", "COOLCAIRO_CONFIG=config/aoi_&lt;city&gt;.yaml "
+               "COOLCAIRO_DATA_DIR=data/&lt;city&gt; COOLCAIRO_EXPORT_DIR=../export/&lt;city&gt; "
+               "uv run python run_pipeline.py, then report/city_figures.py"],
               ["This report", "uv run python report/build_report.py"],
               ["App", "Unity 6000.0.83f1: CoolCairo → Setup project and scene, then Build Windows "
                       "desktop app"],
           ], [0.38, 0.62]),
           Spacer(1, 6),
           p("EnMAP is optional: with a free DLR EOC Geoservice account, download the scene listed in "
-            "<i>analysis/config/enmap_scenes.txt</i> into <i>analysis/data/enmap/</i>. Without it "
+            "<i>analysis/config/enmap_scenes.txt</i> into <i>analysis/data/enmap/</i> (test cities: "
+            "<i>enmap_scenes_&lt;city&gt;.txt</i> into <i>data/&lt;city&gt;/enmap/</i>). Without it "
             "the pipeline runs and skips the hyperspectral results. Raw EnMAP data are not in the "
             "repository (licence).")]
 
@@ -763,7 +859,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
           Spacer(1, 8),
           p("<b>Data attribution.</b> Contains modified Copernicus Sentinel data "
             f"[{years[0]}–{years[-1]}]. Landsat courtesy of the U.S. Geological Survey. "
-            f"{ENMAP_CREDIT}. Building footprints © OpenStreetMap contributors (ODbL). Google Open "
+            f"{ENMAP_CREDIT_ALL}. Building footprints © OpenStreetMap contributors (ODbL). Google Open "
             "Buildings (CC BY 4.0 / ODbL). WorldPop (CC BY 4.0). NASA Blue Marble.", SMALL)]
     return s
 
