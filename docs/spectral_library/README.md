@@ -89,5 +89,36 @@ beyond the 95th percentile of the library's own leave-one-out distance stay uncl
   Cairo: 57 % of the pixels > 300 m from any OSM building have an Open Buildings building within
   30 m. With OSM alone, open ground → sand was only 28 %.
 
+## Unmixing and the heat model (provisional)
+
+[`make_unmixing.py`](../../analysis/make_unmixing.py) solves every pixel as a mix of the library
+spectra plus a near-zero shade spectrum (fully constrained least squares: fractions ≥ 0, sum 1).
+`unmixing_provisional/` uses the **AI pre-check library, not a confirmed one**.
+
+**Heat model** (the PoC's linear model, 2,538 blocks, same spatial folds; the Sentinel-2 material
+shares replaced by EnMAP fractions averaged per 90 m block; roof cover and height kept):
+
+| Features | R², 1 km tiles | 2 km | 3 km | MAE (1 km) |
+|---|---|---|---|---|
+| PoC: Sentinel-2 shares + buildings | 0.250 | 0.342 | 0.259 | 1.20 °C |
+| EnMAP fractions + buildings | **0.401** | 0.446 | 0.387 | **1.08 °C** |
+| EnMAP fractions only | 0.343 | 0.355 | 0.336 | 1.12 °C |
+
+**Pixel checks** (labels independent of the library):
+
+- Shade fraction rises where the building-height model predicts shadow: 0.07 (< 5 % modelled
+  shadow), 0.14 (5–25 %), 0.20 (> 25 %); Spearman 0.28.
+- Pure OSM roof pixels: 56 % roof on average (pale 47 %, dusty 10 %), plus asphalt 16 %,
+  shade 12 %, vegetation 9 %. 60 % of them are more than half roof.
+- Open ground: 71 % sand, but 24 % "pale roof". The residual is highest in the bright desert and
+  construction areas of the south-east: 9 sand pixels do not cover Cairo's desert surfaces.
+
+**Coefficients (°C per unit fraction, instead of sand):** vegetation −8.9, shade −9.4, dusty roof
+−3.1, asphalt −2.6, **pale roof +0.1**. Splitting fractions by OSM footprint gives pale roof on
+footprints +4.2 and dusty roof on footprints −4.7. So pale roofs are *not* cooler than dusty ones,
+and the cool-roof effect cannot yet come from our own data. Both roof classes contain warehouses
+and factories, so "pale = bare metal" does not explain it on its own. Open; to revisit with the
+confirmed library, more varied sand spectra and a metal-roof class.
+
 *Contains modified EnMAP data © DLR [2025] · © OpenStreetMap contributors (ODbL) · Google Open
 Buildings 2.5D Temporal (CC BY 4.0).*

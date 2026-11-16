@@ -1,0 +1,13 @@
+features,tile_m,r2_spatial_cv,mae_c
+PoC (Sentinel-2 shares + buildings),1000,0.2501,1.1987
+PoC (Sentinel-2 shares + buildings),2000,0.3415,1.1636
+PoC (Sentinel-2 shares + buildings),3000,0.259,1.2101
+EnMAP fractions + buildings,1000,0.4013,1.078
+EnMAP fractions + buildings,2000,0.446,1.0653
+EnMAP fractions + buildings,3000,0.3868,1.116
+EnMAP fractions only,1000,0.3429,1.123
+EnMAP fractions only,2000,0.3552,1.1342
+EnMAP fractions only,3000,0.3362,1.1606
+PoC + EnMAP fractions,1000,0.398,1.078
+PoC + EnMAP fractions,2000,0.4464,1.0697
+PoC + EnMAP fractions,3000,0.3917,1.1098

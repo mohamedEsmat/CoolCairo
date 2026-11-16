@@ -398,6 +398,38 @@ def fused_classify(refl: xr.DataArray, feats: dict[str, np.ndarray], picks: pd.D
     return out.reshape(refl.shape[1:])
 
 
+# ---- Linear unmixing ------------------------------------------------------------------------
+
+SUM_TO_ONE_WEIGHT = 10.0  # Large vs reflectance (0-1): makes "fractions sum to 1" nearly exact.
+
+
+def fcls(refl: xr.DataArray, endmembers: pd.DataFrame,
+         weight: float = SUM_TO_ONE_WEIGHT) -> tuple[xr.DataArray, np.ndarray]:
+    """Fully constrained least-squares unmixing: fractions >= 0 that sum to 1, per pixel.
+
+    Each pixel's spectrum is modelled as `endmembers @ fractions`. The sum-to-one rule is an
+    extra, heavily weighted equation (Heinz & Chang 2001); non-negativity comes from NNLS.
+    Returns fractions (endmember, y, x) and the residual RMSE (y, x) in reflectance units.
+    Pixels with a missing band get NaN.
+    """
+    from scipy.optimize import nnls
+
+    e = endmembers.to_numpy()  # (band, endmember)
+    a = np.vstack([np.full((1, e.shape[1]), weight), e])
+    nb, ny, nx = refl.shape
+    pix = refl.values.reshape(nb, -1)
+    ok = np.isfinite(pix).all(axis=0)
+    frac = np.full((e.shape[1], pix.shape[1]), np.nan)
+    rmse = np.full(pix.shape[1], np.nan)
+    for j in np.flatnonzero(ok):
+        f, _ = nnls(a, np.concatenate([[weight], pix[:, j]]))
+        frac[:, j] = f
+        rmse[j] = np.sqrt(np.mean((e @ f - pix[:, j]) ** 2))
+    out = xr.DataArray(frac.reshape(-1, ny, nx), dims=("endmember", "y", "x"),
+                       coords={"endmember": list(endmembers.columns), "y": refl.y, "x": refl.x})
+    return out, rmse.reshape(ny, nx)
+
+
 # ---- Confirmation sheet ---------------------------------------------------------------------
 
 FONT = "Arial"

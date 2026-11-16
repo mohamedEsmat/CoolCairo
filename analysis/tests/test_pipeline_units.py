@@ -387,3 +387,22 @@ def test_band_depth_and_brightness_separate_classes_the_angle_cannot():
     assert np.ptp(sam_angles(refl, spectra)[:, 0, 0]) < 1e-6  # The angle cannot tell them apart.
     out = fused_classify(refl, material_features(refl, depths=False), picks, max_dist=1e9)
     assert out[0].tolist() == [0, 0, 1, 1]
+
+
+def test_fcls_recovers_known_fractions_that_sum_to_one():
+    from coolcairo.library import fcls
+
+    wl = np.arange(400, 2401, 100.0)
+    rng = np.random.default_rng(0)
+    em = pd.DataFrame({"a": rng.uniform(0.1, 0.5, wl.size), "b": rng.uniform(0.1, 0.5, wl.size),
+                       "Shade": np.full(wl.size, 0.01)})
+    truth = np.array([[0.6, 0.3, 0.1], [0.0, 0.8, 0.2]]).T  # (endmember, pixel)
+    pix = em.to_numpy() @ truth
+    pix = np.column_stack([pix, np.full(wl.size, np.nan)])  # a pixel with missing data
+    refl = xr.DataArray(pix[:, None, :], dims=("wavelength", "y", "x"),
+                        coords={"wavelength": wl, "y": [0.0], "x": [0.0, 1.0, 2.0]})
+    frac, rmse = fcls(refl, em)
+    assert frac.values[:, 0, :2] == pytest.approx(truth, abs=1e-3)
+    assert frac.values[:, 0, :2].sum(axis=0) == pytest.approx([1, 1], abs=1e-3)
+    assert (frac.values[:, 0, :2] >= 0).all() and np.isnan(frac.values[:, 0, 2]).all()
+    assert rmse[0, :2] == pytest.approx([0, 0], abs=1e-4)

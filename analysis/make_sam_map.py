@@ -82,6 +82,26 @@ def plot(classes: list[str], cmap_idx: np.ndarray, path: object, scene: str, tit
     plt.close(fig)
 
 
+def independent_labels(cfg: object, refl: object, scene: str,
+                       used: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Labels that do not come from the library spectra, on the 30 m EnMAP grid.
+
+    Returns (truth, shade, near_library): truth is sep.BUILT for pure OSM roofs, sep.OPEN for
+    open ground far from both OSM and Open Buildings, -1 otherwise; shade is the modelled
+    building-shadow fraction; near_library marks library pixels and their 8 neighbours.
+    """
+    fine = geobox_for(cfg, "model_aoi", FINE_RESOLUTION)
+    roof_10m = footprint_mask(load_osm_buildings(cfg), fine).values
+    truth = sep.labels_30m(roof_10m, lib.ndvi(refl), lib.NDVI_NOT_VEGETATED)
+    heights = load_open_buildings_heights(cfg)
+    truth[(truth == sep.OPEN) & ~(lib.building_distance_30m(heights, refl) > OPEN_MIN_M)] = -1
+    shade = lib.to_pixels(lib.shadow_mask(heights, *sun_angles(scene)).astype(float),
+                          heights, refl)
+    near_library = np.zeros(truth.shape, bool)
+    near_library[used.row.values, used.col.values] = True
+    return truth, shade, binary_dilation(near_library, iterations=1)
+
+
 def confusion(truth: pd.Series, pred: pd.Series) -> dict:
     return pd.crosstab(truth, pred).to_dict(orient="index")
 
@@ -108,17 +128,7 @@ def main() -> None:
     names = np.array(classes + ["Unclassified"])
     has_data = np.isfinite(refl.values).all(axis=0)
 
-    # Independent labels: OSM roof / open ground, and modelled shadow on the roofs.
-    fine = geobox_for(cfg, "model_aoi", FINE_RESOLUTION)
-    roof_10m = footprint_mask(load_osm_buildings(cfg), fine).values
-    truth = sep.labels_30m(roof_10m, lib.ndvi(refl), lib.NDVI_NOT_VEGETATED)
-    heights = load_open_buildings_heights(cfg)
-    shade = lib.to_pixels(lib.shadow_mask(heights, *sun_angles(scene)).astype(float),
-                          heights, refl)
-    truth[(truth == sep.OPEN) & ~(lib.building_distance_30m(heights, refl) > OPEN_MIN_M)] = -1
-    near_library = np.zeros(truth.shape, bool)
-    near_library[used.row.values, used.col.values] = True
-    near_library = binary_dilation(near_library, iterations=1)
+    truth, shade, near_library = independent_labels(cfg, refl, scene, used)
     test = has_data & (truth >= 0) & ~near_library
     t = pd.Series(np.where(truth[test] == sep.BUILT, "OSM roof", "Open ground"), name="osm")
     roof_test = has_data & (truth == sep.BUILT) & ~near_library
