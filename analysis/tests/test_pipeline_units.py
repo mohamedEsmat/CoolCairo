@@ -226,6 +226,38 @@ def test_enmap_band_choices_report_counts_each_bad_window(tmp_path):
     assert json.loads((tmp_path / "out" / "enmap.json").read_text(encoding="utf-8"))["bands"] == rep
 
 
+def test_shadow_mask_falls_away_from_the_sun_with_the_right_length():
+    from coolcairo.library import shadow_mask
+
+    h = np.zeros((41, 41), dtype="float32")
+    h[20, 20] = 40.0  # One 40 m tower on a 4 m grid; sun due south, 45 degrees high.
+    grid = xr.DataArray(h, dims=("y", "x"),
+                        coords={"y": np.arange(41)[::-1] * 4.0, "x": np.arange(41) * 4.0})
+    sh = shadow_mask(grid, sun_elevation=45.0, sun_azimuth=180.0)
+    assert sh[19, 20] and sh[11, 20]          # North of the tower, up to ~40 m away.
+    assert not sh[21, 20] and not sh[8, 20]   # Not south of it, not beyond 40 m.
+    assert not sh[20, 20]                     # The roof itself is lit.
+
+
+def test_library_candidates_are_spread_out_and_ranked_by_homogeneity():
+    from coolcairo.library import CLASSES, candidates
+
+    rng = np.random.default_rng(0)
+    wl = np.linspace(450, 2400, 20)
+    base = np.linspace(0.1, 0.4, 20)[:, None, None]
+    cube = base + rng.normal(0, 0.002, (20, 30, 30))
+    refl = xr.DataArray(cube, dims=("wavelength", "y", "x"),
+                        coords={"wavelength": wl, "y": 3_330_000 - np.arange(30) * 30.0,
+                                "x": 330_000 + np.arange(30) * 30.0})
+    masks = {c: np.zeros((30, 30), bool) for c in CLASSES}
+    masks[CLASSES[0]][:] = True
+    picks = candidates(refl, masks, "EPSG:32636", per_class=5)
+    assert len(picks) == 5
+    d = np.hypot(picks.x.values[:, None] - picks.x.values, picks.y.values[:, None] - picks.y.values)
+    assert d[np.triu_indices(5, 1)].min() >= 300
+    assert picks.homogeneity_deg.is_monotonic_increasing
+
+
 def test_heat_r2_ranks_informative_features_higher():
     from coolcairo.separability import heat_r2
 

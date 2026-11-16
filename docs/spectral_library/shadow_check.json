@@ -1,0 +1,12 @@
+{
+  "scene": "ENMAP01-____L2A-DT0000127221_20250422T091720Z_006_V010502_20250424T200249Z",
+  "sun_elevation_deg": 70.38,
+  "sun_azimuth_deg": 152.89,
+  "shadow_length_per_metre_height": 0.357,
+  "pixels": 205650,
+  "max_shadow_fraction": 0.786,
+  "pixels_over_half_shadow": 70,
+  "pixels_over_quarter_shadow": 2514,
+  "mean_shadow_fraction": 0.0213,
+  "attribution": "Contains modified EnMAP data \u00a9 DLR [2025] \u00b7 Google Open Buildings 2.5D (CC BY 4.0)"
+}
