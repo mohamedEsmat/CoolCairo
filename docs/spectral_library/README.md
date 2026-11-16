@@ -61,20 +61,33 @@ These results come from the candidates before anyone has checked them. They are 
   vs asphalt (1.3°). The next step tests brightness and the narrow absorption
   features (≈ 1730, 2310 and 2340 nm, dotted lines in `provisional_spectra.png`).
 
-## First SAM map (provisional)
+## First material maps (provisional)
 
-[`make_sam_map.py`](../../analysis/make_sam_map.py) classifies every pixel by its smallest spectral
-angle to the library; pixels above the 95th percentile of the library's own leave-one-out angle
-(3.9°) stay unclassified. `sam_provisional/` uses the **AI pre-check, not a confirmed library**
-(rerun without `--provisional` after confirmation).
+[`make_sam_map.py`](../../analysis/make_sam_map.py) gives each pixel the nearest library class by
+three distances: the spectral angle alone (SAM), + log brightness, and + continuum-removed depths
+at 1730, 2310 and 2340 nm. Each term is divided by its spread within the library classes. Pixels
+beyond the 95th percentile of the library's own leave-one-out distance stay unclassified.
+`sam_provisional/` uses the **AI pre-check, not a confirmed library** (rerun without
+`--provisional` after confirmation). Scores (`sam_provisional/comparison.csv`):
 
-- Leave-one-out on the 43 library pixels: 74 % correct. Vegetation 11/11; asphalt and dusty roof
-  swap, and pale roofs drift to sand.
-- Independent check on OSM-labelled pixels (library pixels and neighbours left out): 57 % of pure
-  roof pixels come out as a roof class, but only 28 % of open desert comes out as sand (34 % dusty
-  roof, 23 % asphalt).
-- So the angle alone cannot separate Cairo's dusty surfaces. The next step adds brightness and
-  the 2310/2340 nm band depths.
+| Check | Angle | + brightness | + brightness + depths |
+|---|---|---|---|
+| Leave-one-out, 43 library pixels | 74 % | 88 % | 88 % |
+| Pure OSM roof pixels (1,172) → a roof class | 59 % | 63 % | 68 % |
+| Open ground (8,964) → sand | 64 % | 84 % | 81 % |
+| Roofs with > 25 % modelled shadow (23) → a roof class | 52 % | 61 % | 83 % |
+| … of which → asphalt | 9 % | 22 % | 9 % |
+| Unclassified (whole scene) | 17 % | 9 % | 7 % |
+
+- **Brightness is what the angle was missing.** It separates sand from dusty roofs and asphalt
+  (open ground → sand 64 % → 84 %).
+- **Brightness alone lets shade pass for asphalt** (shaded roofs → asphalt 9 % → 22 %), as the
+  course warned; the absorption depths bring it back to 9 % (only 23 such pixels, so a weak test).
+- **Remaining confusion:** dusty roof vs sand (13 % of open ground is called dusty roof) and
+  roofs vs asphalt (13 % of OSM roofs). Unmixing (next step) can express these as fractions.
+- **"Open ground" must also be far from Open Buildings.** OSM misses many buildings in east
+  Cairo: 57 % of the pixels > 300 m from any OSM building have an Open Buildings building within
+  30 m. With OSM alone, open ground → sand was only 28 %.
 
 *Contains modified EnMAP data © DLR [2025] · © OpenStreetMap contributors (ODbL) · Google Open
 Buildings 2.5D Temporal (CC BY 4.0).*

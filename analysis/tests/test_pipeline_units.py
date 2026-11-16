@@ -362,3 +362,28 @@ def test_sam_ignores_brightness_and_leaves_far_or_missing_pixels_unclassified():
     assert angles[0, 0, 0] == pytest.approx(0, abs=1e-4)  # A, three times darker
     assert sam_classify(angles, max_angle=30)[0].tolist() == [0, 1, 0, UNCLASSIFIED]
     assert sam_classify(angles, max_angle=5)[0].tolist() == [0, 1, UNCLASSIFIED, UNCLASSIFIED]
+
+
+def test_band_depth_and_brightness_separate_classes_the_angle_cannot():
+    from coolcairo.library import band_depth, fused_classify, material_features, sam_angles
+
+    grid = np.arange(2200, 2401, 10.0)  # EnMAP-like 10 nm spacing; depths average 3 bands.
+    dip = np.where(np.abs(grid - 2310) <= 10, 0.8, 1.0)
+    one = xr.DataArray(dip[:, None, None] * 0.4, dims=("wavelength", "y", "x"),
+                       coords={"wavelength": grid})
+    assert band_depth(one, 2310, 2230, 2390)[0, 0] == pytest.approx(0.2)
+
+    wl = np.array([450, 700, 900, 2230, 2310, 2340, 2390], float)
+    flat = np.ones(7)
+
+    # Two bright and two dark flat pixels (slightly different shapes): one shape, two classes.
+    tilt = np.linspace(-0.01, 0.01, 7)
+    px = [0.40 * (flat + tilt), 0.42 * (flat - tilt), 0.10 * (flat + tilt), 0.11 * (flat - tilt)]
+    refl = xr.DataArray(np.stack(px, axis=1)[:, None, :], dims=("wavelength", "y", "x"),
+                        coords={"wavelength": wl})
+    picks = pd.DataFrame({"class": ["bright", "bright", "dark", "dark"],
+                          "row": [0, 0, 0, 0], "col": [0, 1, 2, 3]})
+    spectra = pd.DataFrame({"bright": 0.4 * flat, "dark": 0.1 * flat})
+    assert np.ptp(sam_angles(refl, spectra)[:, 0, 0]) < 1e-6  # The angle cannot tell them apart.
+    out = fused_classify(refl, material_features(refl, depths=False), picks, max_dist=1e9)
+    assert out[0].tolist() == [0, 0, 1, 1]

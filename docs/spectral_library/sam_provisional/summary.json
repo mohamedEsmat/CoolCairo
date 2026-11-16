@@ -1,0 +1,246 @@
+{
+  "library": "provisional library (AI pre-check, not confirmed)",
+  "scene": "ENMAP01-____L2A-DT0000127221_20250422T091720Z_006_V010502_20250424T200249Z",
+  "library_pixels": {
+    "Vegetation": 11,
+    "Sand / bare ground": 9,
+    "Asphalt / paved": 9,
+    "Pale roof": 8,
+    "Dusty roof": 6
+  },
+  "threshold_rule": "95th percentile of library pixels' leave-one-out distance to their own class",
+  "check_pixels": {
+    "OSM roof": 1172,
+    "Open ground": 8964,
+    "roof, shadow < 5%": 1026,
+    "roof, shadow > 25%": 23
+  },
+  "comparison": {
+    "angle": {
+      "leave_one_out_accuracy": 0.744,
+      "osm_roof_as_roof_class": 0.588,
+      "open_ground_as_sand": 0.642,
+      "unclassified_share": 0.168,
+      "sunlit_roof_as_roof": 0.592,
+      "shaded_roof_as_roof": 0.522,
+      "shaded_roof_as_asphalt": 0.087
+    },
+    "angle_brightness": {
+      "leave_one_out_accuracy": 0.884,
+      "osm_roof_as_roof_class": 0.631,
+      "open_ground_as_sand": 0.837,
+      "unclassified_share": 0.091,
+      "sunlit_roof_as_roof": 0.639,
+      "shaded_roof_as_roof": 0.609,
+      "shaded_roof_as_asphalt": 0.217
+    },
+    "angle_brightness_depths": {
+      "leave_one_out_accuracy": 0.884,
+      "osm_roof_as_roof_class": 0.683,
+      "open_ground_as_sand": 0.814,
+      "unclassified_share": 0.066,
+      "sunlit_roof_as_roof": 0.684,
+      "shaded_roof_as_roof": 0.826,
+      "shaded_roof_as_asphalt": 0.087
+    }
+  },
+  "methods": {
+    "angle": {
+      "max_distance": 2.01,
+      "leave_one_out_confusion": {
+        "Asphalt / paved": {
+          "Asphalt / paved": 5,
+          "Dusty roof": 4,
+          "Pale roof": 0,
+          "Sand / bare ground": 0,
+          "Vegetation": 0
+        },
+        "Dusty roof": {
+          "Asphalt / paved": 1,
+          "Dusty roof": 4,
+          "Pale roof": 0,
+          "Sand / bare ground": 1,
+          "Vegetation": 0
+        },
+        "Pale roof": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 1,
+          "Pale roof": 5,
+          "Sand / bare ground": 2,
+          "Vegetation": 0
+        },
+        "Sand / bare ground": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 2,
+          "Pale roof": 0,
+          "Sand / bare ground": 7,
+          "Vegetation": 0
+        },
+        "Vegetation": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 0,
+          "Pale roof": 0,
+          "Sand / bare ground": 0,
+          "Vegetation": 11
+        }
+      },
+      "osm_check_confusion": {
+        "OSM roof": {
+          "Asphalt / paved": 132,
+          "Dusty roof": 273,
+          "Pale roof": 416,
+          "Sand / bare ground": 22,
+          "Unclassified": 329
+        },
+        "Open ground": {
+          "Asphalt / paved": 1317,
+          "Dusty roof": 621,
+          "Pale roof": 79,
+          "Sand / bare ground": 5752,
+          "Unclassified": 1195
+        }
+      },
+      "class_shares": {
+        "Dusty roof": 0.3675,
+        "Asphalt / paved": 0.2234,
+        "Sand / bare ground": 0.1698,
+        "Unclassified": 0.1681,
+        "Pale roof": 0.0662,
+        "Vegetation": 0.0052
+      }
+    },
+    "angle_brightness": {
+      "max_distance": 3.06,
+      "leave_one_out_confusion": {
+        "Asphalt / paved": {
+          "Asphalt / paved": 9,
+          "Dusty roof": 0,
+          "Pale roof": 0,
+          "Sand / bare ground": 0,
+          "Vegetation": 0
+        },
+        "Dusty roof": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 5,
+          "Pale roof": 0,
+          "Sand / bare ground": 1,
+          "Vegetation": 0
+        },
+        "Pale roof": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 0,
+          "Pale roof": 4,
+          "Sand / bare ground": 4,
+          "Vegetation": 0
+        },
+        "Sand / bare ground": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 0,
+          "Pale roof": 0,
+          "Sand / bare ground": 9,
+          "Vegetation": 0
+        },
+        "Vegetation": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 0,
+          "Pale roof": 0,
+          "Sand / bare ground": 0,
+          "Vegetation": 11
+        }
+      },
+      "osm_check_confusion": {
+        "OSM roof": {
+          "Asphalt / paved": 139,
+          "Dusty roof": 494,
+          "Pale roof": 245,
+          "Sand / bare ground": 71,
+          "Unclassified": 222,
+          "Vegetation": 1
+        },
+        "Open ground": {
+          "Asphalt / paved": 44,
+          "Dusty roof": 1118,
+          "Pale roof": 166,
+          "Sand / bare ground": 7502,
+          "Unclassified": 134,
+          "Vegetation": 0
+        }
+      },
+      "class_shares": {
+        "Dusty roof": 0.3881,
+        "Asphalt / paved": 0.3015,
+        "Sand / bare ground": 0.1891,
+        "Unclassified": 0.0908,
+        "Pale roof": 0.0229,
+        "Vegetation": 0.0076
+      }
+    },
+    "angle_brightness_depths": {
+      "max_distance": 4.89,
+      "leave_one_out_confusion": {
+        "Asphalt / paved": {
+          "Asphalt / paved": 9,
+          "Dusty roof": 0,
+          "Pale roof": 0,
+          "Sand / bare ground": 0,
+          "Vegetation": 0
+        },
+        "Dusty roof": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 4,
+          "Pale roof": 1,
+          "Sand / bare ground": 1,
+          "Vegetation": 0
+        },
+        "Pale roof": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 1,
+          "Pale roof": 5,
+          "Sand / bare ground": 2,
+          "Vegetation": 0
+        },
+        "Sand / bare ground": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 0,
+          "Pale roof": 0,
+          "Sand / bare ground": 9,
+          "Vegetation": 0
+        },
+        "Vegetation": {
+          "Asphalt / paved": 0,
+          "Dusty roof": 0,
+          "Pale roof": 0,
+          "Sand / bare ground": 0,
+          "Vegetation": 11
+        }
+      },
+      "osm_check_confusion": {
+        "OSM roof": {
+          "Asphalt / paved": 149,
+          "Dusty roof": 489,
+          "Pale roof": 312,
+          "Sand / bare ground": 61,
+          "Unclassified": 156,
+          "Vegetation": 5
+        },
+        "Open ground": {
+          "Asphalt / paved": 103,
+          "Dusty roof": 1172,
+          "Pale roof": 329,
+          "Sand / bare ground": 7298,
+          "Unclassified": 62,
+          "Vegetation": 0
+        }
+      },
+      "class_shares": {
+        "Dusty roof": 0.4762,
+        "Asphalt / paved": 0.2524,
+        "Sand / bare ground": 0.1289,
+        "Unclassified": 0.0662,
+        "Pale roof": 0.0659,
+        "Vegetation": 0.0105
+      }
+    }
+  },
+  "attribution": "Contains modified EnMAP data \u00a9 DLR [2025] \u00b7 Google Open Buildings 2.5D (CC BY 4.0) \u00b7 \u00a9 OpenStreetMap contributors (ODbL)"
+}

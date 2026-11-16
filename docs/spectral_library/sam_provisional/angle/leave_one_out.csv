@@ -1,0 +1,44 @@
+class,predicted,dist_own
+Sand / bare ground,Sand / bare ground,0.394
+Sand / bare ground,Sand / bare ground,0.868
+Sand / bare ground,Dusty roof,1.253
+Sand / bare ground,Sand / bare ground,0.228
+Sand / bare ground,Sand / bare ground,0.511
+Sand / bare ground,Sand / bare ground,0.293
+Sand / bare ground,Sand / bare ground,0.245
+Sand / bare ground,Dusty roof,0.744
+Sand / bare ground,Sand / bare ground,0.249
+Pale roof,Pale roof,2.015
+Pale roof,Pale roof,0.701
+Pale roof,Pale roof,2.276
+Pale roof,Pale roof,0.55
+Pale roof,Sand / bare ground,1.904
+Pale roof,Pale roof,1.129
+Pale roof,Dusty roof,1.483
+Pale roof,Sand / bare ground,1.861
+Dusty roof,Dusty roof,0.529
+Dusty roof,Asphalt / paved,0.732
+Dusty roof,Dusty roof,0.639
+Dusty roof,Dusty roof,0.417
+Dusty roof,Dusty roof,0.671
+Dusty roof,Sand / bare ground,0.758
+Asphalt / paved,Asphalt / paved,0.399
+Asphalt / paved,Asphalt / paved,0.347
+Asphalt / paved,Asphalt / paved,0.995
+Asphalt / paved,Dusty roof,1.09
+Asphalt / paved,Asphalt / paved,2.042
+Asphalt / paved,Asphalt / paved,0.786
+Asphalt / paved,Dusty roof,1.424
+Asphalt / paved,Dusty roof,1.988
+Asphalt / paved,Dusty roof,1.106
+Vegetation,Vegetation,1.201
+Vegetation,Vegetation,1.422
+Vegetation,Vegetation,0.72
+Vegetation,Vegetation,1.106
+Vegetation,Vegetation,0.836
+Vegetation,Vegetation,0.915
+Vegetation,Vegetation,0.427
+Vegetation,Vegetation,1.934
+Vegetation,Vegetation,1.552
+Vegetation,Vegetation,0.707
+Vegetation,Vegetation,1.59

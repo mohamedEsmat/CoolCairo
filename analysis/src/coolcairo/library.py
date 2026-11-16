@@ -137,6 +137,18 @@ def to_pixels(values: np.ndarray, src: xr.DataArray, dst: xr.DataArray) -> np.nd
         return (total / count).reshape(dst.sizes["y"], dst.sizes["x"])
 
 
+def building_distance_30m(height: xr.DataArray, dst: xr.DataArray,
+                          min_height: float = 2.0) -> np.ndarray:
+    """Mean distance (m) to the nearest Open Buildings building, per 30 m pixel of `dst`.
+
+    OSM footprints are incomplete in dense east Cairo; this independent check keeps
+    "open ground" labels away from unmapped buildings.
+    """
+    cell = abs(float(height.x[1] - height.x[0]))
+    dist = distance_transform_edt(~(height.values > min_height)) * cell
+    return to_pixels(dist, height, dst)
+
+
 def neighbour_angle(refl: xr.DataArray) -> np.ndarray:
     """Spectral angle (degrees) between each pixel and the mean of its 8 neighbours."""
     v = np.nan_to_num(refl.values)  # (band, y, x)
@@ -285,6 +297,105 @@ def sam_leave_one_out(refl: xr.DataArray, picks: pd.DataFrame) -> pd.DataFrame:
                      "angle_own_deg": float(ang[classes.index(cls)]),
                      "angle_best_deg": float(ang.min())})
     return pd.DataFrame(rows)
+
+
+# ---- Angle + brightness + absorption depths -------------------------------------------------
+# The spectral angle ignores brightness (good for shade), but east Cairo's sand, dusty roofs and
+# asphalt differ mostly in brightness. These features add it back, plus narrow absorptions the
+# angle averages away: bitumen/hydrocarbon near 1730 and 2310 nm, carbonate near 2340 nm.
+
+ABSORPTIONS = {  # name: (centre, left shoulder, right shoulder), nm
+    "depth_1730": (1730, 1660, 1770),
+    "depth_2310": (2310, 2230, 2390),
+    "depth_2340": (2340, 2230, 2390),
+}
+
+
+def _band(refl: xr.DataArray, nm: float, half: int = 1) -> np.ndarray:
+    """Mean of the band nearest `nm` and its `half` neighbours on each side."""
+    i = int(np.argmin(np.abs(refl.wavelength.values - nm)))
+    return refl.isel(wavelength=slice(max(i - half, 0), i + half + 1)).mean("wavelength").values
+
+
+def band_depth(refl: xr.DataArray, centre: float, left: float, right: float) -> np.ndarray:
+    """Continuum-removed depth: 1 - R(centre) / straight line between the shoulders."""
+    rl, rc, rr = _band(refl, left), _band(refl, centre), _band(refl, right)
+    t = (centre - left) / (right - left)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return 1 - rc / ((1 - t) * rl + t * rr)
+
+
+def material_features(refl: xr.DataArray, depths: bool = True) -> dict[str, np.ndarray]:
+    """Per-pixel features beside the angle: log brightness (shade scales it) and depths."""
+    with np.errstate(invalid="ignore", divide="ignore"):
+        out = {"log_brightness": np.log(brightness(refl))}
+    if depths:
+        out |= {k: band_depth(refl, *v) for k, v in ABSORPTIONS.items()}
+    return out
+
+
+def _fit(spec: np.ndarray, feats: np.ndarray, labels: np.ndarray, classes: list[str]) -> dict:
+    """Class means and pooled within-class spreads. spec (n, band), feats (n, f)."""
+    unit = _unit(spec, axis=1)
+    means = np.stack([spec[labels == c].mean(axis=0) for c in classes])
+    cents = np.stack([feats[labels == c].mean(axis=0) for c in classes])
+    own = np.array([classes.index(c) for c in labels])
+    ang = np.degrees(np.arccos(np.clip((unit * _unit(means, 1)[own]).sum(axis=1), -1, 1)))
+    return {"means": means, "cents": cents,
+            "angle_scale": float(np.sqrt(np.mean(ang ** 2))),
+            "feat_scale": np.sqrt(np.mean((feats - cents[own]) ** 2, axis=0))}
+
+
+def _distance(model: dict, spec: np.ndarray, feats: np.ndarray) -> np.ndarray:
+    """(class, n) distance: angle and feature differences, each in units of their spread."""
+    ang = np.degrees(np.arccos(np.clip(_unit(model["means"], 1) @ _unit(spec, 1).T, -1, 1)))
+    d2 = (ang / model["angle_scale"]) ** 2
+    if feats.shape[1]:
+        z = (feats[None, :, :] - model["cents"][:, None, :]) / model["feat_scale"]
+        d2 = d2 + (z ** 2).sum(axis=2)
+    return np.sqrt(d2)
+
+
+def _pixels(refl: xr.DataArray, feats: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+    nb = refl.shape[0]
+    spec = refl.values.reshape(nb, -1).T
+    if not feats:
+        return spec, np.empty((spec.shape[0], 0))
+    f = np.stack([v.ravel() for v in feats.values()], axis=1)
+    return spec, f
+
+
+def fused_leave_one_out(refl: xr.DataArray, feats: dict[str, np.ndarray],
+                        picks: pd.DataFrame) -> pd.DataFrame:
+    """Like `sam_leave_one_out`, for the angle + features distance."""
+    classes = list(dict.fromkeys(picks["class"]))
+    spec, f = _pixels(refl, feats)
+    flat = picks.row.values * refl.shape[2] + picks.col.values
+    spec, f, labels = spec[flat], f[flat], picks["class"].values
+    rows = []
+    for i in range(len(picks)):
+        keep = np.arange(len(picks)) != i
+        model = _fit(spec[keep], f[keep], labels[keep], classes)
+        d = _distance(model, spec[i:i + 1], f[i:i + 1])[:, 0]
+        rows.append({"class": labels[i], "predicted": classes[int(np.argmin(d))],
+                     "dist_own": float(d[classes.index(labels[i])])})
+    return pd.DataFrame(rows)
+
+
+def fused_classify(refl: xr.DataArray, feats: dict[str, np.ndarray], picks: pd.DataFrame,
+                   max_dist: float) -> np.ndarray:
+    """Closest class per pixel by the angle + features distance (y, x); UNCLASSIFIED beyond."""
+    classes = list(dict.fromkeys(picks["class"]))
+    spec, f = _pixels(refl, feats)
+    flat = picks.row.values * refl.shape[2] + picks.col.values
+    model = _fit(spec[flat], f[flat], picks["class"].values, classes)
+    valid = np.isfinite(spec).all(axis=1) & np.isfinite(f).all(axis=1)
+    out = np.full(spec.shape[0], UNCLASSIFIED)
+    d = _distance(model, spec[valid], f[valid])
+    best = np.argmin(d, axis=0)
+    best[d.min(axis=0) > max_dist] = UNCLASSIFIED
+    out[valid] = best
+    return out.reshape(refl.shape[1:])
 
 
 # ---- Confirmation sheet ---------------------------------------------------------------------
