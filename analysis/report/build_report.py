@@ -111,6 +111,7 @@ LINKS = {
     "planetary": "https://planetarycomputer.microsoft.com/",
     "enmap": "https://www.enmap.org/",
     "interventions": "https://github.com/mohamedEsmat/CoolCairo/blob/master/docs/intervention_research.md",
+    "workbook": "https://github.com/mohamedEsmat/CoolCairo/blob/master/docs/CoolCairo_Heat_Model_Workbook.pdf",
 }
 
 
@@ -471,6 +472,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             f"We report <b>spatial cross-validation</b>: blocks are grouped into "
             f"{f.cv_tile_size_m / 1000:.0f} km tiles and whole tiles are held out "
             f"({f.cv_folds}-fold GroupKFold)."),
+          p("The model and the hidden-tile test are worked through by hand, with every formula, on "
+            "six real blocks in the heat model workbook ("
+            + cite("docs/CoolCairo_Heat_Model_Workbook.pdf", "workbook") + ")."),
           p("4.7  Cooling measures", H2),
           p("Landsat LST of a block is close to the area-weighted mean of its surfaces, so each "
             "measure's effect is a <i>per-unit-area</i> temperature change times the share of block "
@@ -852,6 +856,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
         ref("DLR Earth Observation Center. EnMAP HSI L2A, EOC Geoservice.", "enmap"),
         ref("Further intervention and cost sources, each with its link:", "interventions",
             "docs/intervention_research.md"),
+        ref("CoolCairo Team 46 (2026). The heat model and the hidden-area test, by hand "
+            "(workbook).", "workbook", "docs/CoolCairo_Heat_Model_Workbook.pdf"),
     ]
     s += [p("References", H1),
           ListFlowable([ListItem(p(x, SMALL), leftIndent=16) for x in refs], bulletType="1",
