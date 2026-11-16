@@ -15,6 +15,11 @@ Shadow is not a library class: at this scene's sun elevation (about 70 degrees) 
 casts a shadow about 0.36 x its height, so no 30 m pixel is fully shadowed (`shadow_fraction`
 measures it). Shadow enters the unmixing as a near-zero "shade" spectrum instead.
 
+Dark roof is not a library class either (decided 16 Nov 2026): a visual pre-check of the
+darkest pure-roof pixels found 0 of 12 real dark roofs (mixed pixels: gaps, courtyards, trees,
+shadow; two OSM footprint errors). Unmixing expresses dark rooftops as roof + shade. Instead,
+"dusty roof" (a roof whose spectrum is closest to sand) targets the project's main confusion.
+
 EnMAP licence: library spectra are derived products ("Contains modified EnMAP data (c) DLR").
 """
 
@@ -33,13 +38,13 @@ from pyproj import Transformer
 from rasterio.features import rasterize
 from scipy.ndimage import distance_transform_edt, minimum_filter
 
-SAND, PALE_ROOF, DARK_ROOF, ASPHALT, VEGETATION = (
-    "Sand / bare ground", "Pale roof", "Dark roof", "Asphalt / paved", "Vegetation")
-CLASSES = [SAND, PALE_ROOF, DARK_ROOF, ASPHALT, VEGETATION]
+SAND, PALE_ROOF, DUSTY_ROOF, ASPHALT, VEGETATION = (
+    "Sand / bare ground", "Pale roof", "Dusty roof", "Asphalt / paved", "Vegetation")
+CLASSES = [SAND, PALE_ROOF, DUSTY_ROOF, ASPHALT, VEGETATION]
 CLASS_HELP = {
     SAND: "Unbuilt sandy or dusty land, desert, empty plots",
     PALE_ROOF: "Light concrete or painted roofs: white, beige, light grey",
-    DARK_ROOF: "Dark roofs: bitumen, dark tiles, dark grey concrete, dark metal",
+    DUSTY_ROOF: "Roofs covered in dust or sand-coloured (tan, beige), looking like the ground",
     ASPHALT: "Asphalt road, car park, airport apron or runway",
     VEGETATION: "Trees, grass, gardens, green fields",
 }
@@ -158,7 +163,7 @@ def rule_masks(refl: xr.DataArray, roof_10m: np.ndarray, paved_10m: np.ndarray,
     grey = nd < NDVI_NOT_VEGETATED
 
     pure_roof = (roof >= ROOF_PURE) & grey & low_shadow
-    lo, hi = np.nanpercentile(br[pure_roof], [33, 67]) if pure_roof.any() else (0, 0)
+    hi = np.nanpercentile(br[pure_roof], 67) if pure_roof.any() else 0
     sand = (dist > SAND_MIN_DIST_M) & grey & (paved == 0)
     veg = nd >= NDVI_VEGETATION
     # Paved: darkest third only. OSM car parks and road edges in Cairo are often sandy, and
@@ -170,20 +175,33 @@ def rule_masks(refl: xr.DataArray, roof_10m: np.ndarray, paved_10m: np.ndarray,
         SAND: minimum_filter(sand.astype(np.uint8), size=3).astype(bool),
         VEGETATION: minimum_filter(veg.astype(np.uint8), size=3).astype(bool),
         PALE_ROOF: pure_roof & (br >= hi),
-        DARK_ROOF: pure_roof & (br <= lo),
+        DUSTY_ROOF: pure_roof & (br < hi),  # Ranked by closeness to sand in `candidates`.
         ASPHALT: paved_pure & (br <= dark_paved),
     }
 
 
 def candidates(refl: xr.DataArray, masks: dict[str, np.ndarray], crs: str,
                per_class: int = 12) -> pd.DataFrame:
-    """Best `per_class` pixels per class: most homogeneous first, spread `MIN_SPACING_M` apart."""
+    """Best `per_class` pixels per class, spread `MIN_SPACING_M` apart.
+
+    Ranking: most homogeneous first (smallest angle to the 8 neighbours). Dusty roof ranks by
+    angle to the mean sand spectrum plus that homogeneity angle: uniform roofs that look most
+    like sand, the confusion the material map has to resolve.
+    """
     angle = neighbour_angle(refl)
     nd, br = ndvi(refl), brightness(refl)
+    v = refl.values
+    sand_ref = np.nanmean(v[:, masks[SAND]], axis=1) if masks[SAND].any() else None
+    to_sand = np.full(angle.shape, np.nan)
+    if sand_ref is not None and np.isfinite(sand_ref).all():
+        cos = np.einsum("byx,b->yx", np.nan_to_num(v), sand_ref) / (
+            np.linalg.norm(np.nan_to_num(v), axis=0) * np.linalg.norm(sand_ref) + 1e-12)
+        to_sand = np.degrees(np.arccos(np.clip(cos, -1, 1)))
     rows = []
     for cls in CLASSES:
         yy, xx = np.nonzero(masks[cls] & np.isfinite(angle))
-        order = np.argsort(angle[yy, xx])
+        score = angle[yy, xx] + (to_sand[yy, xx] if cls == DUSTY_ROOF else 0)
+        order = np.argsort(score)
         picked: list[tuple[float, float]] = []
         for k in order:
             x, y = float(refl.x[xx[k]]), float(refl.y[yy[k]])
@@ -193,6 +211,7 @@ def candidates(refl: xr.DataArray, masks: dict[str, np.ndarray], crs: str,
                              "homogeneity_deg": round(float(angle[yy[k], xx[k]]), 2),
                              "ndvi": round(float(nd[yy[k], xx[k]]), 3),
                              "brightness": round(float(br[yy[k], xx[k]]), 3),
+                             "angle_to_sand_deg": round(float(to_sand[yy[k], xx[k]]), 2),
                              "pool": int(len(yy))})
             if len(picked) == per_class:
                 break
@@ -223,6 +242,7 @@ def angle_matrix(spectra: pd.DataFrame) -> pd.DataFrame:
 FONT = "Arial"
 HEADER_FILL = PatternFill("solid", fgColor="1F3A5F")
 INPUT_FILL = PatternFill("solid", fgColor="FFF2CC")
+AI_FILL = PatternFill("solid", fgColor="5B5B5B")
 THIN = Side(style="thin", color="BFBFBF")
 BOX = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
@@ -231,17 +251,37 @@ def maps_link(lat: float, lon: float) -> str:
     return f"https://www.google.com/maps/@{lat:.6f},{lon:.6f},60m/data=!3m1!1e3"
 
 
+ANSWER_COLUMNS = range(6, 11)  # Person: F-H. AI pre-check (not a confirmation): I-J.
+
+
+def _previous_answers(path: Path) -> dict[tuple, list]:
+    """Answers already in a sheet, keyed by (material, lat, lon), so a rerun keeps them."""
+    if not path.exists():
+        return {}
+    ws = load_workbook(path)["Candidates"]
+    out = {}
+    for r in range(2, ws.max_row + 1):
+        key = (ws.cell(r, 2).value, ws.cell(r, 3).value, ws.cell(r, 4).value)
+        values = [ws.cell(r, c).value for c in ANSWER_COLUMNS]
+        if key[0] and any(v not in (None, "") for v in values):
+            out[key] = values
+    return out
+
+
 def write_sheet(picks: pd.DataFrame, path: Path) -> Path:
+    """Confirmation sheet. Answers for candidates that were already in `path` are kept."""
+    previous = _previous_answers(path)
     wb = Workbook()
     _instructions(wb.active)
     ws = wb.create_sheet("Candidates")
     headers = ["#", "Proposed material", "Latitude", "Longitude", "Open in Google Maps",
-               "Is the whole 30 m square this material?", "If not, what is it?", "Notes"]
-    widths = [5, 20, 11, 11, 20, 30, 24, 40]
+               "Is the whole 30 m square this material?", "If not, what is it?", "Notes",
+               "AI pre-check (NOT a confirmation)", "AI pre-check note"]
+    widths = [5, 20, 11, 11, 20, 30, 24, 40, 26, 50]
     for col, (h, w) in enumerate(zip(headers, widths, strict=True), start=1):
         c = ws.cell(row=1, column=col, value=h)
         c.font = Font(name=FONT, bold=True, color="FFFFFF")
-        c.fill = HEADER_FILL
+        c.fill = HEADER_FILL if col <= 8 else AI_FILL
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         ws.column_dimensions[c.column_letter].width = w
     ws.row_dimensions[1].height = 32
@@ -260,11 +300,14 @@ def write_sheet(picks: pd.DataFrame, path: Path) -> Path:
             ws.cell(row=r, column=col).fill = INPUT_FILL
         answer.add(ws.cell(row=r, column=6))
         other.add(ws.cell(row=r, column=7))
-        for col in range(1, 9):
+        kept = previous.get((p["class"], round(p["lat"], 6), round(p["lon"], 6)), [])
+        for col, v in zip(ANSWER_COLUMNS, kept, strict=False):
+            ws.cell(row=r, column=col, value=v)
+        for col in range(1, 11):
             cell = ws.cell(row=r, column=col)
             cell.border = BOX
             cell.font = Font(name=FONT, color="0563C1", underline="single") if col == 5 \
-                else Font(name=FONT)
+                else Font(name=FONT, italic=True, color="555555") if col > 8 else Font(name=FONT)
     ws.freeze_panes = "A2"
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(path)
@@ -292,6 +335,9 @@ def _instructions(ws: object) -> None:
          "pixels spoil the library; rejecting a good pixel costs little."),
         ("Imagery date", "EnMAP scene: 22 April 2025. If the imagery shows construction since "
          "then, say so in the notes."),
+        ("AI pre-check", "The grey columns I-J hold a first look by Claude (AI) at Esri World "
+         "Imagery. It is NOT a confirmation: please still fill the yellow column yourself. Look "
+         "carefully at rows marked Mostly, No or Unsure; for rows marked Yes a glance is enough."),
         ("", None),
         ("Materials", None),
         *[(k, v) for k, v in CLASS_HELP.items()],
@@ -309,7 +355,7 @@ def _instructions(ws: object) -> None:
 def write_kml(picks: pd.DataFrame, crs: str, path: Path) -> Path:
     """Each candidate as its exact 30 m pixel square, for Google Earth."""
     to_wgs = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
-    colours = {SAND: "ff5ab4f0", PALE_ROOF: "ffffffff", DARK_ROOF: "ff3c3c3c",
+    colours = {SAND: "ff5ab4f0", PALE_ROOF: "ffffffff", DUSTY_ROOF: "ff7896b4",
                ASPHALT: "ffff00ff", VEGETATION: "ff00c800"}  # aabbggrr
     out = ['<?xml version="1.0" encoding="UTF-8"?>',
            '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>',

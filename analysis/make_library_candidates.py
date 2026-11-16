@@ -67,7 +67,7 @@ def plot(spectra: object, path: object, scene: str) -> None:
     fig, ax = plt.subplots(figsize=(9, 4.5), dpi=150)
     wl = spectra.index.to_numpy()
     gap = np.r_[False, np.diff(wl) > 30]  # Break the line over dropped water-vapour bands.
-    colours = {lib.SAND: "#d9a441", lib.PALE_ROOF: "#9aa5b1", lib.DARK_ROOF: "#3b3b3b",
+    colours = {lib.SAND: "#d9a441", lib.PALE_ROOF: "#9aa5b1", lib.DUSTY_ROOF: "#b4966e",
                lib.ASPHALT: "#b04fc4", lib.VEGETATION: "#2e9e44"}
     for cls in spectra.columns:
         y = spectra[cls].to_numpy().copy()
