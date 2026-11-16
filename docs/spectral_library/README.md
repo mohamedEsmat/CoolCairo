@@ -61,5 +61,20 @@ These results come from the candidates before anyone has checked them. They are 
   vs asphalt (1.3°). The next step tests brightness and the narrow absorption
   features (≈ 1730, 2310 and 2340 nm, dotted lines in `provisional_spectra.png`).
 
+## First SAM map (provisional)
+
+[`make_sam_map.py`](../../analysis/make_sam_map.py) classifies every pixel by its smallest spectral
+angle to the library; pixels above the 95th percentile of the library's own leave-one-out angle
+(3.9°) stay unclassified. `sam_provisional/` uses the **AI pre-check, not a confirmed library**
+(rerun without `--provisional` after confirmation).
+
+- Leave-one-out on the 43 library pixels: 74 % correct. Vegetation 11/11; asphalt and dusty roof
+  swap, and pale roofs drift to sand.
+- Independent check on OSM-labelled pixels (library pixels and neighbours left out): 57 % of pure
+  roof pixels come out as a roof class, but only 28 % of open desert comes out as sand (34 % dusty
+  roof, 23 % asphalt).
+- So the angle alone cannot separate Cairo's dusty surfaces. The next step adds brightness and
+  the 2310/2340 nm band depths.
+
 *Contains modified EnMAP data © DLR [2025] · © OpenStreetMap contributors (ODbL) · Google Open
 Buildings 2.5D Temporal (CC BY 4.0).*

@@ -237,6 +237,56 @@ def angle_matrix(spectra: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(deg, index=spectra.columns, columns=spectra.columns).round(1)
 
 
+# ---- Spectral Angle Mapper ------------------------------------------------------------------
+
+UNCLASSIFIED = -1
+
+
+def _unit(a: np.ndarray, axis: int) -> np.ndarray:
+    return a / np.linalg.norm(a, axis=axis, keepdims=True)
+
+
+def sam_angles(refl: xr.DataArray, spectra: pd.DataFrame) -> np.ndarray:
+    """Spectral angle (degrees) of every pixel to every library spectrum: (class, y, x).
+
+    The angle compares spectral shape only, so a shaded pixel keeps its material's angle.
+    Pixels with any missing band get NaN.
+    """
+    nb, ny, nx = refl.shape
+    pix = _unit(refl.values.reshape(nb, -1), axis=0)
+    ref = _unit(spectra.to_numpy().T, axis=1)
+    cos = np.clip(ref @ pix, -1, 1)
+    return np.degrees(np.arccos(cos)).reshape(len(spectra.columns), ny, nx)
+
+
+def sam_classify(angles: np.ndarray, max_angle: float) -> np.ndarray:
+    """Index of the closest class per pixel, UNCLASSIFIED if even that is > max_angle or NaN."""
+    valid = np.isfinite(angles).all(axis=0)
+    best = np.where(valid, np.nanargmin(np.where(valid, angles, 0), axis=0), UNCLASSIFIED)
+    best[valid & (np.nanmin(np.where(valid, angles, np.inf), axis=0) > max_angle)] = UNCLASSIFIED
+    return best
+
+
+def sam_leave_one_out(refl: xr.DataArray, picks: pd.DataFrame) -> pd.DataFrame:
+    """Classify each library pixel with a library built without it.
+
+    Returns one row per pixel: true class, predicted class, angle to its own class mean.
+    """
+    classes = list(dict.fromkeys(picks["class"]))
+    v = refl.values
+    spec = v[:, picks.row.values, picks.col.values].T  # (pixel, band)
+    rows = []
+    for i, cls in enumerate(picks["class"]):
+        keep = np.arange(len(picks)) != i
+        means = np.stack([spec[keep & (picks["class"].values == c)].mean(axis=0)
+                          for c in classes])
+        ang = np.degrees(np.arccos(np.clip(_unit(means, 1) @ _unit(spec[i], 0), -1, 1)))
+        rows.append({"class": cls, "predicted": classes[int(np.argmin(ang))],
+                     "angle_own_deg": float(ang[classes.index(cls)]),
+                     "angle_best_deg": float(ang.min())})
+    return pd.DataFrame(rows)
+
+
 # ---- Confirmation sheet ---------------------------------------------------------------------
 
 FONT = "Arial"
@@ -379,10 +429,17 @@ def write_kml(picks: pd.DataFrame, crs: str, path: Path) -> Path:
     return path
 
 
-def read_sheet(path: Path, picks: pd.DataFrame) -> pd.DataFrame:
-    """Candidates joined with the person's answers; `accepted` marks library pixels."""
+PERSON_COLUMN, AI_PRECHECK_COLUMN = 6, 9
+
+
+def read_sheet(path: Path, picks: pd.DataFrame, column: int = PERSON_COLUMN) -> pd.DataFrame:
+    """Candidates joined with the answers in `column`; `accepted` marks library pixels.
+
+    The default is the person's confirmation (column F). `AI_PRECHECK_COLUMN` (I) gives a
+    provisional library before anyone has checked the candidates.
+    """
     ws = load_workbook(path)["Candidates"]
-    answers = [ws.cell(r, 6).value for r in range(2, len(picks) + 2)]
+    answers = [ws.cell(r, column).value for r in range(2, len(picks) + 2)]
     out = picks.reset_index(drop=True).copy()
     out["answer"] = answers
     out["accepted"] = out.answer.isin(ACCEPT)

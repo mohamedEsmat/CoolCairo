@@ -349,3 +349,16 @@ def test_osm_buildings_come_from_the_committed_snapshot():
     cfg = load_config()
     assert cfg["osm_refresh"] is False
     assert len(load_osm_buildings(cfg)) == 15129
+
+
+def test_sam_ignores_brightness_and_leaves_far_or_missing_pixels_unclassified():
+    from coolcairo.library import UNCLASSIFIED, sam_angles, sam_classify
+
+    a, b = np.array([0.2, 0.3, 0.4]), np.array([0.4, 0.3, 0.2])
+    spectra = pd.DataFrame({"A": a, "B": b})
+    pixels = np.stack([a * 0.3, b * 2.0, np.array([0.3, 0.3, 0.3]), [np.nan, 0.3, 0.3]], axis=1)
+    refl = xr.DataArray(pixels[:, None, :], dims=("wavelength", "y", "x"))
+    angles = sam_angles(refl, spectra)
+    assert angles[0, 0, 0] == pytest.approx(0, abs=1e-4)  # A, three times darker
+    assert sam_classify(angles, max_angle=30)[0].tolist() == [0, 1, 0, UNCLASSIFIED]
+    assert sam_classify(angles, max_angle=5)[0].tolist() == [0, 1, UNCLASSIFIED, UNCLASSIFIED]
