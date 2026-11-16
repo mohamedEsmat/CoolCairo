@@ -127,11 +127,22 @@ def load_population(cfg: Config) -> xr.DataArray:
 
 
 def load_enmap(cfg: Config) -> xr.DataArray:
-    """EnMAP reflectance (wavelength, y, x) on the 30 m model grid (primary scene)."""
-    return _cached_array(
-        DATA_DIR / "enmap_30m.nc",
-        lambda: enmap.reflectance_on_grid(geobox_for(cfg, "model_aoi")),
-    )
+    """EnMAP reflectance (wavelength, y, x) on the 30 m model grid (primary scene).
+
+    The preprocessing report (provenance: scene, bands dropped, pixels kept, versions) is saved
+    next to the cube as enmap_30m.json.
+    """
+    path = DATA_DIR / "enmap_30m.nc"
+    sidecar = path.with_suffix(".json")
+
+    def build() -> xr.DataArray:
+        refl, report = enmap.preprocess(geobox_for(cfg, "model_aoi"))
+        enmap.write_report(report, sidecar)
+        return refl
+
+    if path.exists() and not sidecar.exists():
+        build()  # Cube cached before reports existed: write its report, keep the cube.
+    return _cached_array(path, build)
 
 
 def load_buildings(cfg: Config) -> gpd.GeoDataFrame:

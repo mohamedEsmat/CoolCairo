@@ -65,11 +65,59 @@ def good_band_mask(wavelengths: np.ndarray) -> np.ndarray:
     return ~bad
 
 
-def reflectance_on_grid(geobox: GeoBox, scene_id: str | None = None) -> xr.DataArray:
-    """Surface reflectance (0-1) as (band, y, x) on `geobox`, land pixels only, bad bands dropped.
+def band_choices(wavelengths: np.ndarray) -> dict:
+    """Report section: how many bands each bad window removed, and what is left."""
+    keep = good_band_mask(wavelengths)
+    windows = []
+    for lo, hi in BAD_WINDOWS_NM:
+        inside = (wavelengths >= lo) & (wavelengths <= hi)
+        windows.append({"window_nm": [lo, hi], "bands_dropped": int(inside.sum())})
+    return {
+        "bands_total": int(wavelengths.size),
+        "bands_kept": int(keep.sum()),
+        "kept_range_nm": [round(float(wavelengths[keep].min()), 1),
+                          round(float(wavelengths[keep].max()), 1)],
+        "bad_windows": windows,
+    }
 
-    Nearest-neighbour resampling: EnMAP is already a 30 m UTM 36N grid like ours, and
-    nearest keeps each pixel's spectrum unmixed (bilinear would blend neighbours).
+
+def _versions() -> dict:
+    """Library versions and the CoolCairo git commit, for the provenance file."""
+    import platform
+    import subprocess
+    from importlib.metadata import PackageNotFoundError, version
+
+    from coolcairo.config import REPO_ROOT
+
+    out = {"python": platform.python_version()}
+    for pkg in ("numpy", "xarray", "rioxarray", "rasterio"):
+        try:
+            out[pkg] = version(pkg)
+        except PackageNotFoundError:
+            out[pkg] = None
+    try:
+        git = ["git", "-C", str(REPO_ROOT)]
+        commit = subprocess.run([*git, "rev-parse", "--short", "HEAD"], capture_output=True,
+                                text=True, check=True).stdout.strip()
+        dirty = subprocess.run([*git, "status", "--porcelain", "--", "analysis/src"],
+                               capture_output=True, text=True, check=True).stdout.strip()
+        out["coolcairo_commit"] = commit + (" + local changes" if dirty else "")
+    except (OSError, subprocess.CalledProcessError):
+        out["coolcairo_commit"] = None
+    return out
+
+
+def preprocess(geobox: GeoBox, scene_id: str | None = None) -> tuple[xr.DataArray, dict]:
+    """EnMAP L2A preprocessing in one place, with a report of every choice it makes.
+
+    Steps: (1) drop bad bands (`BAD_WINDOWS_NM`); (2) nearest-neighbour resampling to
+    `geobox`: EnMAP is already a 30 m UTM 36N grid like ours, and nearest keeps each pixel's
+    spectrum unmixed (bilinear would blend neighbours); (3) keep land pixels with data
+    (QL_QUALITY_CLASSES); (4) scale digital numbers to reflectance. No clipping, smoothing or
+    normalisation: negative reflectance is kept, because clipping biases means.
+
+    Returns (reflectance as (wavelength, y, x), report). Save the report next to any output
+    with `write_report` (the provenance file).
     """
     scene_id = scene_id or scene_ids()[0]
     wl = wavelengths_nm(scene_id)
@@ -86,13 +134,57 @@ def reflectance_on_grid(geobox: GeoBox, scene_id: str | None = None) -> xr.DataA
         target, resampling=Resampling.nearest
     )
     quality = rioxarray.open_rasterio(_file(scene_id, "QL_QUALITY_CLASSES")).sel(band=1)
-    land = quality.rio.reproject_match(target, resampling=Resampling.nearest) == LAND_CLASS
+    quality = quality.rio.reproject_match(target, resampling=Resampling.nearest)
+    land = quality == LAND_CLASS
 
     refl = cube.where((cube != NODATA) & land).astype("float32") * REFLECTANCE_SCALE
     refl = refl.assign_coords(band=wl[keep], x=target.x, y=target.y).rename(band="wavelength")
     refl.name = "reflectance"
     refl.attrs.update(scene=scene_id, source="EnMAP L2A, (c) DLR")
-    return refl
+
+    q = quality.values
+    has_data = (cube != NODATA).all("band").values
+    kept = int((land.values & has_data).sum())
+    values = refl.values
+    report = {
+        "product": "EnMAP L2A surface reflectance (DLR)",
+        "scene": scene_id,
+        "acquired": acquisition_date(scene_id),
+        "attribution": attribution(scene_id),
+        "bands": band_choices(wl),
+        "grid": {"crs": str(geobox.crs), "resolution_m": abs(float(geobox.resolution.x)),
+                 "shape_yx": list(geobox.shape), "resampling": "nearest"},
+        "pixels": {
+            "total": int(q.size),
+            "land": int((q == LAND_CLASS).sum()),
+            "water": int((q == 2).sum()),
+            "background": int((q == 3).sum()),
+            "land_without_data": int((land.values & ~has_data).sum()),
+            "kept": kept,
+            "kept_pct": round(100 * kept / q.size, 2),
+        },
+        "reflectance": {
+            "scale": REFLECTANCE_SCALE,
+            "clipped": False,
+            "negative_values": int((values < 0).sum()),
+            "above_one_values": int((values > 1).sum()),
+        },
+        "versions": _versions(),
+    }
+    return refl, report
+
+
+def write_report(report: dict, path: Path) -> None:
+    """Write the preprocessing report as a JSON provenance file (e.g. next to the cube)."""
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def reflectance_on_grid(geobox: GeoBox, scene_id: str | None = None) -> xr.DataArray:
+    """Surface reflectance only (see `preprocess` for the steps and the report)."""
+    return preprocess(geobox, scene_id)[0]
 
 
 # Sentinel-2 band passbands (nm), used to simulate Sentinel-2 from EnMAP so a comparison can

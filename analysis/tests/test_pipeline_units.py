@@ -210,6 +210,22 @@ def test_simulated_sentinel2_averages_enmap_bands_in_passband():
     assert float(s2.B02[0, 0]) == pytest.approx(0.2)  # mean of 460 and 500 nm, 600 excluded
 
 
+def test_enmap_band_choices_report_counts_each_bad_window(tmp_path):
+    import json
+
+    from coolcairo.enmap import band_choices, write_report
+
+    wl = np.array([410.0, 500.0, 1400.0, 1450.0, 1600.0, 1900.0, 2200.0, 2450.0])
+    rep = band_choices(wl)
+    assert rep["bands_total"] == 8 and rep["bands_kept"] == 3
+    assert rep["kept_range_nm"] == [500.0, 2200.0]
+    dropped = [w["bands_dropped"] for w in rep["bad_windows"]]
+    assert dropped == [1, 2, 1, 1]  # <420, water vapour 1330-1480, 1780-1990, >2400 nm
+
+    write_report({"bands": rep}, tmp_path / "out" / "enmap.json")
+    assert json.loads((tmp_path / "out" / "enmap.json").read_text(encoding="utf-8"))["bands"] == rep
+
+
 def test_heat_r2_ranks_informative_features_higher():
     from coolcairo.separability import heat_r2
 
