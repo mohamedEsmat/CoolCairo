@@ -63,6 +63,23 @@ the EnMAP date counts, and in sharpness or colour, the sharper one.
   (criterion c). The residual is still highest in the bright south-east desert and construction
   areas.
 
+### Labels used for the checks: source, date, purity
+
+The map and unmixing checks use labels that do not come from the EnMAP spectra. They are
+older or newer than the scene (22 Apr 2025) and not perfectly pure, so the scores carry
+their errors:
+
+| Label | Source and date | Rule (30 m pixel) | Known errors |
+|---|---|---|---|
+| Pure roof | OSM footprints, extract of 23 Sep 2026 | ≥ 90 % of the 10 m cells inside a footprint | OSM draws some compounds as one polygon: 5 of 70 library candidates were car parks or forecourts; buildings built after Apr 2025 count as roof |
+| Open ground | OSM (23 Sep 2026) + Google Open Buildings 2.5D Temporal **2023** | > 300 m from any building in either, not vegetated | Buildings built 2023–25 are missing from Open Buildings 2023, so some new construction counts as open ground (consistent with the high residual in the south-east construction areas) |
+| Modelled shadow | Open Buildings 2023 heights, sun angles of the scene | shadow ≤ 0.36 × height | Heights are 2023; height errors move shadows |
+
+Both label sets are the easy cases (pure roofs, ground far from buildings), so the scores
+are optimistic: mixed pixels will score lower. The unbiased test is still to come: about
+150 blind points labelled in very-high-resolution imagery by someone who does not see the
+map, reported as per-class F1 with a confusion matrix.
+
 ## How the candidates were chosen
 
 [`make_library_candidates.py`](../../analysis/make_library_candidates.py) and
