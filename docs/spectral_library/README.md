@@ -63,6 +63,14 @@ the EnMAP date counts, and in sharpness or colour, the sharper one.
   (criterion c). The residual is still highest in the bright south-east desert and construction
   areas.
 
+**Used in the app (19 Nov 2026).** The pipeline (`analysis/src/coolcairo/enmap_materials.py`)
+unmixes Nasr City with this library, reads the heat model from `unmixing/coefficients.csv`, and
+exports both to `export/district.json`; the app opens Cairo on these EnMAP materials (Sentinel-2
+one click away). Albedos measured from the library spectra (solar-weighted): pale roof 0.35,
+dusty roof 0.27, asphalt 0.18, sand 0.34. Footprints decide where roofs are, because the roof
+fractions follow footprints only loosely (correlation 0.18). Targeted plan in Nasr City: −55 %
+heat exposure (−74 % with the Sentinel-2 materials).
+
 ### Labels used for the checks: source, date, purity
 
 The map and unmixing checks use labels that do not come from the EnMAP spectra. They are
