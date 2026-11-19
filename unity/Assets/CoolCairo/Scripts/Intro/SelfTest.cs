@@ -51,6 +51,10 @@ namespace CoolCairo
             yield return HeatPalettes(district, ui);
             yield return FootprintAndHighlight(district, brush, highlight);
             yield return AnalysisMaps(district, ui);
+            yield return EnmapMaterials(district);
+            // The report's figures below are the Sentinel-2 proof of concept.
+            district.Model.Source = MaterialSource.Sentinel2;
+            yield return null;
             yield return PlanPanel(district);
             yield return LiveHud(district, ui, brush);
             Unchanged(district);
@@ -166,16 +170,17 @@ namespace CoolCairo
         IEnumerator AnalysisMaps(DistrictView d, DistrictUI ui)
         {
             var figures = (AnalysisFigure[])typeof(DistrictUI).GetField("figures", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(ui);
-            Check("figures: 7 linked, all with an image", figures != null && figures.Length == 7 && figures.All(f => f.image != null),
+            Check("figures: 9 linked, all with an image", figures != null && figures.Length == 9 && figures.All(f => f.image != null),
                   $"{figures?.Length} linked, {figures?.Count(f => f.image == null)} without image");
             int Count(ViewMode m) => figures.Count(f => f.view == m);
-            Check("figures: Materials 1, Surface heat 3, Heat risk 2, Growth 1",
-                  Count(ViewMode.Materials) == 1 && Count(ViewMode.Heat) == 3 && Count(ViewMode.Risk) == 2 && Count(ViewMode.Growth) == 1);
+            Check("figures: Materials 3 (two EnMAP maps first), Surface heat 3, Heat risk 2, Growth 1",
+                  Count(ViewMode.Materials) == 3 && figures.First(f => f.view == ViewMode.Materials).image.name.Contains("enmap") && Count(ViewMode.Heat) == 3 && Count(ViewMode.Risk) == 2 && Count(ViewMode.Growth) == 1);
             Check("figures: images are sharp but not oversized (500-2048 px wide)",
                   figures.All(f => f.image.width >= 500 && f.image.width <= 2048),
                   string.Join(", ", figures.Select(f => f.image.width)));
-            Check("figures: the EnMAP chart carries the DLR credit",
-                  figures.Any(f => f.image.name.Contains("hyperspectral") && f.caption.Contains("© DLR")));
+            Check("figures: every EnMAP map carries the DLR credit",
+                  figures.Where(f => f.image.name.Contains("hyperspectral") || f.image.name.Contains("enmap") ||
+                                     f.image.name.Contains("material_map")).Count(f => f.caption.Contains("© DLR")) == 3);
 
             d.SetMode(ViewMode.Heat);
             yield return null;
@@ -566,6 +571,67 @@ namespace CoolCairo
             d.Model.ApplyTargetedPlan();
             Check("cities: the targeted plan cuts Casablanca's heat exposure", exposure > 0f && d.Model.TotalExposure() < exposure,
                   $"{exposure:N0} → {d.Model.TotalExposure():N0}");
+        }
+
+        // ---------- EnMAP materials (the hyperspectral upgrade) ----------
+
+        IEnumerator EnmapMaterials(DistrictView d)
+        {
+            var model = d.Model;
+            var e = d.Data.enmap;
+            model.ResetAll();
+            d.SetMode(ViewMode.Materials);
+            yield return Settle(d);
+            Check("enmap: Cairo opens on EnMAP materials, DATA switch shown with EnMAP selected",
+                  d.Data.HasEnmap && model.Source == MaterialSource.Enmap && Find(DistrictUI.SourceRow).activeInHierarchy &&
+                  Button(DistrictUI.SourceButtonPrefix + MaterialSource.Enmap).targetGraphic.color == HudStyle.Accent,
+                  $"{model.Source}");
+            var b = d.Data.blocks;
+            var valid = Enumerable.Range(0, d.Data.BlockCount).Where(model.IsValid).ToList();
+            float worst = valid.Max(i => Mathf.Abs(b.enmapSand[i] + b.enmapPaleRoof[i] + b.enmapDustyRoof[i] + b.enmapAsphalt[i] +
+                                                   b.enmapVegetation[i] + b.enmapShade[i] - 1f));
+            Check("enmap: every block's six fractions sum to 1", worst < 0.02f, $"worst {worst:0.000}");
+            Check("enmap: legend lists dusty roof and shade; hint names EnMAP and the checked library",
+                  Find("Dusty roof") != null && Find("Shade (shadow, material unseen)") != null &&
+                  Text(HudStyle.ViewHint).Contains("EnMAP") && Text(HudStyle.ViewHint).Contains("checked by eye"),
+                  Text(HudStyle.ViewHint));
+            Check("enmap: model notes give R² 0.39 vs 0.25 and the 0.53 vs 0.33 spectrum test",
+                  Text(HudStyle.ModelText).Contains("R² 0.39") && Text(HudStyle.ModelText).Contains("0.25") &&
+                  Text(HudStyle.ModelText).Contains("0.53 vs 0.33"), Text(HudStyle.ModelText));
+
+            // Same figures as the analysis (enmap_materials.plan_figures).
+            float before = model.TotalExposure(false);
+            var pct = new[] { Intervention.CoolRoof, Intervention.Trees, Intervention.CoolPavement, Intervention.PocketPark }
+                .Select(k => 100f * (model.ExposureIfEverywhere(k) - before) / before).ToArray();
+            var want = new[] { e.pctCoolRoofs, e.pctStreetTrees, e.pctCoolPavements, e.pctPocketParks };
+            Check("enmap: one measure everywhere matches the analysis",
+                  Mathf.Abs(before - e.exposureBefore) < 1f && pct.Zip(want, (a, w) => Mathf.Abs(a - w)).Max() < 0.1f,
+                  string.Join(" / ", pct.Select(v => v.ToString("0.0"))) + " vs " + string.Join(" / ", want.Select(v => v.ToString("0.0"))));
+            model.ApplyTargetedPlan();
+            Check($"enmap: the targeted plan matches the analysis ({e.targetedPct:0}%, {e.targetedExposureAfter:N0} person·°C)",
+                  model.TreatedBlocks() == e.targetedBlocks && Mathf.Abs(model.TotalExposure() - e.targetedExposureAfter) < 1f &&
+                  Mathf.Abs(model.ResidentsInCooledBlocks() - e.targetedResidentsCooled) < 1f,
+                  $"{model.TreatedBlocks()} blocks, {model.TotalExposure():N1}, {model.ResidentsInCooledBlocks():N0} residents");
+            Check("enmap: cool roofs only where footprints are (no roofs mapped, nothing to coat)",
+                  valid.Where(i => b.roofFrac[i] <= 0f).All(i => model.MeasureDelta(Intervention.CoolRoof, i) == 0f));
+
+            // The switch: same plan, other materials and effects; and back.
+            float withEnmap = model.TotalExposure();
+            int probe = valid.OrderByDescending(i => b.enmapShade[i]).First();
+            var enmapColour = MaterialsColor(d, probe);
+            Button(DistrictUI.SourceButtonPrefix + MaterialSource.Sentinel2).onClick.Invoke();
+            yield return null;
+            Check("enmap: the Sentinel-2 button keeps the plan and re-evaluates it",
+                  model.Source == MaterialSource.Sentinel2 && model.HasPlan && Mathf.Abs(model.TotalExposure() - withEnmap) > 1f,
+                  $"{withEnmap:N1} → {model.TotalExposure():N1}");
+            Check("enmap: with Sentinel-2 the map, legend and hint go back to the proof of concept",
+                  !Near(enmapColour, MaterialsColor(d, probe)) && Find("Dark surface: asphalt, dark roofs") != null &&
+                  Text(HudStyle.ViewHint).Contains("Sentinel-2"), Text(HudStyle.ViewHint));
+            Button(DistrictUI.SourceButtonPrefix + MaterialSource.Enmap).onClick.Invoke();
+            yield return null;
+            Check("enmap: the EnMAP button switches back to the same result",
+                  model.Source == MaterialSource.Enmap && Mathf.Abs(model.TotalExposure() - withEnmap) < 0.01f);
+            model.ResetAll();
         }
 
         // ---------- 6. nothing else changed ----------

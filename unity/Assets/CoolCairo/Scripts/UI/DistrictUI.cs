@@ -46,6 +46,14 @@ namespace CoolCairo
         Texture2D _rampTex;
         ViewMode _shownMode = (ViewMode)(-1);
         HeatPalette _shownPalette = (HeatPalette)(-1);
+        MaterialSource _shownSource = (MaterialSource)(-1);
+
+        // EnMAP / Sentinel-2 switch (built at runtime from the colour-scheme row): which data the
+        // block materials and the cooling effects come from. Shown only where EnMAP exists.
+        public const string SourceRow = "LegendSource";
+        public const string SourceButtonPrefix = "SourceButton";
+        readonly Dictionary<MaterialSource, Button> _sourceButtons = new Dictionary<MaterialSource, Button>();
+        GameObject _legendSource;
         Intervention _shownTool = (Intervention)(-1);
 
         // Analysis maps popup
@@ -134,6 +142,7 @@ namespace CoolCairo
             _legendScale = Find<RectTransform>(HudStyle.LegendScale).gameObject;
             _legendSwatches = Find<RectTransform>(HudStyle.LegendSwatches).gameObject;
             _legendPalettes = Find<RectTransform>(HudStyle.LegendPalettes).gameObject;
+            BuildSourceRow();
             _tooltip = Find<RectTransform>(HudStyle.Tooltip);
             _tooltipTitle = Find<TextMeshProUGUI>(HudStyle.TooltipTitle);
             _tooltipBody = Find<TextMeshProUGUI>(HudStyle.TooltipBody);
@@ -181,6 +190,7 @@ namespace CoolCairo
         void Update()
         {
             _exitLabel.text = QuitGuard.Armed ? "<color=#FF8A3D>CONFIRM?</color>" : "EXIT";
+            if (district.Model.Source != _shownSource) ShowSource();
             // Mode and tool can also change from code (e.g. the soak test), so poll them.
             if (district.Mode != _shownMode || district.Palette != _shownPalette) ShowView(district.Mode);
             if (brush.Tool != _shownTool) ShowTool(brush.Tool);
@@ -199,6 +209,45 @@ namespace CoolCairo
             UpdateTooltip();
         }
 
+        // ---------- material source (EnMAP / Sentinel-2) ----------
+
+        void BuildSourceRow()
+        {
+            _legendSource = Instantiate(_legendPalettes, _legendPalettes.transform.parent);
+            _legendSource.name = SourceRow;
+            _legendSource.transform.SetSiblingIndex(_legendPalettes.transform.GetSiblingIndex());
+            var label = _legendSource.GetComponentsInChildren<TextMeshProUGUI>(true).First(t => t.name == "PaletteLabel");
+            label.text = "DATA";
+            var buttons = _legendSource.GetComponentsInChildren<Button>(true);
+            var sources = new[] { (MaterialSource.Enmap, "EnMAP"), (MaterialSource.Sentinel2, "Sentinel-2") };
+            for (int k = 0; k < buttons.Length; k++)
+            {
+                if (k >= sources.Length) { Destroy(buttons[k].gameObject); continue; }
+                var (source, text) = sources[k];
+                var b = buttons[k];
+                b.name = SourceButtonPrefix + source;
+                b.onClick.RemoveAllListeners();
+                b.onClick.AddListener(() => district.Model.Source = source);
+                b.GetComponentInChildren<TextMeshProUGUI>().text = text;
+                _sourceButtons[source] = b;
+            }
+            _legendSource.SetActive(district.Data.HasEnmap);
+        }
+
+        // The source changed (button or code): every text and key that names materials follows.
+        void ShowSource()
+        {
+            _shownSource = district.Model.Source;
+            foreach (var kv in _sourceButtons) Highlight(kv.Value, kv.Key == _shownSource);
+            foreach (Transform row in _legendSwatches.transform) Destroy(row.gameObject);
+            _legendSwatches.transform.DetachChildren();
+            BuildSwatches();
+            Find<TextMeshProUGUI>(HudStyle.ModelText).text = ModelSummary();
+            _motion.SetTicker(Ticker());
+            ShowView(district.Mode);
+            ShowTool(brush.Tool);
+        }
+
         // ---------- sidebar ----------
 
         void ShowView(ViewMode mode)
@@ -210,7 +259,11 @@ namespace CoolCairo
             var m = district.Data.model;
             _viewHint.text = mode switch
             {
-                ViewMode.Materials => "What surfaces are made of, per 90 m block (Sentinel-2, summer 2023–25): dark vs pale roofs, asphalt, sand and greenery.",
+                ViewMode.Materials => district.Model.UsesEnmap
+                    ? $"What surfaces are made of, per 90 m block, from hyperspectral EnMAP ({district.Data.enmap.acquired}): " +
+                      $"every pixel unmixed into sand, pale roof, dusty roof, asphalt, vegetation and shade with our spectral library " +
+                      $"({district.Data.enmap.libraryPixels} pixels, each checked by eye)."
+                    : "What surfaces are made of, per 90 m block (Sentinel-2, summer 2023–25): dark vs pale roofs, asphalt, sand and greenery.",
                 ViewMode.Heat => "Land surface temperature per 90 m block: median of summer 2023–25 Landsat 8/9 scenes. Surface, not air, temperature.",
                 ViewMode.Growth => GrowthHint(),
                 _ => $"Heat exposure = residents × °C above {m.heatReferenceC:0.0} °C, the typical " +
@@ -262,7 +315,9 @@ namespace CoolCairo
             if (hs != null && hs.available == 1)   // after the heat model, as for Cairo
                 list.Insert(3, F(ViewMode.Heat, "fig4_hyperspectral", "Does hyperspectral data help?",
                     $"How well each set of satellite bands explains block surface temperature, tested on hidden 1, 2 and 3 km " +
-                    $"areas: R² {hs.r2Hyperspectral:0.00} with EnMAP vs {hs.r2Multispectral:0.00} with Sentinel-2 (our features + spectra). " +
+                    (hs.r2SpectraFull > 0f
+                        ? $"areas: R² {hs.r2SpectraFull:0.00} with EnMAP's full spectrum vs {hs.r2SpectraS2Bands:0.00} for the same scene at Sentinel-2's bands. "
+                        : $"areas: R² {hs.r2Hyperspectral:0.00} with EnMAP vs {hs.r2Multispectral:0.00} with Sentinel-2 (our features + spectra). ") +
                     $"One EnMAP scene, {hs.acquired}. {hs.attribution}."));
             if (d.HasGrowth)
                 list.Add(F(ViewMode.Growth, "fig6_growth", $"Urban growth {d.growth.firstYear}–{d.growth.lastYear}",
@@ -315,8 +370,20 @@ namespace CoolCairo
             foreach (var kv in _toolButtons) Highlight(kv.Value, kv.Key == tool);
             var m = district.Data.model;
             var model = district.Model;
+            var e = district.Data.enmap;
             // How to use it first, then what it does.
-            _toolHint.text = "<color=#E6F1FF>Drag over blocks to paint, right-drag to erase.</color> " + tool switch
+            _toolHint.text = "<color=#E6F1FF>Drag over blocks to paint, right-drag to erase.</color> " + (model.UsesEnmap ? tool switch
+            {
+                Intervention.CoolRoof =>
+                    $"Coat every roof in a block white. Roof materials from EnMAP; per unit of area coated: {Minus(e.coolRoofDustyDeltaC)} °C on dusty roofs, " +
+                    $"{Minus(e.coolRoofPaleDeltaC)} °C on pale roofs (albedo {e.albedoDustyRoof:0.00} and {e.albedoPaleRoof:0.00} measured from the spectra → 0.70).",
+                Intervention.Trees =>
+                    $"Plant street trees on up to {model.TreeMaxShare:P0} of a block's asphalt: {Minus(e.treesDeltaC)} °C per unit of area planted (our EnMAP heat model).",
+                Intervention.CoolPavement =>
+                    $"Coat asphalt with reflective paint: {Minus(e.coolPavementDeltaC)} °C per unit of area coated (albedo {e.albedoAsphalt:0.00} measured by EnMAP → 0.40).",
+                _ =>
+                    $"Turn up to {model.ParkMaxShare:P0} of a block's bare sand into a small park: {Minus(e.pocketParkDeltaC)} °C per unit of area greened (our EnMAP heat model).",
+            } : tool switch
             {
                 Intervention.CoolRoof =>
                     $"Coat every roof in a block white. Per unit of area coated: {Minus(m.coolRoofDarkDeltaC)} °C on dark roofs, {Minus(m.coolRoofPaleDeltaC)} °C on pale roofs (published values).",
@@ -326,7 +393,7 @@ namespace CoolCairo
                     $"Coat asphalt and dark paving with reflective paint: {Minus(m.coolPavementDeltaC)} °C per unit of area coated (published values, conservative).",
                 _ =>
                     $"Turn up to {model.ParkMaxShare:P0} of a block's bare sand into a small park: {Minus(m.pocketParkDeltaC)} °C per unit of area greened (our own data).",
-            };
+            });
         }
 
         // How many blocks one dab covers away from the edges (1, 5, 13, 29, ...).
@@ -584,8 +651,11 @@ namespace CoolCairo
             _tooltipBody.text =
                 $"Surface temperature  <color=#E8EEF6>{temp}</color>\n" +
                 $"Residents  <color=#E8EEF6>{model.Residents(h):N0}</color>  ·  heat exposure <color=#E8EEF6>{expo}</color> person·°C\n" +
-                $"Roofs: {b.darkRoofFrac[h]:P0} dark, {b.paleRoofFrac[h]:P0} pale of block area\n" +
-                $"Ground: {b.darkGroundFrac[h]:P0} dark, {b.soilFrac[h]:P0} sand, {b.vegFrac[h]:P0} green";
+                (model.UsesEnmap
+                    ? $"EnMAP: {b.enmapPaleRoof[h]:P0} pale roof, {b.enmapDustyRoof[h]:P0} dusty roof, {b.enmapAsphalt[h]:P0} asphalt\n" +
+                      $"{b.enmapSand[h]:P0} sand, {b.enmapVegetation[h]:P0} green, {b.enmapShade[h]:P0} shade · roofs mapped {b.roofFrac[h]:P0}"
+                    : $"Roofs: {b.darkRoofFrac[h]:P0} dark, {b.paleRoofFrac[h]:P0} pale of block area\n" +
+                      $"Ground: {b.darkGroundFrac[h]:P0} dark, {b.soilFrac[h]:P0} sand, {b.vegFrac[h]:P0} green");
             if (district.Data.HasGrowth && b.builtFirst[h] >= 0f && b.builtLast[h] >= 0f)
                 _tooltipBody.text += $"\nBuilding cover {district.Data.growth.firstYear} → {district.Data.growth.lastYear}: " +
                                      $"{b.builtFirst[h]:P0} → {b.builtLast[h]:P0}";
@@ -628,11 +698,22 @@ namespace CoolCairo
         {
             var d = district.Data;
             var m = d.model;
-            string text = $"Block-level (90 m) land surface temperature. Heat model: spatial cross-validated R² {m.r2SpatialCv:0.00}, " +
-                          $"error ±{m.maeSpatialCv:0.0} °C, {m.nBlocks:N0} urban blocks.";
+            string text;
+            if (district.Model.UsesEnmap)
+            {
+                var e = d.enmap;
+                text = $"Block-level (90 m) land surface temperature. Materials: EnMAP ({e.acquired}), unmixed with {e.libraryPixels} " +
+                       $"library pixels checked by eye. Heat model on EnMAP fractions: spatial cross-validated R² {e.r2Enmap:0.00} " +
+                       $"(Sentinel-2 shares: {e.r2Sentinel2:0.00}), error ±{e.maeEnmap:0.0} °C, same {m.nBlocks:N0} urban blocks.";
+            }
+            else
+                text = $"Block-level (90 m) land surface temperature. Heat model: spatial cross-validated R² {m.r2SpatialCv:0.00}, " +
+                       $"error ±{m.maeSpatialCv:0.0} °C, {m.nBlocks:N0} urban blocks.";
             var h = d.hyperspectral;
             if (h != null && h.available == 1)
-                text += $"\nHyperspectral EnMAP ({h.acquired}) explains heat at R² {h.r2Hyperspectral:0.00} vs {h.r2Multispectral:0.00} with Sentinel-2.";
+                text += h.r2SpectraFull > 0f
+                    ? $"\nHyperspectral EnMAP ({h.acquired}): the full spectrum explains heat at R² {h.r2SpectraFull:0.00} vs {h.r2SpectraS2Bands:0.00} for the same scene at Sentinel-2's bands."
+                    : $"\nHyperspectral EnMAP ({h.acquired}) explains heat at R² {h.r2Hyperspectral:0.00} vs {h.r2Multispectral:0.00} with Sentinel-2.";
             // Satellites measure surfaces, not air; give the air effect only as a cited city-wide range.
             text += "\n<b>Surface ≠ air temperature.</b> Studies suggest city-wide cool roofs lower air temperature by " +
                     "~0.1–0.33 °C per +0.1 roof albedo (Santamouris 2014, cited in Wang et al. 2020); the effect on air " +
@@ -653,7 +734,10 @@ namespace CoolCairo
                 parts.Add($"<color=#4FD6FF>></color> {src.satellite.ToUpperInvariant()} · {n} {(n == 1 ? "SCENE" : "SCENES")} · {dates} · {src.use.ToUpperInvariant()}");
             }
             var m = d.model;
-            parts.Add($"<color=#4FD6FF>></color> HEAT MODEL · R² {m.r2SpatialCv:0.00} SPATIAL CV · ±{m.maeSpatialCv:0.0} °C · {m.nBlocks:N0} BLOCKS");
+            if (district.Model.UsesEnmap)
+                parts.Add($"<color=#4FD6FF>></color> HEAT MODEL · ENMAP MATERIAL FRACTIONS · R² {d.enmap.r2Enmap:0.00} SPATIAL CV (SENTINEL-2 {d.enmap.r2Sentinel2:0.00}) · ±{d.enmap.maeEnmap:0.0} °C · {m.nBlocks:N0} BLOCKS");
+            else
+                parts.Add($"<color=#4FD6FF>></color> HEAT MODEL · R² {m.r2SpatialCv:0.00} SPATIAL CV · ±{m.maeSpatialCv:0.0} °C · {m.nBlocks:N0} BLOCKS");
             parts.Add($"<color=#4FD6FF>></color> WORLDPOP 2024 · {district.Model.TotalResidents():N0} RESIDENTS IN THIS DISTRICT");
             parts.Add($"<color=#4FD6FF>></color> CREDITS · {Credits()}");
             return string.Join("      ", parts);

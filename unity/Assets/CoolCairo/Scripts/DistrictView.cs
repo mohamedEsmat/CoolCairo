@@ -25,6 +25,10 @@ namespace CoolCairo
         [SerializeField] Color darkSurface = new Color(0.22f, 0.22f, 0.24f);
         [SerializeField] Color vegetation = new Color(0.33f, 0.55f, 0.27f);
         [SerializeField] Color soil = new Color(0.84f, 0.70f, 0.49f);
+        // EnMAP materials: dusty roofs are a greyer brown than sand so the two read apart, and
+        // shade (no material seen, only shadow) is a dark blue-grey.
+        public static readonly Color DustyRoof = new Color(0.58f, 0.51f, 0.44f);  // #94826F
+        public static readonly Color Shade = new Color(0.16f, 0.19f, 0.27f);      // #293045
         // Treated surfaces get their own icy cyan / blue, used nowhere else on the map: plain
         // white and light grey were almost invisible next to Cairo's pale beige roofs.
         // Same colours as the treatment rings (TreatmentOverlay).
@@ -115,6 +119,18 @@ namespace CoolCairo
         // Materials-view colours for the legend, in the order the legend shows them.
         public System.Collections.Generic.IEnumerable<(string label, Color color)> MaterialLegend()
         {
+            if (Model.UsesEnmap)
+            {
+                yield return ("Vegetation", vegetation);
+                yield return ("Asphalt / paved", darkSurface);
+                yield return ("Pale roof (concrete, light paint)", brightSurface);
+                yield return ("Dusty roof", DustyRoof);
+                yield return ("Sand / bare ground", soil);
+                yield return ("Shade (shadow, material unseen)", Shade);
+                yield return ("Cool roof, coated (your plan)", coolRoof);
+                yield return ("Cool pavement, coated (your plan)", coolPavement);
+                yield break;
+            }
             yield return ("Vegetation", vegetation);
             yield return ("Dark surface: asphalt, dark roofs", darkSurface);
             yield return ("Pale surface: concrete, pale roofs", brightSurface);
@@ -258,8 +274,10 @@ namespace CoolCairo
                 }
                 else
                 {
-                    // Block-level statement: roofs in this block are X% dark. Not per-roof truth.
-                    roof = Color.Lerp(brightSurface, darkSurface, Model.DarkRoofShareOfRoofs(block));
+                    // Block-level statement: roofs in this block are X% dark (Sentinel-2) or dusty
+                    // (EnMAP). Not per-roof truth.
+                    roof = Color.Lerp(brightSurface, Model.UsesEnmap ? DustyRoof : darkSurface,
+                                      Model.DarkRoofShareOfRoofs(block));
                     roof = Color.Lerp(roof, coolRoof, Model.Share(Intervention.CoolRoof, block));
                     walls = wall;
                 }
@@ -298,6 +316,7 @@ namespace CoolCairo
             if (Mode == ViewMode.Heat) return HeatColor(Model.Lst(i));
             if (Mode == ViewMode.Risk) return BlockRiskColor(i);
 
+            if (Model.UsesEnmap) return EnmapGroundColor(i);
             var bl = Data.blocks;
             float ground = Mathf.Max(1e-4f, 1f - bl.roofFrac[i]);
             float planted = Model.TreePlantedFrac(i), coated = Model.PavementCoatedFrac(i);
@@ -309,6 +328,24 @@ namespace CoolCairo
             // Mix the ground shares; bright paved ground fills whatever share is left.
             float bright = Mathf.Max(0f, 1f - veg - dark - paved - sand);
             var c = brightSurface * bright + darkSurface * dark + coolPavement * paved + soil * sand + vegetation * veg;
+            c.a = 1f;
+            return c;
+        }
+
+        // EnMAP: the block's whole mix as the satellite sees it (roofs included, as the fractions
+        // are not split by footprints), with the plan's trees, parks and coatings applied.
+        Color EnmapGroundColor(int i)
+        {
+            var bl = Data.blocks;
+            float planted = Model.TreePlantedFrac(i), coated = Model.PavementCoatedFrac(i);
+            float greened = Model.ParkGreenedFrac(i);
+            float veg = bl.enmapVegetation[i] + planted + greened;
+            float asphalt = Mathf.Max(0f, bl.enmapAsphalt[i] - planted - coated);
+            float sand = Mathf.Max(0f, bl.enmapSand[i] - greened);
+            float pale = bl.enmapPaleRoof[i], dusty = bl.enmapDustyRoof[i], shade = bl.enmapShade[i];
+            float sum = Mathf.Max(1e-4f, veg + asphalt + coated + sand + pale + dusty + shade);
+            var c = (vegetation * veg + darkSurface * asphalt + coolPavement * coated + soil * sand
+                     + brightSurface * pale + DustyRoof * dusty + Shade * shade) / sum;
             c.a = 1f;
             return c;
         }

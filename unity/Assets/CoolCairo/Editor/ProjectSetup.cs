@@ -296,13 +296,22 @@ namespace CoolCairo.EditorTools
                 return;
             }
             Directory.CreateDirectory(Path.GetFullPath(FiguresDir));
-            foreach (var file in Directory.GetFiles(src, "*.png"))
-                File.Copy(file, Path.GetFullPath(Path.Combine(FiguresDir, Path.GetFileName(file))), true);
+            // The report's figures, plus the EnMAP material maps from the spectral library work.
+            string library = Path.GetFullPath(Path.Combine(Application.dataPath, "../../docs/spectral_library"));
+            var copies = Directory.GetFiles(src, "*.png").Select(f => (from: f, name: Path.GetFileName(f))).ToList();
+            foreach (var (from, name) in EnmapFigures)
+            {
+                string file = Path.Combine(library, from);
+                if (File.Exists(file)) copies.Add((file, name));
+                else Debug.LogWarning($"No EnMAP figure at {file}. Run analysis/make_sam_map.py and make_unmixing.py.");
+            }
+            foreach (var (from, name) in copies)
+                File.Copy(from, Path.GetFullPath(Path.Combine(FiguresDir, name)), true);
             AssetDatabase.Refresh();
-            foreach (var file in Directory.GetFiles(src, "*.png"))
+            foreach (var (_, name) in copies)
             {
                 // Sharp, unscaled UI images: no mipmaps, no compression blur, full size up to 2048 px.
-                var path = FiguresDir + "/" + Path.GetFileName(file);
+                var path = FiguresDir + "/" + name;
                 var importer = (TextureImporter)AssetImporter.GetAtPath(path);
                 importer.textureType = TextureImporterType.Default;
                 importer.mipmapEnabled = false;
@@ -313,6 +322,13 @@ namespace CoolCairo.EditorTools
             }
             Debug.Log($"Imported analysis maps from {src}");
         }
+
+        // EnMAP maps from docs/spectral_library (confirmed library), copied in under these names.
+        static readonly (string from, string name)[] EnmapFigures =
+        {
+            ("sam/angle_brightness_depths/sam_map.png", "fig7_material_map.png"),
+            ("unmixing/fractions.png", "fig8_enmap_fractions.png"),
+        };
 
         // Which figure belongs to which view, with the text shown under it.
         static AnalysisFigure[] AnalysisFigures()
@@ -330,6 +346,15 @@ namespace CoolCairo.EditorTools
                                     "above the typical block. White blocks in (d) are cooler than typical.";
             var all = new[]
             {
+                F(ViewMode.Materials, "fig8_enmap_fractions.png", "EnMAP: what each 30 m pixel is made of",
+                  "Hyperspectral EnMAP (22 Apr 2025) unmixed with our spectral library of 47 pixels, each checked by eye: " +
+                  "the fraction of sand, pale roof, dusty roof, asphalt, vegetation and shade in every pixel, and the " +
+                  "residual (bottom right): low across the city, high in the bright south-east desert and construction " +
+                  "areas, where our sand spectra do not cover all of Cairo's ground. Contains modified EnMAP data © DLR [2025]."),
+                F(ViewMode.Materials, "fig7_material_map.png", "EnMAP material map of east Cairo",
+                  "One class per 30 m pixel: spectral angle plus brightness and three absorption depths (1730, 2310, " +
+                  "2340 nm). Checked on labels the library never saw: 87% leave-one-out, open ground 80% sand, pure " +
+                  "OpenStreetMap roofs 68% roof, 6% unclassified. Contains modified EnMAP data © DLR [2025]."),
                 F(ViewMode.Materials, "fig2_district.png", "Nasr City: photo, materials, heat and risk", district),
                 F(ViewMode.Heat, "fig1_study_area.png", "East Cairo: summer surface temperature",
                   "The model area. (a) Sentinel-2 summer photo; (b) Landsat summer surface temperature per 90 m block, " +
@@ -340,7 +365,8 @@ namespace CoolCairo.EditorTools
                   "(spatial cross-validation). Good enough to compare cooling measures, not to predict one block exactly."),
                 F(ViewMode.Heat, "fig4_hyperspectral.png", "Does hyperspectral data help?",
                   "How well each set of satellite bands explains block surface temperature, tested on hidden 1, 2 and 3 km " +
-                  "areas. EnMAP's full spectrum clearly beats Sentinel-2. Contains modified EnMAP data © DLR [2025]."),
+                  "areas. EnMAP's full spectrum explains heat at R² 0.53 vs 0.33 for the same scene at Sentinel-2's bands. " +
+                  "Contains modified EnMAP data © DLR [2025]."),
                 F(ViewMode.Risk, "fig2_district.png", "Nasr City: photo, materials, heat and risk", district),
                 F(ViewMode.Risk, "fig5_interventions.png", "What each cooling measure would do",
                   "Change in Nasr City's heat exposure. Blue: each measure at full adoption in every block. Orange: cool " +

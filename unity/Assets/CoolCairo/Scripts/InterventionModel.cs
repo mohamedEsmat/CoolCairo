@@ -12,6 +12,14 @@ namespace CoolCairo
     // plan skips hot blocks that have nothing to treat (no roofs, asphalt or sand mapped).
     public enum RankBy { HeatRisk, Temperature, Residents, CoolingPotential }
 
+    // Where the block materials and the cooling effects come from:
+    //   Sentinel2  the proof of concept: Sentinel-2 rules split by OSM footprints (dark / pale
+    //              roofs, dark ground, sand), published roof and pavement albedos.
+    //   Enmap      the hyperspectral upgrade: EnMAP fractions from the confirmed spectral library,
+    //              the heat model fitted on them, and albedos measured from the library spectra.
+    //              Footprints still say where roofs are; EnMAP says what they are made of.
+    public enum MaterialSource { Sentinel2, Enmap }
+
     // C# port of analysis/src/coolcairo/interventions.py. Keep the two in sync.
     // Pure arithmetic on precomputed coefficients from district.json: no model solving at runtime.
     // All temperatures are land SURFACE temperature (Landsat LST), not air temperature.
@@ -36,10 +44,65 @@ namespace CoolCairo
         public InterventionModel(DistrictData district)
         {
             _d = district;
+            _source = district.HasEnmap ? MaterialSource.Enmap : MaterialSource.Sentinel2;
             int kinds = Enum.GetValues(typeof(Intervention)).Length;
             _share = new float[kinds][];
             for (int k = 0; k < kinds; k++) _share[k] = new float[district.BlockCount];
         }
+
+        MaterialSource _source;
+
+        // EnMAP when the district has it (Cairo), else Sentinel-2. Switching keeps the plan and
+        // re-evaluates it with the other materials.
+        public MaterialSource Source
+        {
+            get => _source;
+            set
+            {
+                if (value == MaterialSource.Enmap && !_d.HasEnmap) value = MaterialSource.Sentinel2;
+                if (value == _source) return;
+                _source = value;
+                Version++;
+                Changed?.Invoke();
+            }
+        }
+
+        public bool UsesEnmap => _source == MaterialSource.Enmap;
+
+        // ---------- treatable areas (block-area shares) for the current source ----------
+        // Keep in sync with analysis enmap_materials.treatable_areas (EnMAP) and
+        // interventions.py (Sentinel-2).
+
+        // EnMAP's pale share of the roof materials (half and half where it sees neither).
+        float PaleShare(int block)
+        {
+            var b = _d.blocks;
+            float both = b.enmapPaleRoof[block] + b.enmapDustyRoof[block];
+            return both > 0f ? b.enmapPaleRoof[block] / both : 0.5f;
+        }
+
+        float Ground(int block) => Math.Max(0f, 1f - _d.blocks.roofFrac[block]);
+
+        // Darker roofs: dark roofs (Sentinel-2) or dusty roofs (EnMAP), on footprints.
+        public float DarkRoofArea(int block) => UsesEnmap
+            ? _d.blocks.roofFrac[block] * (1f - PaleShare(block)) : _d.blocks.darkRoofFrac[block];
+
+        public float PaleRoofArea(int block) => UsesEnmap
+            ? _d.blocks.roofFrac[block] * PaleShare(block) : _d.blocks.paleRoofFrac[block];
+
+        // Dark ground: dark ground (Sentinel-2) or asphalt on the ground (EnMAP).
+        public float DarkGroundArea(int block) => UsesEnmap
+            ? Math.Min(_d.blocks.enmapAsphalt[block], Ground(block)) : _d.blocks.darkGroundFrac[block];
+
+        public float SandArea(int block) => UsesEnmap
+            ? Math.Min(_d.blocks.enmapSand[block], Ground(block)) : _d.blocks.soilFrac[block];
+
+        // Effects per unit block area treated, for the current source.
+        public float CoolRoofDarkDelta => UsesEnmap ? _d.enmap.coolRoofDustyDeltaC : _d.model.coolRoofDarkDeltaC;
+        public float CoolRoofPaleDelta => UsesEnmap ? _d.enmap.coolRoofPaleDeltaC : _d.model.coolRoofPaleDeltaC;
+        public float TreesDelta => UsesEnmap ? _d.enmap.treesDeltaC : _d.model.vegFrac - _d.model.darkGroundFrac;
+        public float CoolPavementDelta => UsesEnmap ? _d.enmap.coolPavementDeltaC : _d.model.coolPavementDeltaC;
+        public float PocketParkDelta => UsesEnmap ? _d.enmap.pocketParkDeltaC : _d.model.pocketParkDeltaC;
 
         // Adoption caps exported from config (fallbacks for older district.json files).
         public float TreeMaxShare => _d.model.treeMaxShare > 0f ? _d.model.treeMaxShare : 0.25f;
@@ -51,14 +114,14 @@ namespace CoolCairo
 
         // Block-area shares changed by each intervention (used for the maths and for colouring).
         public float TreePlantedFrac(int block) =>
-            Share(Intervention.Trees, block) * TreeMaxShare * _d.blocks.darkGroundFrac[block];
+            Share(Intervention.Trees, block) * TreeMaxShare * DarkGroundArea(block);
 
         // Pavements coat the dark ground that trees have not taken.
         public float PavementCoatedFrac(int block) =>
-            Share(Intervention.CoolPavement, block) * (_d.blocks.darkGroundFrac[block] - TreePlantedFrac(block));
+            Share(Intervention.CoolPavement, block) * (DarkGroundArea(block) - TreePlantedFrac(block));
 
         public float ParkGreenedFrac(int block) =>
-            Share(Intervention.PocketPark, block) * ParkMaxShare * _d.blocks.soilFrac[block];
+            Share(Intervention.PocketPark, block) * ParkMaxShare * SandArea(block);
 
         // Delta LST (deg C, negative = cooler) for one block with its current interventions.
         public float DeltaLst(int block)
@@ -78,15 +141,13 @@ namespace CoolCairo
         float MeasureDeltaWith(Intervention kind, int block, float roof, float trees, float pavement, float park)
         {
             if (!IsValid(block)) return 0f;
-            var b = _d.blocks;
-            var m = _d.model;
-            float planted = trees * TreeMaxShare * b.darkGroundFrac[block];
+            float planted = trees * TreeMaxShare * DarkGroundArea(block);
             return kind switch
             {
-                Intervention.CoolRoof => roof * (m.coolRoofDarkDeltaC * b.darkRoofFrac[block] + m.coolRoofPaleDeltaC * b.paleRoofFrac[block]),
-                Intervention.Trees => (m.vegFrac - m.darkGroundFrac) * planted,
-                Intervention.CoolPavement => m.coolPavementDeltaC * pavement * (b.darkGroundFrac[block] - planted),
-                _ => m.pocketParkDeltaC * park * ParkMaxShare * b.soilFrac[block],
+                Intervention.CoolRoof => roof * (CoolRoofDarkDelta * DarkRoofArea(block) + CoolRoofPaleDelta * PaleRoofArea(block)),
+                Intervention.Trees => TreesDelta * planted,
+                Intervention.CoolPavement => CoolPavementDelta * pavement * (DarkGroundArea(block) - planted),
+                _ => PocketParkDelta * park * ParkMaxShare * SandArea(block),
             };
         }
 
@@ -105,8 +166,7 @@ namespace CoolCairo
         public float TreatableShare(int block)
         {
             if (!IsValid(block)) return 0f;
-            var b = _d.blocks;
-            return b.roofFrac[block] + b.darkGroundFrac[block] + ParkMaxShare * b.soilFrac[block];
+            return _d.blocks.roofFrac[block] + DarkGroundArea(block) + ParkMaxShare * SandArea(block);
         }
 
         // Heat exposure these measures (at this adoption) would remove from one block, from today.
@@ -189,25 +249,22 @@ namespace CoolCairo
         public float FullAdoptionDelta(Intervention kind, int block)
         {
             if (!IsValid(block)) return 0f;
-            var b = _d.blocks;
-            var m = _d.model;
             return kind switch
             {
-                Intervention.CoolRoof => m.coolRoofDarkDeltaC * b.darkRoofFrac[block] + m.coolRoofPaleDeltaC * b.paleRoofFrac[block],
-                Intervention.Trees => (m.vegFrac - m.darkGroundFrac) * TreeMaxShare * b.darkGroundFrac[block],
-                Intervention.CoolPavement => m.coolPavementDeltaC * b.darkGroundFrac[block],
-                _ => m.pocketParkDeltaC * ParkMaxShare * b.soilFrac[block],
+                Intervention.CoolRoof => CoolRoofDarkDelta * DarkRoofArea(block) + CoolRoofPaleDelta * PaleRoofArea(block),
+                Intervention.Trees => TreesDelta * TreeMaxShare * DarkGroundArea(block),
+                Intervention.CoolPavement => CoolPavementDelta * DarkGroundArea(block),
+                _ => PocketParkDelta * ParkMaxShare * SandArea(block),
             };
         }
 
         public float Lst(int block) => BaselineLst(block) + DeltaLst(block);
 
-        // Dark-roof share of the uncoated roof area, for colouring roofs.
+        // Dark (or dusty) share of the uncoated roof area, for colouring roofs.
         public float DarkRoofShareOfRoofs(int block)
         {
-            var b = _d.blocks;
-            if (b.roofFrac[block] <= 0f) return 0f;
-            return b.darkRoofFrac[block] / b.roofFrac[block];
+            float dark = DarkRoofArea(block), all = dark + PaleRoofArea(block);
+            return all <= 0f ? 0f : dark / all;
         }
 
         public void Apply(Intervention kind, int block, float amount)
