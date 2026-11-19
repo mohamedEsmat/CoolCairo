@@ -216,6 +216,10 @@ def hyperspectral_summary(cfg: Config, blocks: pd.DataFrame) -> dict | None:
         {
             "multispectral": np.hstack([ours, separability.block_spectra(s2, 9, urban)]),
             "hyperspectral": np.hstack([ours, separability.block_spectra(refl, 3, urban)]),
+            # Spectra alone, same scene: EnMAP averaged into Sentinel-2's bands vs full spectrum.
+            "enmap_as_s2": separability.block_spectra(
+                enmap.simulate_sentinel2(refl).to_array("feature"), 3, urban),
+            "enmap_full": separability.block_spectra(refl, 3, urban),
         },
         urban.lst_c.to_numpy(),
         spatial_groups(urban, cfg["cv_tile_size"]),
@@ -228,5 +232,7 @@ def hyperspectral_summary(cfg: Config, blocks: pd.DataFrame) -> dict | None:
         "acquired": enmap.acquisition_date(scene),
         "r2Multispectral": float(r2["multispectral"]),
         "r2Hyperspectral": float(r2["hyperspectral"]),
+        "r2SpectraS2Bands": float(r2["enmap_as_s2"]),
+        "r2SpectraFull": float(r2["enmap_full"]),
         "attribution": enmap.attribution(scene),
     }

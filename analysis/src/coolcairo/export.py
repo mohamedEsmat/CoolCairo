@@ -43,8 +43,13 @@ def _block_arrays(blocks: pd.DataFrame, rows: int, cols: int) -> dict[str, list]
             "builtLast": column("built_last"),
             "growthClass": south_first.growth_class.fillna(-1).astype(int).tolist(),
         }
+    # EnMAP material fractions (enmap_materials.py), when the city has a confirmed library.
+    from coolcairo.enmap_materials import COLUMNS
+
+    materials = {key: column(col) for col, key in COLUMNS.values() if col in south_first}
     return {
         **growth,
+        **materials,
         "valid": valid.astype(int).tolist(),
         "lstC": column("lst_c"),
         "vegFrac": column("veg_frac"),
@@ -123,6 +128,7 @@ def write_district(
     sources: list[dict] | None = None,
     preview_bbox_wgs84: list[float] | None = None,
     hyperspectral: dict | None = None,
+    enmap_materials: dict | None = None,
     fly_in: dict | None = None,
     growth: dict | None = None,
     city: str = "",
@@ -168,6 +174,9 @@ def write_district(
         "previewBbox": preview_bbox_wgs84 or [],
         # EnMAP result shown in the app; "available": 0 when EnMAP was not processed.
         "hyperspectral": hyperspectral or {"available": 0},
+        # EnMAP material fractions and the heat model built on them (enmap_materials.py);
+        # "available": 0 when the city has no confirmed spectral library.
+        "enmap": enmap_materials or {"available": 0},
         # Sentinel-2 image the app fades in during the globe fly-in (see stac.fly_in_image).
         "flyIn": fly_in or {},
         # Urban growth summary for the Growth view; "available": 0 when not computed.

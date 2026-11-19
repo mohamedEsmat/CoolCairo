@@ -121,3 +121,8 @@ growth:
   denser_min: 0.05
   first_year: 2016
   last_year: 2023
+
+# EnMAP material fractions in the app (enmap_materials.py): needs the spectral library confirmed
+# by a person in docs/spectral_library/candidates.xlsx and make_unmixing.py's heat model. The
+# library is Cairo's, so other cities leave this out.
+enmap_library: true

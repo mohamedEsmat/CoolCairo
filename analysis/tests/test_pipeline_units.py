@@ -406,3 +406,35 @@ def test_fcls_recovers_known_fractions_that_sum_to_one():
     assert frac.values[:, 0, :2].sum(axis=0) == pytest.approx([1, 1], abs=1e-3)
     assert (frac.values[:, 0, :2] >= 0).all() and np.isnan(frac.values[:, 0, 2]).all()
     assert rmse[0, :2] == pytest.approx([0, 0], abs=1e-4)
+
+
+def test_broadband_albedo_weights_visible_light_most():
+    from coolcairo.enmap_materials import broadband_albedo
+
+    wl = np.arange(420, 2450, 10.0)
+    flat = pd.Series(0.3, index=wl)
+    assert broadband_albedo(flat) == pytest.approx(0.3)
+    # Bright in the visible, dark in the SWIR: the sun's weight pulls the albedo up.
+    vis_bright = pd.Series(np.where(wl < 700, 0.6, 0.1), index=wl)
+    assert broadband_albedo(vis_bright) > vis_bright.mean()
+
+
+def test_enmap_treatable_areas_put_roofs_on_footprints_and_cap_ground():
+    from coolcairo.enmap_materials import treatable_areas
+
+    blocks = pd.DataFrame({
+        "roof_frac": [0.4, 0.0, 0.5],
+        "enmap_pale_roof": [0.3, 0.5, 0.0],
+        "enmap_dusty_roof": [0.1, 0.0, 0.0],
+        "enmap_asphalt": [0.7, 0.2, 0.3],
+        "enmap_sand": [0.1, 0.6, 0.2],
+    })
+    area = treatable_areas(blocks)
+    # Footprint share split in EnMAP's pale : dusty proportions (3:1); half and half if neither.
+    assert area.roof_pale.tolist() == pytest.approx([0.3, 0.0, 0.25])
+    assert area.roof_dusty.tolist() == pytest.approx([0.1, 0.0, 0.25])
+    # No footprint, no roof to coat, even where EnMAP sees pale-roof-like paving.
+    assert area.roof_pale[1] + area.roof_dusty[1] == 0
+    # Asphalt and sand never exceed the ground share.
+    assert area.asphalt.tolist() == pytest.approx([0.6, 0.2, 0.3])
+    assert area.sand.tolist() == pytest.approx([0.1, 0.6, 0.2])

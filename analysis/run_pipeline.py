@@ -10,7 +10,8 @@ import json
 import time
 
 from coolcairo import enmap
-from coolcairo.config import EXPORT_DIR, load_config
+from coolcairo.config import EXPORT_DIR, REPO_ROOT, load_config
+from coolcairo.enmap_materials import app_materials, plan_figures
 from coolcairo.export import grid_origin, grid_shape, write_district
 from coolcairo.interventions import (
     cool_pavement_surface_delta,
@@ -27,6 +28,7 @@ from coolcairo.pipeline import (
     display_subset,
     growth_summary,
     hyperspectral_summary,
+    load_enmap,
 )
 from coolcairo.stac import fly_in_image, scene_inventory
 
@@ -52,6 +54,15 @@ def main() -> None:
     hyper = hyperspectral_summary(cfg, blocks)
     print("Hyperspectral:", hyper)
     disp_blocks, disp_buildings = display_subset(cfg, add_growth(cfg, blocks), buildings)
+    materials = None
+    if hyper and cfg.raw.get("enmap_library", False):
+        # Material fractions from the confirmed library (Cairo's; other cities have none yet).
+        fractions, materials = app_materials(cfg, load_enmap(cfg), disp_blocks,
+                                             REPO_ROOT / "docs" / "spectral_library")
+        disp_blocks = disp_blocks.join(fractions)
+        materials.update(plan_figures(cfg, disp_blocks, materials, reference))
+        print("EnMAP materials:", {k: round(v, 3) if isinstance(v, float) else v
+                                   for k, v in materials.items()})
     grown = growth_summary(cfg, disp_blocks)
     print("Growth, display district:", grown)
     print("Heat exposure, display district:")
@@ -76,7 +87,8 @@ def main() -> None:
         heat_reference_c=reference,
         provenance={
             "lst": "Landsat 8/9 C2 L2 ST_B10, summer median",
-            "materials": "Sentinel-2 L2A 4-class rules (EnMAP evaluated, notebook 05)",
+            "materials": "Sentinel-2 L2A 4-class rules"
+            + ("; EnMAP FCLS fractions, confirmed spectral library" if materials else ""),
             "cool_roof": "Wang, Huang & Li 2020, GRL 47, e2020GL087853 (see aoi.yaml)",
             "buildings": "OpenStreetMap footprints, Google Open Buildings 2.5D heights"
             if cfg.raw.get("open_buildings", True)
@@ -87,6 +99,7 @@ def main() -> None:
         sources=scene_inventory(cfg, cfg["model_aoi"]["bbox_wgs84"])
         + ([enmap.archive_source(hyper["sceneId"])] if hyper else []),
         hyperspectral=hyper,
+        enmap_materials=materials,
         fly_in=fly_in_image(cfg),
         growth=grown,
         preview_bbox_wgs84=cfg["model_aoi"]["bbox_wgs84"],
