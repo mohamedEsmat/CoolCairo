@@ -50,7 +50,9 @@ def labels_30m(roof_10m: np.ndarray, ndvi_30m: np.ndarray, ndvi_max: float) -> n
 def _classifier(n_features: int) -> object:
     steps = [StandardScaler()]
     if n_features > 20:
-        steps.append(PCA(n_components=20))  # Hyperspectral bands are highly correlated.
+        # Hyperspectral bands are highly correlated. random_state: with < 10 samples per
+        # feature sklearn picks a randomized solver, which would vary between runs.
+        steps.append(PCA(n_components=20, random_state=0))
     steps.append(LogisticRegression(class_weight="balanced", max_iter=5000))
     return make_pipeline(*steps)
 
@@ -130,7 +132,7 @@ def fused_accuracy(
     def fused() -> object:
         cols = ColumnTransformer([
             ("base", StandardScaler(), list(range(nb))),
-            ("extra", make_pipeline(StandardScaler(), PCA(extra_components)),
+            ("extra", make_pipeline(StandardScaler(), PCA(extra_components, random_state=0)),
              list(range(nb, x.shape[1]))),
         ])
         return make_pipeline(cols, logistic())
