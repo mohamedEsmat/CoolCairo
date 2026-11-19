@@ -1,0 +1,143 @@
+{
+  "library": "confirmed library",
+  "scene": "ENMAP01-____L2A-DT0000127221_20250422T091720Z_006_V010502_20250424T200249Z",
+  "endmembers": [
+    "Sand / bare ground",
+    "Pale roof",
+    "Dusty roof",
+    "Asphalt / paved",
+    "Vegetation",
+    "Shade"
+  ],
+  "library_pixels": {
+    "Sand / bare ground": 11,
+    "Vegetation": 11,
+    "Pale roof": 10,
+    "Asphalt / paved": 9,
+    "Dusty roof": 6
+  },
+  "pixel_checks": {
+    "osm_roof_pixels": 1158,
+    "osm_roof_mean_fractions": {
+      "Sand / bare ground": 0.073,
+      "Pale roof": 0.457,
+      "Dusty roof": 0.122,
+      "Asphalt / paved": 0.13,
+      "Vegetation": 0.093,
+      "Shade": 0.127
+    },
+    "osm_roof_roof_fraction_over_half": 0.635,
+    "open_ground_pixels": 8959,
+    "open_ground_mean_fractions": {
+      "Sand / bare ground": 0.858,
+      "Pale roof": 0.07,
+      "Dusty roof": 0.014,
+      "Asphalt / paved": 0.057,
+      "Vegetation": 0.009,
+      "Shade": 0.005
+    },
+    "open_ground_sand_over_half": 0.922,
+    "shade_fraction_by_modelled_shadow": {
+      "model shadow < 5%": {
+        "pixels": 176052,
+        "mean_shade_fraction": 0.079
+      },
+      "model shadow 5%-25%": {
+        "pixels": 26825,
+        "mean_shade_fraction": 0.15
+      },
+      "model shadow > 25%": {
+        "pixels": 2513,
+        "mean_shade_fraction": 0.21
+      }
+    },
+    "shade_vs_modelled_shadow_spearman": 0.27,
+    "residual_rmse_median": 0.0053,
+    "residual_rmse_p95": 0.031
+  },
+  "heat_model_blocks": 2538,
+  "heat_model": [
+    {
+      "features": "PoC (Sentinel-2 shares + buildings)",
+      "tile_m": 1000,
+      "r2_spatial_cv": 0.2501,
+      "mae_c": 1.1987
+    },
+    {
+      "features": "PoC (Sentinel-2 shares + buildings)",
+      "tile_m": 2000,
+      "r2_spatial_cv": 0.3415,
+      "mae_c": 1.1636
+    },
+    {
+      "features": "PoC (Sentinel-2 shares + buildings)",
+      "tile_m": 3000,
+      "r2_spatial_cv": 0.259,
+      "mae_c": 1.2101
+    },
+    {
+      "features": "EnMAP fractions + buildings",
+      "tile_m": 1000,
+      "r2_spatial_cv": 0.3937,
+      "mae_c": 1.0784
+    },
+    {
+      "features": "EnMAP fractions + buildings",
+      "tile_m": 2000,
+      "r2_spatial_cv": 0.4456,
+      "mae_c": 1.0585
+    },
+    {
+      "features": "EnMAP fractions + buildings",
+      "tile_m": 3000,
+      "r2_spatial_cv": 0.3847,
+      "mae_c": 1.1095
+    },
+    {
+      "features": "EnMAP fractions only",
+      "tile_m": 1000,
+      "r2_spatial_cv": 0.3449,
+      "mae_c": 1.1169
+    },
+    {
+      "features": "EnMAP fractions only",
+      "tile_m": 2000,
+      "r2_spatial_cv": 0.3629,
+      "mae_c": 1.1181
+    },
+    {
+      "features": "EnMAP fractions only",
+      "tile_m": 3000,
+      "r2_spatial_cv": 0.3451,
+      "mae_c": 1.1461
+    },
+    {
+      "features": "PoC + EnMAP fractions",
+      "tile_m": 1000,
+      "r2_spatial_cv": 0.3903,
+      "mae_c": 1.0795
+    },
+    {
+      "features": "PoC + EnMAP fractions",
+      "tile_m": 2000,
+      "r2_spatial_cv": 0.444,
+      "mae_c": 1.0659
+    },
+    {
+      "features": "PoC + EnMAP fractions",
+      "tile_m": 3000,
+      "r2_spatial_cv": 0.3884,
+      "mae_c": 1.1062
+    }
+  ],
+  "coefficients_vs_sand": {
+    "Pale roof": 0.192,
+    "Dusty roof": -2.315,
+    "Asphalt / paved": -2.719,
+    "Vegetation": -8.867,
+    "Shade": -9.062,
+    "roof_frac": 0.771,
+    "mean_height_m": -0.057
+  },
+  "attribution": "Contains modified EnMAP data \u00a9 DLR [2025] \u00b7 Google Open Buildings 2.5D (CC BY 4.0) \u00b7 \u00a9 OpenStreetMap contributors (ODbL)"
+}

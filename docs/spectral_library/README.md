@@ -4,7 +4,64 @@ Reference spectra for east Cairo's materials, taken from the EnMAP scene of 22 A
 The next steps compare every EnMAP pixel with them: Spectral Angle Mapper classification
 and linear unmixing into material fractions for the heat model.
 
-**Status (16 Nov 2026): candidates proposed, waiting for confirmation by eye.**
+**Status (19 Nov 2026): library confirmed by eye.** Results below the next section are the
+confirmed ones (`sam/`, `unmixing/`); the provisional sections further down are kept for comparison.
+
+## Confirmed library (19 Nov 2026)
+
+A team member checked every candidate in satellite imagery, judging only the 30 m square around
+the pixel centre, with the AI pre-check (columns I–J) hidden. A side-by-side viewer
+(`candidate_viewer.html`: Esri imagery with the exact 30 m square, Google satellite beside it, and
+the Esri capture date) helped; where the two images differ in what is there, the image closer to
+the EnMAP date counts, and in sharpness or colour, the sharper one.
+
+**Answers** (column F; "Yes" and "Mostly" enter the library):
+
+| Material | Candidates | Yes | Mostly | Rejected | **In library** |
+|---|---|---|---|---|---|
+| Sand / bare ground | 12 | 10 | 1 | 1 | **11** |
+| Pale roof | 12 | 5 | 5 | 2 | **10** |
+| Dusty roof | 12 + 10 extra | 4 | 2 | 16 | **6** |
+| Asphalt / paved | 12 | 4 | 5 | 3 | **9** |
+| Vegetation | 12 | 5 | 6 | 1 | **11** |
+
+- **Person vs AI pre-check:** same keep/reject decision on 49 of 59 rows (83 %); most
+  disagreements are dusty roofs.
+- **Dusty roofs are rarely clean at 30 m.** Rejections were roof edges, light shafts, rooftop
+  clutter, tall-building shadow and five OSM "buildings" that are car parks or forecourts (#25,
+  #63, #66, #67, #70: OSM draws one polygon over a whole compound). The 10 extra candidates
+  (#61–70, no AI pre-check) required the 8 neighbours to be ≥ 2/3 roof; 2 passed.
+- Three roofs in the library classes look like **metal** (#14, #19 pale; #34 rejected), noted
+  for the metal-roof / ACE test.
+
+**Material map** (angle + brightness + depths; `sam/comparison.csv`):
+
+| Check | Provisional (AI, 43 px) | **Confirmed (47 px)** |
+|---|---|---|
+| Leave-one-out | 88 % | **87 %** |
+| Pure OSM roofs → a roof class | 68 % | **68 %** |
+| Open ground → sand | 81 % | **80 %** |
+| Shaded roofs (> 25 %) → a roof class | 83 % | **87 %** |
+| … of which → asphalt | 9 % | 13 % |
+| Unclassified | 7 % | **6 %** |
+
+**Unmixing and heat model** (`unmixing/`; same 2,538 blocks and spatial folds as the PoC):
+
+| | Provisional | **Confirmed** |
+|---|---|---|
+| R², 1 km / 2 km / 3 km tiles | 0.401 / 0.446 / 0.387 | **0.394 / 0.446 / 0.385** |
+| MAE (1 km) | 1.08 °C | **1.08 °C** (PoC 1.20) |
+| Open ground: sand / "pale roof" | 71 % / 24 % | **86 % / 7 %** |
+| Pure OSM roofs: pale + dusty roof | 56 % | **58 %**; 64 % of them more than half roof |
+| Shade fraction at < 5 / 5–25 / > 25 % modelled shadow | 0.07 / 0.14 / 0.20 | **0.08 / 0.15 / 0.21** |
+
+- **The heat result does not depend on unchecked picks:** R² 0.25 → 0.39 over the PoC with the
+  confirmed library (0.40–0.41 with the provisional and an intermediate 45-pixel library).
+- **Checking by eye fixed the sand / pale-roof confusion:** open ground is now 86 % sand (was 71 %),
+  because mixed "sand" and "pale roof" candidates were removed.
+- **Still open:** pale roof +0.2 °C vs sand, dusty roof −2.3 °C: pale roofs are still not cooler
+  (criterion c). The residual is still highest in the bright south-east desert and construction
+  areas.
 
 ## How the candidates were chosen
 

@@ -1,0 +1,4 @@
+method,leave_one_out_accuracy,osm_roof_as_roof_class,open_ground_as_sand,unclassified_share,sunlit_roof_as_roof,shaded_roof_as_roof,shaded_roof_as_asphalt
+angle,0.723,0.5,0.704,0.176,0.511,0.435,0.13
+angle_brightness,0.915,0.619,0.837,0.107,0.632,0.565,0.261
+angle_brightness_depths,0.872,0.682,0.8,0.062,0.691,0.87,0.13

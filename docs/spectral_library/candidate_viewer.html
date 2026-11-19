@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Candidate viewer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+html,body{margin:0;height:100%;font-family:Segoe UI,Arial,sans-serif;background:#111;color:#eee}
+#bar{display:flex;gap:10px;align-items:center;padding:8px 12px;flex-wrap:wrap;background:#1c1c1c}
+#bar b{font-size:20px}
+button,select,a.btn{font-size:15px;padding:6px 12px;border-radius:6px;border:1px solid #555;background:#2a2a2a;color:#eee;cursor:pointer;text-decoration:none}
+#wrap{position:absolute;top:56px;bottom:0;left:0;right:0;display:flex}#map{flex:1;height:100%}#gwrap{flex:1;height:100%;position:relative;border-left:3px solid #444}#gframe{width:100%;height:100%;border:0}#glabel{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.7);padding:4px 8px;border-radius:6px;font-size:13px;pointer-events:none}
+.legend{background:rgba(0,0,0,.7);color:#fff;padding:6px 10px;border-radius:6px;font-size:13px;line-height:1.5}
+</style></head><body>
+<div id="bar">
+<button id="prev">&larr; Back</button>
+<b id="title"></b>
+<button id="next">Next &rarr;</button>
+<select id="jump"></select>
+<label><input type="checkbox" id="margin"> show &plusmn;15 m position margin</label>
+<a class="btn" id="gmaps" target="_blank">Open in Google Maps</a>
+<span id="edate" style="background:#2d4a2d;padding:4px 8px;border-radius:6px"></span><span style="opacity:.7">EnMAP scene: Apr 2025 &middot; Keys: &larr; &rarr;</span>
+</div>
+<div id="wrap"><div id="map"></div><div id="gwrap"><iframe id="gframe" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe><div id="glabel">Google satellite: the pin is the pixel centre (no square here)</div></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const P = [{"n": 1, "m": "Sand / bare ground", "lat": 30.094311, "lon": 31.400365}, {"n": 2, "m": "Sand / bare ground", "lat": 30.067148, "lon": 31.370616}, {"n": 3, "m": "Sand / bare ground", "lat": 30.014488, "lon": 31.358726}, {"n": 4, "m": "Sand / bare ground", "lat": 30.002538, "lon": 31.355502}, {"n": 5, "m": "Sand / bare ground", "lat": 30.092905, "lon": 31.39603}, {"n": 6, "m": "Sand / bare ground", "lat": 30.002705, "lon": 31.390952}, {"n": 7, "m": "Sand / bare ground", "lat": 30.005801, "lon": 31.356692}, {"n": 8, "m": "Sand / bare ground", "lat": 30.120245, "lon": 31.374104}, {"n": 9, "m": "Sand / bare ground", "lat": 30.114801, "lon": 31.371703}, {"n": 10, "m": "Sand / bare ground", "lat": 30.116989, "lon": 31.373535}, {"n": 11, "m": "Sand / bare ground", "lat": 30.021207, "lon": 31.354882}, {"n": 12, "m": "Sand / bare ground", "lat": 30.095249, "lon": 31.388521}, {"n": 13, "m": "Pale roof", "lat": 30.015059, "lon": 31.382977}, {"n": 14, "m": "Pale roof", "lat": 30.111586, "lon": 31.396351}, {"n": 15, "m": "Pale roof", "lat": 30.014022, "lon": 31.386726}, {"n": 16, "m": "Pale roof", "lat": 30.052465, "lon": 31.322318}, {"n": 17, "m": "Pale roof", "lat": 30.030299, "lon": 31.346022}, {"n": 18, "m": "Pale roof", "lat": 30.081437, "lon": 31.366025}, {"n": 19, "m": "Pale roof", "lat": 30.112714, "lon": 31.400069}, {"n": 20, "m": "Pale roof", "lat": 30.05479, "lon": 31.313566}, {"n": 21, "m": "Pale roof", "lat": 30.073728, "lon": 31.399452}, {"n": 22, "m": "Pale roof", "lat": 30.069868, "lon": 31.307398}, {"n": 23, "m": "Pale roof", "lat": 30.089145, "lon": 31.270341}, {"n": 24, "m": "Pale roof", "lat": 30.04574, "lon": 31.263007}, {"n": 25, "m": "Dusty roof", "lat": 30.012974, "lon": 31.389542}, {"n": 26, "m": "Dusty roof", "lat": 30.056647, "lon": 31.269039}, {"n": 27, "m": "Dusty roof", "lat": 30.052932, "lon": 31.274705}, {"n": 28, "m": "Dusty roof", "lat": 30.038416, "lon": 31.367353}, {"n": 29, "m": "Dusty roof", "lat": 30.033713, "lon": 31.316412}, {"n": 30, "m": "Dusty roof", "lat": 30.061791, "lon": 31.289798}, {"n": 31, "m": "Dusty roof", "lat": 30.051506, "lon": 31.310822}, {"n": 32, "m": "Dusty roof", "lat": 30.071371, "lon": 31.298036}, {"n": 33, "m": "Dusty roof", "lat": 30.050972, "lon": 31.26976}, {"n": 34, "m": "Dusty roof", "lat": 30.064006, "lon": 31.314655}, {"n": 35, "m": "Dusty roof", "lat": 30.025538, "lon": 31.333348}, {"n": 36, "m": "Dusty roof", "lat": 30.105587, "lon": 31.349128}, {"n": 37, "m": "Asphalt / paved", "lat": 30.051212, "lon": 31.288113}, {"n": 38, "m": "Asphalt / paved", "lat": 30.058163, "lon": 31.302307}, {"n": 39, "m": "Asphalt / paved", "lat": 30.112916, "lon": 31.394461}, {"n": 40, "m": "Asphalt / paved", "lat": 30.081045, "lon": 31.292579}, {"n": 41, "m": "Asphalt / paved", "lat": 30.060659, "lon": 31.306932}, {"n": 42, "m": "Asphalt / paved", "lat": 30.108616, "lon": 31.397022}, {"n": 43, "m": "Asphalt / paved", "lat": 30.065674, "lon": 31.382777}, {"n": 44, "m": "Asphalt / paved", "lat": 30.056499, "lon": 31.299224}, {"n": 45, "m": "Asphalt / paved", "lat": 30.110973, "lon": 31.283659}, {"n": 46, "m": "Asphalt / paved", "lat": 30.069325, "lon": 31.265707}, {"n": 47, "m": "Asphalt / paved", "lat": 30.072908, "lon": 31.270623}, {"n": 48, "m": "Asphalt / paved", "lat": 30.072042, "lon": 31.287132}, {"n": 49, "m": "Vegetation", "lat": 30.096009, "lon": 31.298548}, {"n": 50, "m": "Vegetation", "lat": 30.042518, "lon": 31.264929}, {"n": 51, "m": "Vegetation", "lat": 30.091369, "lon": 31.295515}, {"n": 52, "m": "Vegetation", "lat": 30.063804, "lon": 31.319948}, {"n": 53, "m": "Vegetation", "lat": 30.076811, "lon": 31.27927}, {"n": 54, "m": "Vegetation", "lat": 30.078807, "lon": 31.329032}, {"n": 55, "m": "Vegetation", "lat": 30.088905, "lon": 31.293378}, {"n": 56, "m": "Vegetation", "lat": 30.039795, "lon": 31.263733}, {"n": 57, "m": "Vegetation", "lat": 30.026469, "lon": 31.300359}, {"n": 58, "m": "Vegetation", "lat": 30.100375, "lon": 31.301275}, {"n": 59, "m": "Vegetation", "lat": 30.065117, "lon": 31.316814}, {"n": 60, "m": "Vegetation", "lat": 30.06197, "lon": 31.346118}, {"n": 61, "m": "Dusty roof", "lat": 30.081685, "lon": 31.364153}, {"n": 62, "m": "Dusty roof", "lat": 30.102529, "lon": 31.386224}, {"n": 63, "m": "Dusty roof", "lat": 30.015307, "lon": 31.381107}, {"n": 64, "m": "Dusty roof", "lat": 30.073599, "lon": 31.345302}, {"n": 65, "m": "Dusty roof", "lat": 30.014316, "lon": 31.388588}, {"n": 66, "m": "Dusty roof", "lat": 30.012677, "lon": 31.38737}, {"n": 67, "m": "Dusty roof", "lat": 30.013961, "lon": 31.381751}, {"n": 68, "m": "Dusty roof", "lat": 30.111883, "lon": 31.398526}, {"n": 69, "m": "Dusty roof", "lat": 30.015353, "lon": 31.384838}, {"n": 70, "m": "Dusty roof", "lat": 30.013451, "lon": 31.384247}];
+const map = L.map('map', {zoomControl:true, maxZoom:21});
+const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxNativeZoom:19, maxZoom:21, attribution:'Imagery &copy; Esri, Maxar, Earthstar Geographics'}).addTo(map);
+const legend = L.control({position:'bottomleft'});
+legend.onAdd = () => { const d = L.DomUtil.create('div','legend');
+  d.innerHTML = '<span style="color:#ff2d2d">&#9632;</span> 30 m EnMAP pixel (the square you judge)<br>'+
+  '<span style="color:#ffd400">&#9633;</span> &plusmn;15 m margin (EnMAP position can be off by up to half a pixel)<br>'+
+  'Imagery: Esri. Use "Open in Google Maps" to compare dates.'; return d; };
+legend.addTo(map);
+let i = 0, layers = [];
+const sel = document.getElementById('jump');
+P.forEach((p,k) => { const o = document.createElement('option'); o.value = k; o.textContent = '#'+p.n+' '+p.m; sel.appendChild(o); });
+function sq(lat, lon, half) {
+  const dlat = half / 111320, dlon = half / (111320 * Math.cos(lat * Math.PI / 180));
+  return [[lat-dlat, lon-dlon], [lat+dlat, lon+dlon]];
+}
+function show(k) {
+  i = (k + P.length) % P.length; const p = P[i];
+  layers.forEach(l => map.removeLayer(l)); layers = [];
+  layers.push(L.rectangle(sq(p.lat,p.lon,15), {color:'#ff2d2d', weight:3, fill:false}).addTo(map));
+  layers.push(L.circleMarker([p.lat,p.lon], {radius:3, color:'#ff2d2d', fillOpacity:1}).addTo(map));
+  if (document.getElementById('margin').checked)
+    layers.push(L.rectangle(sq(p.lat,p.lon,30), {color:'#ffd400', weight:2, dashArray:'6 6', fill:false}).addTo(map));
+  map.setView([p.lat,p.lon], 19);
+  document.getElementById('title').textContent = '#'+p.n+' · Proposed: '+p.m;
+  document.getElementById('gmaps').href = 'https://www.google.com/maps/@'+p.lat+','+p.lon+',60m/data=!3m1!1e3';
+  document.getElementById('gframe').src = 'https://maps.google.com/maps?q='+p.lat+','+p.lon+'&t=k&z=19&output=embed';
+  const ed = document.getElementById('edate'); ed.textContent = 'Esri image date: ...';
+  const u = 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/identify?geometry='+p.lon+','+p.lat+
+    '&geometryType=esriGeometryPoint&sr=4326&layers=all&tolerance=1&mapExtent='+(p.lon-0.01)+','+(p.lat-0.01)+','+(p.lon+0.01)+','+(p.lat+0.01)+
+    '&imageDisplay=800,600,96&returnGeometry=false&f=json';
+  const want = p.n;
+  fetch(u).then(r=>r.json()).then(d=>{ if (P[i].n!==want) return;
+    const a = (d.results||[]).find(x=>x.layerId===0); const dt = a && a.attributes['DATE (YYYYMMDD)'];
+    ed.textContent = dt ? 'Esri image date: '+dt.slice(0,4)+'-'+dt.slice(4,6)+'-'+dt.slice(6,8) : 'Esri image date: unknown';
+  }).catch(()=>{ ed.textContent = 'Esri image date: unavailable'; });
+  sel.value = i; history.replaceState(null,'','#'+p.n);
+}
+document.getElementById('prev').onclick = () => show(i-1);
+document.getElementById('next').onclick = () => show(i+1);
+sel.onchange = () => show(+sel.value);
+document.getElementById('margin').onchange = () => show(i);
+document.addEventListener('keydown', e => { if (e.target.tagName==='SELECT') return;
+  if (e.key==='ArrowRight') show(i+1); if (e.key==='ArrowLeft') show(i-1); });
+const h = parseInt(location.hash.slice(1)); show(h ? P.findIndex(p=>p.n===h) : 0);
+</script></body></html>
