@@ -34,6 +34,19 @@ dates:
   months: [6, 7, 8]
 max_cloud_cover: 10
 
+# Air-temperature check (coolcairo.air, run by air_check.py): Landsat surface temperature against
+# the only east-Cairo weather station with hourly data for the study years. One station cannot
+# test block-to-block air differences; it tests whether hot-surface mornings are hot-air mornings.
+air_check:
+  station:
+    id: "62366099999"            # NOAA ISD (USAF 623660, WBAN 99999), METAR HECA
+    name: "Cairo International Airport"
+    lat: 30.121944
+    lon: 31.405556
+  station_radius_m: 500          # Surface temperature around the station
+  max_gap_min: 40                # Station report within 40 min of the Landsat overpass
+  daytime_hours_utc: [6, 16]     # Hours (UTC) for the day's highest air temperature
+
 # Spatial cross-validation tile size (m). Blocks inside the same tile never straddle train/test.
 cv_tile_size: 1000
 cv_folds: 5

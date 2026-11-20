@@ -509,3 +509,14 @@ def test_filled_footprints_never_replace_osm():
     assert out.footprint_source.tolist() == ["osm", "microsoft", "google"]
     assert out.height_source.tolist() == ["osm_levels", "default", "default"]
     assert out.height_m.iloc[0] == 20.0 and out.height_m.iloc[1:].isna().all()
+
+
+def test_isd_temperature_parsing():
+    from coolcairo.air import parse_isd_temperature
+
+    out = parse_isd_temperature(pd.Series(["+0310,1", "-0025,5", "+9999,9", "+0400,3", "+0285,A"]))
+    assert out.iloc[0] == pytest.approx(31.0)
+    assert out.iloc[1] == pytest.approx(-2.5)
+    assert np.isnan(out.iloc[2])   # missing
+    assert np.isnan(out.iloc[3])   # quality 3 = erroneous
+    assert out.iloc[4] == pytest.approx(28.5)

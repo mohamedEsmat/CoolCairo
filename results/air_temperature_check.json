@@ -1,0 +1,31 @@
+{
+  "station": "Cairo International Airport",
+  "station_id": "62366099999",
+  "n_scenes": 38,
+  "n_scenes_dropped": 2,
+  "first": "2023-06-12",
+  "last": "2025-08-20",
+  "air_at_overpass_mean_c": 31.7,
+  "air_daytime_max_mean_c": 36.1,
+  "district": {
+    "n": 38,
+    "offset_mean_c": 13.1,
+    "offset_sd_c": 1.7,
+    "r_air_at_overpass": 0.75,
+    "r_air_daytime_max": 0.66
+  },
+  "model_area": {
+    "n": 38,
+    "offset_mean_c": 15.0,
+    "offset_sd_c": 1.8,
+    "r_air_at_overpass": 0.72,
+    "r_air_daytime_max": 0.63
+  },
+  "around_station": {
+    "n": 31,
+    "offset_mean_c": 17.4,
+    "offset_sd_c": 2.0,
+    "r_air_at_overpass": 0.69,
+    "r_air_daytime_max": 0.64
+  }
+}
