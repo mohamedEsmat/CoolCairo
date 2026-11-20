@@ -299,18 +299,26 @@ namespace CoolCairo
             return ranked.GetRange(0, ranked.Count / 3);
         }
 
-        // Cool roofs + pocket parks on TargetedPlanBlocks, added to the current plan; one undo step.
+        // The targeted plan's measures for the current source. Sentinel-2: the report's cool roofs +
+        // pocket parks. EnMAP: cool roofs + street trees + cool pavements: the roofs, and both street
+        // measures on the asphalt EnMAP sees as the large hot surface (a third of the district);
+        // cool pavements cover the asphalt the trees leave (enmap_materials.plan_figures).
+        public Intervention[] TargetedMeasures => UsesEnmap
+            ? new[] { Intervention.CoolRoof, Intervention.Trees, Intervention.CoolPavement }
+            : new[] { Intervention.CoolRoof, Intervention.PocketPark };
+
+        public string TargetedPlanName => UsesEnmap ? "roofs + trees + pavements" : "roofs + parks";
+
+        // TargetedMeasures on TargetedPlanBlocks, added to the current plan; one undo step.
         public void ApplyTargetedPlan()
         {
             SaveUndo();
             int before = Version;
+            var kinds = TargetedMeasures;
             Batch(() =>
             {
                 foreach (int b in TargetedPlanBlocks())
-                {
-                    Apply(Intervention.CoolRoof, b, 1f);
-                    Apply(Intervention.PocketPark, b, 1f);
-                }
+                    foreach (var kind in kinds) Apply(kind, b, 1f);
             });
             if (Version == before) DropUndo();
         }

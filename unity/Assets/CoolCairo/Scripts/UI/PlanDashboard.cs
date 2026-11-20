@@ -8,7 +8,7 @@ namespace CoolCairo
 {
     // "Plan results" panel, opened from the button under the result cards (or the P key).
     // Two pages:
-    //   RESULTS      heat exposure removed so far (the report's −74% when the targeted plan is on),
+    //   RESULTS      heat exposure removed so far (targeted plan: −86% with EnMAP, the report's −74% with Sentinel-2),
     //                a one-click targeted plan, each measure's share of the removal, and the plan
     //                against one measure in every block;
     //   RISKIEST 10  the blocks with the most heat exposure right now; a click flies there.
@@ -41,7 +41,8 @@ namespace CoolCairo
         Button _toggle, _tabResults, _tabRiskiest, _tabBuild;
 
         // Plan builder: which measures, how many of the ranked blocks, ranked by what, how far.
-        // Defaults are the report's targeted plan (roofs + parks, riskiest third, full adoption).
+        // Defaults are the targeted plan for the current source (riskiest third, full adoption); they
+        // follow a switch of the material source.
         public readonly bool[] BuildMeasures = new bool[4];
         public RankBy BuildRank { get; private set; }
         public float BuildShareValue { get; private set; }     // 0..1 of valid blocks
@@ -53,7 +54,8 @@ namespace CoolCairo
         public InterventionModel.PlanPreview LastPreview { get; private set; }
         enum Page { Results, Build, Riskiest }
         Page _page;
-        TextMeshProUGUI _toggleLabel, _headline, _headlineSub, _treated;
+        TextMeshProUGUI _toggleLabel, _headline, _headlineSub, _treated, _targetedLabel;
+        MaterialSource _builderSource;
         readonly (RectTransform fill, TextMeshProUGUI value)[] _measureBars = new (RectTransform, TextMeshProUGUI)[4];
         readonly (RectTransform fill, TextMeshProUGUI value)[] _compareBars = new (RectTransform, TextMeshProUGUI)[5];
         readonly List<(Button button, TextMeshProUGUI text)> _riskRows = new List<(Button, TextMeshProUGUI)>();
@@ -78,14 +80,23 @@ namespace CoolCairo
             _highlight = FindFirstObjectByType<BlockHighlight>();
             _legend = GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == HudStyle.Legend)?.gameObject;
             Build();
-            district.Model.Changed += Refresh;
-            Refresh();
+            district.Model.Changed += OnModelChanged;
+            OnModelChanged();
             SetOpen(false);
         }
 
         void OnDestroy()
         {
-            if (_district != null && _district.Model != null) _district.Model.Changed -= Refresh;
+            if (_district != null && _district.Model != null) _district.Model.Changed -= OnModelChanged;
+        }
+
+        // A switch of the material source changes the targeted plan's measures.
+        void OnModelChanged()
+        {
+            var model = _district.Model;
+            if (_targetedLabel != null) _targetedLabel.text = $"▶  Targeted plan: {model.TargetedPlanName} on the riskiest third";
+            if (model.Source != _builderSource) BuilderDefaults();
+            Refresh();
         }
 
         void Update()
@@ -136,7 +147,9 @@ namespace CoolCairo
 
         public void BuilderDefaults()
         {
-            for (int k = 0; k < 4; k++) BuildMeasures[k] = (Intervention)k == Intervention.CoolRoof || (Intervention)k == Intervention.PocketPark;
+            var targeted = _district.Model.TargetedMeasures;
+            for (int k = 0; k < 4; k++) BuildMeasures[k] = targeted.Contains((Intervention)k);
+            _builderSource = _district.Model.Source;
             BuildRank = RankBy.HeatRisk;
             _shareSlider?.SetValueWithoutNotify(33);
             _adoptionSlider?.SetValueWithoutNotify(20);
@@ -315,8 +328,10 @@ namespace CoolCairo
             _treated = Label(_resultsPage, "PlanTreated", "", 11, HudStyle.Muted, wrap: true);
             _treated.richText = true;
 
-            var targeted = MakeButton(_resultsPage, TargetedName, "▶  Targeted plan: roofs + parks on the riskiest third", 10, out var tl);
+            var targeted = MakeButton(_resultsPage, TargetedName,
+                $"▶  Targeted plan: {_district.Model.TargetedPlanName} on the riskiest third", 10, out var tl);
             tl.fontStyle = FontStyles.Normal;
+            _targetedLabel = tl;
             Fixed(targeted.gameObject, -1, 28);
             targeted.onClick.AddListener(() => _district.Model.ApplyTargetedPlan());
 

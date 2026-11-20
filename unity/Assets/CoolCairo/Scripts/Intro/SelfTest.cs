@@ -607,6 +607,11 @@ namespace CoolCairo
             Check("enmap: one measure everywhere matches the analysis",
                   Mathf.Abs(before - e.exposureBefore) < 1f && pct.Zip(want, (a, w) => Mathf.Abs(a - w)).Max() < 0.1f,
                   string.Join(" / ", pct.Select(v => v.ToString("0.0"))) + " vs " + string.Join(" / ", want.Select(v => v.ToString("0.0"))));
+            Check("enmap: the one-click plan is cool roofs + street trees + cool pavements, and the builder defaults to it",
+                  model.TargetedMeasures.SequenceEqual(new[] { Intervention.CoolRoof, Intervention.Trees, Intervention.CoolPavement }) &&
+                  Button(PlanDashboard.TargetedName).GetComponentInChildren<TextMeshProUGUI>(true).text.Contains("roofs + trees + pavements") &&
+                  FindFirstObjectByType<PlanDashboard>().BuildMeasures.SequenceEqual(new[] { true, true, true, false }),
+                  Button(PlanDashboard.TargetedName).GetComponentInChildren<TextMeshProUGUI>(true).text);
             model.ApplyTargetedPlan();
             Check($"enmap: the targeted plan matches the analysis ({e.targetedPct:0}%, {e.targetedExposureAfter:N0} person·°C)",
                   model.TreatedBlocks() == e.targetedBlocks && Mathf.Abs(model.TotalExposure() - e.targetedExposureAfter) < 1f &&
