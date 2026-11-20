@@ -176,8 +176,14 @@ def measure_deltas(cfg: Config, blocks: pd.DataFrame, info: dict) -> pd.DataFram
 
 def plan_figures(cfg: Config, display: pd.DataFrame, info: dict, reference_c: float) -> dict:
     """The app's headline figures with the EnMAP model: one measure in every block, and the
-    targeted plan (cool roofs + pocket parks on the riskiest third of blocks, ranked by today's
-    heat exposure, ties by temperature, as interventions.targeted_plan_delta)."""
+    targeted plan on the riskiest third of blocks (ranked by today's heat exposure, ties by
+    temperature, as interventions.targeted_plan_delta).
+
+    With EnMAP the targeted plan is cool roofs + street trees + cool pavements, not the PoC's cool
+    roofs + pocket parks: EnMAP sees asphalt (34 %), not sand, as the large open hot surface, so
+    both street measures go on the asphalt; pocket parks would have little sand to work with.
+    Cool pavements cover the asphalt the trees leave, as in the app (MeasureDeltaWith).
+    """
     from coolcairo.population import heat_exposure
 
     d = display.dropna(subset=["lst_c"])
@@ -190,7 +196,10 @@ def plan_figures(cfg: Config, display: pd.DataFrame, info: dict, reference_c: fl
         ["exposure", "lst"], ascending=False, kind="stable")
     plan = pd.Series(0.0, index=d.index)
     chosen = ranked.index[: len(d) // 3]
-    plan[chosen] = (deltas.cool_roofs + deltas.pocket_parks)[chosen]
+    planted = cfg["interventions"]["tree_max_share_of_dark_ground"] * treatable_areas(d).asphalt
+    roofs_trees_pavements = deltas.cool_roofs + deltas.street_trees + info["coolPavementDeltaC"] * (
+        treatable_areas(d).asphalt - planted)
+    plan[chosen] = roofs_trees_pavements[chosen]
     after = heat_exposure(d.lst_c + plan, people, reference_c)
     return {
         "exposureBefore": float(base.sum()),
@@ -198,6 +207,7 @@ def plan_figures(cfg: Config, display: pd.DataFrame, info: dict, reference_c: fl
         "pctStreetTrees": everywhere["street_trees"],
         "pctCoolPavements": everywhere["cool_pavements"],
         "pctPocketParks": everywhere["pocket_parks"],
+        "targetedMeasures": "cool roofs + street trees + cool pavements",
         "targetedBlocks": len(chosen),
         "targetedExposureAfter": float(after.sum()),
         "targetedPct": float(100 * (after.sum() - base.sum()) / base.sum()),
