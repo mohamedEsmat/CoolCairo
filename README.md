@@ -186,7 +186,7 @@ The first run streams about 1 GB from the public archives into `analysis/data/` 
 - **One EnMAP scene** (April) and a 47-pixel library checked by eye: the EnMAP materials model rests on a spring scene, and its roof fractions follow building footprints only loosely (pale paving and dusty ground look like roofs), which is why the app keeps footprints for roof location. Summer scenes and Satellite 813 data would firm it up.
 - **Costs are not yet in the app;** researched ranges are in `docs/intervention_research.md`.
 
-How we would overcome each one (effort and evidence) is on slide 13 of [the slides](docs/CoolCairo_Slides.pdf).
+How we would overcome each one (effort and evidence) is on slide 14 of [the slides](docs/CoolCairo_Slides.pdf).
 
 ## 9. Team, licence and attribution
 
