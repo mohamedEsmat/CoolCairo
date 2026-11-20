@@ -17,6 +17,7 @@ from collections import Counter
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
 from PIL import Image
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
@@ -101,6 +102,7 @@ LINKS = {
     "uae2023": "https://www.sciencedirect.com/science/article/pii/S2214509523001195",
     "hendel2024": "https://arxiv.org/abs/2409.12242",
     "green1988": "https://doi.org/10.1109/36.3001",
+    "kraut1999": "https://doi.org/10.1109/78.782198",
     "santamouris2014": "https://doi.org/10.1016/j.solener.2012.07.003",
     "polyu2024": "https://www.polyu.edu.hk/rio/news/2024/20240924---polyu-researchers-unveil-novel-"
                  "carbon-dots-driven-green-radiative-cooling-coating/",
@@ -257,6 +259,11 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     en_bands = sep["EnMAP full spectrum"]["n_features"]
     h = r.heat_r2
     mn = r.extra["mnf"]
+    ace_dir = REPO_ROOT / "docs" / "ace"
+    ace_sum = json.loads((ace_dir / "summary.json").read_text(encoding="utf-8"))
+    ace_tab = pd.read_csv(ace_dir / "implantation.csv")
+    ace_pd = ace_tab.pivot(index="fraction", columns="detector", values="detected_at_1pct_false_alarms")
+    ace_auc = ace_tab.pivot(index="fraction", columns="detector", values="auc")
     gr, gcfg = r.growth, cfg["growth"]
     g0, g1 = gr["first"], gr["last"]
     gam, gad = gr["area_model"], gr["area_display"]
@@ -574,6 +581,14 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "Band noise comes from shift differences in the most uniform 40 × 40 pixel window "
               "(lowest variation at 1650 nm); each compression is fitted inside the training "
               "folds.",
+              "<b>Sub-pixel target detection.</b> Four detectors from course notebook 14: "
+              "spectral angle (SAM), matched filter (MF), constrained energy minimisation (CEM) "
+              f"and the adaptive coherence estimator (ACE; {cite('Kraut &amp; Scharf 1999', 'kraut1999')}), "
+              "with background covariance shrunk towards the identity (λ = 0.001). Target: one "
+              "large bright roof from the spectral library (3 × 3 pixels); its signature is the "
+              "median of 4 pixels, and the other 5 are mixed into real background pixels at 2–30% "
+              "of the pixel (implantation, linear mixing). Score: the share of implanted pixels "
+              "found when 1% of clean background pixels are flagged.",
           ])]
 
     s += [p("4.9  Urban growth", H2),
@@ -688,6 +703,28 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "(± spread over folds) and block-heat R², 1 km held-out tiles, fitted inside the "
             "training folds. Built vs desert with all bands is not run (PCA to 20 is the "
             "method in use).", CAPTION)]),
+          p(f"<b>Sub-pixel roofs: ACE finds them, the spectral angle does not.</b> With 1% false "
+            f"alarms, ACE finds {ace_pd.loc[0.1, 'ACE']:.0%} of implanted roofs that fill a tenth "
+            f"of a pixel, against {ace_pd.loc[0.1, 'SAM']:.0%} for SAM, "
+            f"{ace_pd.loc[0.1, 'MF']:.0%} for the matched filter and {ace_pd.loc[0.1, 'CEM']:.0%} "
+            f"for CEM; at 20% fill ACE and the matched filter find almost all of them "
+            "(Table 5). This repeats the course's result on our own scene. It is an upper bound: "
+            "the mixing is linear and the targets come from the same roof as the signature. "
+            f"On the whole scene, ACE above the 99.8th percentile of background scores "
+            f"({ace_sum['threshold_ace']:.3f}) flags {ace_sum['detected_pixels']} pixels in "
+            f"{ace_sum['sites_total']} sites, {ace_sum['detected_share_on_roofs']:.0%} of them on "
+            "building footprints. Whether these are metal roofs, and whether metal roofs explain "
+            f"why pale roofs are no cooler than dusty ones (<i>docs/spectral_library/README.md</i>), is open: {ace_sum['sites_in_sheet']} sites plus "
+            f"{ace_sum['controls_in_sheet']} hidden control roofs are being checked blind against "
+            "very-high-resolution imagery (<i>docs/ace/</i>)."),
+          KeepTogether([table([["Roof fills", "SAM", "MF", "CEM", "ACE"]]
+                + [[f"{f:.0%} of pixel"] + [f"{ace_pd.loc[f, d]:.0%} ({ace_auc.loc[f, d]:.2f})"
+                                            for d in ("SAM", "MF", "CEM", "ACE")]
+                   for f in ace_pd.index],
+                [0.2, 0.2, 0.2, 0.2, 0.2]),
+          p("<b>Table 5.</b> Implanted roof pixels found at 1% false alarms (area under the ROC "
+            "curve in brackets), 1,000 implanted and 5,000 clean background pixels per fill. "
+            f"Script: <i>analysis/make_ace_map.py</i>. {ENMAP_CREDIT}.", CAPTION)]),
           p("<b>Decision.</b> This report's model stays on Sentinel-2, which covers every summer "
             "and every city. EnMAP's value is in explaining heat, and the same block-heat test in "
             "three more cities gives the same answer (Section 5.6). Since November 2026 the app "
@@ -728,7 +765,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                     f"{row.area_first:.1f} km²", f"{row.area_last:.1f} km²",
                     f"{row.newly_built_blocks:,.0f}"] for t, row in gsens.iterrows()],
                 [0.25, 0.25, 0.25, 0.25]),
-          p("<b>Table 5.</b> Sensitivity to the building-presence cut-off: absolute areas "
+          p("<b>Table 6.</b> Sensitivity to the building-presence cut-off: absolute areas "
             "shift, but growth and the number of newly built blocks stay similar.", CAPTION)]
 
     def enmap_cell(c: dict) -> str:
@@ -759,7 +796,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                     f"{c['residents']:,.0f}", f"{c['exposure']:,.0f}", enmap_cell(c)]
                    for c in tc],
                 [0.19, 0.1, 0.14, 0.12, 0.13, 0.11, 0.21]),
-          p("<b>Table 6.</b> Test cities next to Cairo. Spatial R² with 1 km held-out tiles; "
+          p("<b>Table 7.</b> Test cities next to Cairo. Spatial R² with 1 km held-out tiles; "
             "median LST, residents and heat exposure (person·°C above each city's own urban "
             "median) for the app's display district; last column: block-heat R² with our features "
             "plus Sentinel-2 versus plus EnMAP spectra, same blocks and folds (Section 5.4).",
@@ -799,8 +836,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "<b>Data provenance</b>: the app's start-up screen queries the archives for the exact "
               "scene IDs used here and shows a live preview from each satellite; scene lists are "
               "exported with the data.",
-              "<b>38 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
-              "intervention arithmetic, the export format, the footprint fill, the station-data parsing, the MNF transform and the quick example's numbers.",
+              "<b>39 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
+              "intervention arithmetic, the export format, the footprint fill, the station-data parsing, the MNF transform, the target detectors and the quick example's numbers.",
               "<b>Data confidence per block</b> (high / medium / low) in the app: the weakest of "
               "footprint completeness (against Google Open Buildings 2023 presence), the share of "
               "measured heights, and the population source; machine-learned footprints cap a "
@@ -951,6 +988,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "ordering multispectral data in terms of image quality with implications for noise "
             "removal. <i>IEEE Transactions on Geoscience and Remote Sensing</i> 26(1), 65–74.",
             "green1988"),
+        ref("Kraut, S. &amp; Scharf, L. L. (1999). The CFAR adaptive subspace detector is a "
+            "scale-invariant GLRT. <i>IEEE Transactions on Signal Processing</i> 47(9), 2538–2541.",
+            "kraut1999"),
         ref("Santamouris, M. (2014). Cooling the cities: a review of reflective and green roof "
             "mitigation technologies to fight heat island and improve comfort in urban environments. "
             "<i>Solar Energy</i> 103, 682–703.", "santamouris2014"),

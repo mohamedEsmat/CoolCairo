@@ -115,7 +115,7 @@ Run all cells (Kernel › Restart Kernel and Run All Cells). It reads `data/samp
 
 ```bash
 uv run python run_pipeline.py          # stream data, fit model, write export/district.json
-uv run pytest                          # unit tests (38), including the example's numbers
+uv run pytest                          # unit tests (39), including the example's numbers
 uv run python air_check.py             # surface vs air temperature check, results/air_temperature_check.*
 uv run python report/build_report.py   # methodology report PDF in docs/ (needs the EnMAP files)
 ```
