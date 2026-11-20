@@ -107,6 +107,8 @@ LINKS = {
                 "temperature-25-degrees-celsius-summer-test-report",
     "landsat": "https://www.usgs.gov/media/files/landsat-8-collection-2-level-2-science-product-guide",
     "openbuildings": "https://sites.research.google/gr/open-buildings/temporal/",
+    "overture": "https://docs.overturemaps.org/guides/buildings/",
+    "ghsl": "https://human-settlement.emergency.copernicus.eu/ghs_buH2023.php",
     "worldpop": "https://doi.org/10.5258/SOTON/WP00839",
     "planetary": "https://planetarycomputer.microsoft.com/",
     "enmap": "https://www.enmap.org/",
@@ -206,6 +208,15 @@ def git_commit() -> str:
         return "unknown"
 
 
+def share_words(r2: float) -> str:
+    """R² in words for the text: a quarter, a third, ..."""
+    for limit, words in ((0.29, "a quarter"), (0.37, "a third"), (0.45, "two fifths"),
+                         (0.55, "half")):
+        if r2 < limit:
+            return words
+    return f"{r2:.0%}"
+
+
 def on_page(canvas, doc) -> None:
     if doc.page == 1:
         return
@@ -230,6 +241,10 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     years = cfg["dates"]["years"]
     period = f"June–August {years[0]}–{years[-1]}"
     hs = r.height_shares
+    fs = r.buildings.footprint_source.value_counts(normalize=True).to_dict()
+    fp_osm = fs.get('osm', 0.0)
+    fp_ml = 1.0 - fp_osm
+    en = r.district.get('enmap', {})
     hv = r.heights
     sep = {row["features"]: row for row in r.separability.to_dict("records")}
     bsi_acc = sep["Sentinel-2, BSI index only (rule in use)"]["balanced_accuracy"]
@@ -308,8 +323,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "data lets the same method run in any city, and the same pipeline already runs, "
             "unchanged, for four test cities: Algiers, Casablanca, Dubai and Riyadh."),
           p("We measure summer land surface temperature (LST) with Landsat 8/9, map surface "
-            "materials with Sentinel-2, add building footprints and heights (OpenStreetMap, Google "
-            "Open Buildings) and residents (WorldPop), and aggregate everything to 90 m blocks. A "
+            "materials with Sentinel-2, add building footprints (OpenStreetMap, with Google and "
+            "Microsoft machine-learned outlines where it has none), heights (Google Open Buildings, "
+            "GHSL) and residents (WorldPop), and aggregate everything to 90 m blocks. A "
             "linear model links block temperature to materials and building height; published "
             "albedo physics and our model give the effect of four cooling measures. A Windows "
             "desktop app shows the district in 3D and lets a planner paint measures onto blocks "
@@ -397,10 +413,17 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                "bands (420–2400 nm, water-vapour windows removed). Test cities: one daytime scene "
                "each over Algiers, Dubai and Riyadh (Section 5.6)", "Hyperspectral tests",
                f"{ENMAP_CREDIT_ALL}. Raw data not redistributed"],
-              ["OpenStreetMap (osmnx)", f"{r.extra['n_buildings_model']:,} building footprints, "
-               "height and level tags", "Roofs, heights", "© OpenStreetMap contributors, ODbL"],
+              ["OpenStreetMap (osmnx)", f"Building footprints with height and level tags "
+               f"(extract 23 Sep 2026): {fp_osm:.0%} of the model area's "
+               f"{r.extra['n_buildings_model']:,} buildings", "Roofs, heights",
+               "© OpenStreetMap contributors, ODbL"],
+              ["Overture Maps buildings (release 2026-11-18.0)", "Google Open Buildings and "
+               "Microsoft ML Building Footprints outlines, added only where OSM has no building "
+               f"({fp_ml:.0%} of buildings)", "Roofs where OSM has gaps", "ODbL"],
               ["Google Open Buildings 2.5D Temporal", "Annual layers 2016–2023, 4 m: heights (2023), building presence (growth)",
                "Heights, urban growth", "CC BY 4.0 / ODbL"],
+              ["GHSL R2023A (European Commission JRC)", "Built-up height 2018, 100 m",
+               "Heights where Open Buildings has none", "CC BY 4.0"],
               ["WorldPop Global2 R2025A", "2024, 100 m, constrained", "Residents per block",
                "CC BY 4.0"],
               ["NASA Blue Marble Next Generation", "July 2004; 2.4 km globe, 500 m over Egypt and the Middle East", "Globe in the app", "Public domain"],
@@ -441,16 +464,27 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "cannot separate them. The BSI threshold was chosen as the best single cut between "
             "pixels inside mapped OSM footprints and open ground more than 300 m from any "
             f"footprint: threshold {r.soil['threshold']:.3f}, balanced accuracy "
-            f"{r.soil['balanced_accuracy']:.0%} (notebook 02 re-derives it). OSM footprints then "
+            f"{r.soil['balanced_accuracy']:.0%} (notebook 02 re-derives it). Building footprints "
+            "(Section 4.4) then "
             "split each class into roof and ground, giving the block shares used by the model: "
             "vegetation, dark roof, pale roof, dark ground and bare sand (soil-like pixels inside a "
             "footprint count as dusty pale roofs)."),
           p("4.4  Buildings and heights", H2),
-          p("Heights follow a priority chain: OSM <i>height</i> tag, then OSM <i>building:levels</i> "
+          p("<b>Footprints.</b> OpenStreetMap maps only part of Cairo's buildings: with its "
+            "footprints alone, 3.4% of east Cairo is roof and the model had 2,538 urban blocks. "
+            "We therefore add machine-learned outlines (Google Open Buildings, Microsoft ML "
+            "Building Footprints) from a fixed Overture Maps release, keeping every OSM footprint "
+            "and adding an outline only if at most 10% of it lies inside OSM buildings. Over the "
+            f"model area {fp_ml:.0%} of the {r.extra['n_buildings_model']:,} buildings are such "
+            "outlines. They are detections from imagery, not surveys, so a block that relies on "
+            "them for most of its roof area is at best <i>medium</i> confidence in the app "
+            "(Section 6)."),
+          p("<b>Heights</b> follow a priority chain: OSM <i>height</i> tag, then OSM <i>building:levels</i> "
             f"× {cfg['storey_height_m']} m, then the median Google Open Buildings 2.5D height inside "
-            f"the footprint (at least {cfg['open_buildings_min_pixels']} pixels), then a default of "
-            f"{cfg['default_levels']} storeys. Over the model area {hs.get('open_buildings', 0):.0%} "
-            f"of buildings take Open Buildings heights, {hs.get('default', 0):.0%} the default and "
+            f"the footprint (at least {cfg['open_buildings_min_pixels']} pixels), then the GHSL "
+            f"100 m built-up height, then a default of {cfg['default_levels']} storeys. Over the "
+            f"model area {hs.get('open_buildings', 0):.0%} of buildings take Open Buildings heights, "
+            f"{hs.get('ghsl', 0):.0%} GHSL, {hs.get('default', 0):.1%} the default and "
             f"{hs.get('osm_height', 0) + hs.get('osm_levels', 0):.1%} OSM tags."),
           p("4.5  Residents and heat exposure", H2),
           p("WorldPop 2024 residents (100 m) are resampled to the 30 m grid by area averaging and "
@@ -547,14 +581,15 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                  ["Intercept", f"{m(f.intercept)} °C", "Block of pale ground, no buildings"],
                  ["Vegetation share", m(c["veg_frac"]), "Vegetation cools"],
                  ["Dark roof share", m(c["dark_roof_frac"]), "Implausible sign: shadow (see 4.7)"],
-                 ["Dark ground share", m(c["dark_ground_frac"]), "About as hot as pale ground"],
+                 ["Dark ground share", m(c["dark_ground_frac"]),
+                  "Warmer than pale ground" if c["dark_ground_frac"] > 0.5 else "About as hot as pale ground"],
                  ["Bare sand share", m(c["soil_frac"]), "Sand is the hottest surface"],
                  ["Roof share", m(c["roof_frac"]), "Pale roofs warmer than pale ground"],
                  ["Mean building height", f"{m(c['mean_height_m'], 3)} per m",
                   "Taller blocks are cooler (shade)"]]
     s += [CondPageBreak(90 * mm), p("5  Results", H1),
           p("5.1  Heat model", H2),
-          p(f"The model explains a quarter of the block-to-block variation in held-out areas "
+          p(f"The model explains {share_words(f.r2_spatial_cv)} of the block-to-block variation in held-out areas "
             f"(spatial R² {f.r2_spatial_cv:.2f}; {f.r2_train:.2f} in-sample) with a mean error of "
             f"±{f.mae_spatial_cv:.1f} °C, against a spread of {r.train.lst_c.std():.1f} °C "
             "(standard deviation) between urban blocks. It is good enough to rank drivers and "
@@ -617,11 +652,14 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             f"{r.fused[1]:.3f} (fold spread ±{r.fused[2]:.3f}). A {r.extra['s2_scenes']}-day "
             "Sentinel-2 median beats a single EnMAP date for this task; the remaining confusion is "
             "spatial (mixed pixels), not spectral."),
-          p("<b>Decision.</b> The app's materials stay on Sentinel-2, which covers every summer "
-            "and every city. EnMAP's value is in explaining heat: the app reports the EnMAP result "
-            "with its attribution, and a hyperspectral-based model is the main upgrade path once "
-            "more cloud-free summer EnMAP scenes over Cairo exist. The same block-heat test in "
-            "three more cities gives the same answer (Section 5.6).")]
+          p("<b>Decision.</b> This report's model stays on Sentinel-2, which covers every summer "
+            "and every city. EnMAP's value is in explaining heat, and the same block-heat test in "
+            "three more cities gives the same answer (Section 5.6). Since November 2026 the app "
+            "runs Cairo on EnMAP material fractions unmixed with a spectral library checked by eye "
+            f"(spatial R² {en.get('r2Enmap', float('nan')):.2f} against "
+            f"{en.get('r2Sentinel2', float('nan')):.2f} for the Sentinel-2 shares on the same "
+            "blocks and folds; <i>docs/spectral_library/README.md</i>), with this report's "
+            "Sentinel-2 model one click away; the test cities stay on Sentinel-2.")]
 
     s += [p("5.5  Urban growth and heat", H2),
           p(f"Across the model area, building footprint area grew from {gam[g0]:.1f} km² in {g0} "
@@ -703,8 +741,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "not depend on one date. Casablanca's only daytime scene (17 January 2024) has "
               "cloud over the district and is not used."),
           p("<b>Data gaps.</b> Google Open Buildings 2.5D Temporal covers Algiers but not "
-            "Casablanca, Dubai or Riyadh, where most heights are a 5-storey default and there is "
-            "no growth view. In Algiers, building area in the display district grew from "
+            "Casablanca, Dubai or Riyadh, where most heights come from GHSL's 100 m built-up height "
+            "and there is no growth view; the test cities use OSM footprints only. In Algiers, building area in the display district grew from "
             f"{tc[0]['growth']['builtFirstKm2']:.2f} to {tc[0]['growth']['builtLastKm2']:.2f} km² "
             f"({tc[0]['growth']['firstYear']}–{tc[0]['growth']['lastYear']}), with "
             f"{tc[0]['growth']['newBlocks']} newly built blocks; blocks over the sea (NDVI &lt; 0) "
@@ -725,11 +763,15 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "<b>Data provenance</b>: the app's start-up screen queries the archives for the exact "
               "scene IDs used here and shows a live preview from each satellite; scene lists are "
               "exported with the data.",
-              "<b>24 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
-              "intervention arithmetic, the export format and the quick example's numbers.",
-              "<b>90 automated checks run inside the built app</b> (<i>CoolCairo.exe -selftest</i>), "
-              "including that every test city's data and maps load; all pass in release v1.2, and "
-              "the app exits with an error if any fails.",
+              "<b>35 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
+              "intervention arithmetic, the export format, the footprint fill and the quick example's numbers.",
+              "<b>Data confidence per block</b> (high / medium / low) in the app: the weakest of "
+              "footprint completeness (against Google Open Buildings 2023 presence), the share of "
+              "measured heights, and the population source; machine-learned footprints cap a "
+              "block at medium.",
+              "<b>105 automated checks run inside the built app</b> (<i>CoolCairo.exe -selftest</i>), "
+              "including that every test city's data and maps load; all pass in the build from "
+              "this commit, and the app exits with an error if any fails.",
               f"<b>Material classes (milestone M2).</b> {m2_text}",
           ])]
 
@@ -750,8 +792,14 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "20 points checked non-blind.",
               "<b>Growth comes from yearly model predictions</b> (Open Buildings Temporal), so "
               "small year-to-year changes are partly noise; only the 2016 → 2023 change is used. "
-              f"{osm_missing:.0%} of newly built blocks have almost no OpenStreetMap footprints "
-              "yet, so the heat model's roof features under-represent the newest areas.",
+              f"{osm_missing:.0%} of newly built blocks have almost no building footprints yet, "
+              "even with the machine-learned outlines, so the heat model's roof features "
+              "under-represent the newest areas.",
+              f"<b>Most footprints are machine-learned</b> ({fp_ml:.0%} of buildings, Google and "
+              "Microsoft outlines): they fill OpenStreetMap's gaps but are detections, not surveys. "
+              "With OpenStreetMap footprints alone (this report's first edition, October 2026) the "
+              "model had 2,538 urban blocks, spatial R² 0.25 and a targeted-plan reduction of 74%; "
+              "removing <i>footprint_fill</i> from the config reproduces those numbers.",
               "<b>One EnMAP scene per city</b> (Cairo in April; only Dubai's is mid-summer). The "
               "hyperspectral result is a strong, repeated signal, not yet a production model.",
               "<b>Test cities use Cairo's settings unchanged</b> (material thresholds, cut-offs, "
@@ -851,6 +899,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
         ref("U.S. Geological Survey. Landsat 8–9 Collection 2 Level-2 Science Product Guide.", "landsat",
             "usgs.gov (product guide)"),
         ref("Google Research. Open Buildings 2.5D Temporal Dataset.", "openbuildings"),
+        ref("Overture Maps Foundation. Buildings theme, release 2026-11-18.0.", "overture"),
+        ref("Pesaresi, M. &amp; Politis, P. (2023). GHS-BUILT-H R2023A: built-up height, 2018. European Commission, Joint Research Centre.", "ghsl"),
         ref("WorldPop. Global2 R2025A population counts, Egypt 2024, 100 m constrained.", "worldpop"),
         ref("Microsoft Planetary Computer STAC API (Landsat C2 L2, Sentinel-2 L2A).", "planetary"),
         ref("DLR Earth Observation Center. EnMAP HSI L2A, EOC Geoservice.", "enmap"),
@@ -865,8 +915,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
           Spacer(1, 8),
           p("<b>Data attribution.</b> Contains modified Copernicus Sentinel data "
             f"[{years[0]}–{years[-1]}]. Landsat courtesy of the U.S. Geological Survey. "
-            f"{ENMAP_CREDIT_ALL}. Building footprints © OpenStreetMap contributors (ODbL). Google Open "
-            "Buildings (CC BY 4.0 / ODbL). WorldPop (CC BY 4.0). NASA Blue Marble.", SMALL)]
+            f"{ENMAP_CREDIT_ALL}. Building footprints © OpenStreetMap contributors (ODbL) and Overture Maps "
+            "(ODbL). Google Open Buildings (CC BY 4.0 / ODbL). GHSL © European Union (CC BY 4.0). WorldPop (CC BY 4.0). NASA Blue Marble.", SMALL)]
     return s
 
 
