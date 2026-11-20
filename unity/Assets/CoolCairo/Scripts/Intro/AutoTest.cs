@@ -56,6 +56,10 @@ namespace CoolCairo
             DistrictView district = null;
             while ((district = FindFirstObjectByType<DistrictView>()) == null || district.Model == null) yield return null;
             yield return new WaitForSeconds(1.5f);
+            // The methodology report describes the Sentinel-2 proof of concept, so its shots use
+            // Sentinel-2 materials (Cairo opens on EnMAP); the button keeps the HUD in step.
+            FindButton(DistrictUI.SourceButtonPrefix + MaterialSource.Sentinel2)?.onClick.Invoke();
+            yield return null;
             district.SetMode(ViewMode.Heat);
             yield return Shot(folder, "04_heat_today");
             district.SetMode(ViewMode.Materials);
