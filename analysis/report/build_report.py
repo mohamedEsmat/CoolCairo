@@ -113,6 +113,7 @@ LINKS = {
     "planetary": "https://planetarycomputer.microsoft.com/",
     "enmap": "https://www.enmap.org/",
     "interventions": "https://github.com/mohamedEsmat/CoolCairo/blob/master/docs/intervention_research.md",
+    "isd": "https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database",
     "workbook": "https://github.com/mohamedEsmat/CoolCairo/blob/master/docs/CoolCairo_Heat_Model_Workbook.pdf",
 }
 
@@ -246,6 +247,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     fp_ml = 1.0 - fp_osm
     en = r.district.get('enmap', {})
     hv = r.heights
+    air = json.loads((REPO_ROOT / "results" / "air_temperature_check.json").read_text(encoding="utf-8"))
     sep = {row["features"]: row for row in r.separability.to_dict("records")}
     bsi_acc = sep["Sentinel-2, BSI index only (rule in use)"]["balanced_accuracy"]
     s2_acc = sep["Sentinel-2, 6 bands"]["balanced_accuracy"]
@@ -763,8 +765,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "<b>Data provenance</b>: the app's start-up screen queries the archives for the exact "
               "scene IDs used here and shows a live preview from each satellite; scene lists are "
               "exported with the data.",
-              "<b>35 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
-              "intervention arithmetic, the export format, the footprint fill and the quick example's numbers.",
+              "<b>36 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
+              "intervention arithmetic, the export format, the footprint fill, the station-data parsing and the quick example's numbers.",
               "<b>Data confidence per block</b> (high / medium / low) in the app: the weakest of "
               "footprint completeness (against Google Open Buildings 2023 presence), the share of "
               "measured heights, and the population source; machine-learned footprints cap a "
@@ -774,12 +776,35 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "this commit, and the app exits with an error if any fails.",
               f"<b>Material classes (milestone M2).</b> {m2_text}",
           ])]
+    ad, an = air["district"], air["n_scenes"]
+    s += [p("6.1  Surface and air temperature", H2),
+          p("The model works with surface temperature; people feel air temperature, which "
+            "satellites do not measure. East Cairo has one weather station with hourly records "
+            f"for {years[0]}–{years[-1]}, {air['station']} "
+            f"({cite('NOAA Integrated Surface Database', 'isd')}), about 10 km north-east of the "
+            "district, so block-to-block air differences cannot be tested. What can be tested is "
+            f"each Landsat morning on its own. On {an} clear summer mornings "
+            f"({air['first']} to {air['last']}, station report within "
+            f"{r.cfg['air_check']['max_gap_min']} min of the overpass), Nasr City's median surface "
+            f"was <b>{ad['offset_mean_c']:.1f} °C hotter than the air</b> (± {ad['offset_sd_c']:.1f} °C; "
+            f"air {air['air_at_overpass_mean_c']:.1f} °C on average). Hotter-surface mornings were "
+            f"hotter-air mornings: <b>r = {ad['r_air_at_overpass']:.2f}</b> with air temperature at "
+            f"the overpass and r = {ad['r_air_daytime_max']:.2f} with the day's highest air "
+            f"temperature (mean {air['air_daytime_max_mean_c']:.1f} °C). The station reports whole "
+            "degrees, which caps how high r can be. Surface temperature therefore tracks the heat "
+            "people feel from day to day, but is not the same number, and a cooling of a "
+            "block's surface cools the air above it much less (Section 7)."),
+          figure(figs["air_check"], 0.55 * TEXT_W,
+                 "<b>Figure 7.</b> Nasr City median Landsat surface temperature against air "
+                 f"temperature at {air['station']} at the same time (NOAA ISD), one dot per clear "
+                 "summer morning. Dashed: air plus the mean difference.")]
 
     # ---------------------------------------------------------------- 7 limitations
     s += [p("7  Limitations and other measures considered", H1),
           bullets([
               "<b>Surface, not air, temperature.</b> Satellites measure how hot surfaces get, at "
-              "about 10:30. Studies suggest city-wide cool roofs lower air temperature by roughly "
+              f"about 10:30; Nasr City's surfaces then run about {air['district']['offset_mean_c']:.0f} °C "
+              "above the air, and only one station can check air temperature (Section 6.1). Studies suggest city-wide cool roofs lower air temperature by roughly "
               f"0.1–0.33 °C per +0.1 roof albedo ({cite('Santamouris 2014', 'santamouris2014')}, "
               f"cited in {cite('Wang et al. 2020', 'wang2020')}); "
               "the effect on air is smaller and spreads beyond the treated blocks.",
@@ -904,6 +929,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
         ref("WorldPop. Global2 R2025A population counts, Egypt 2024, 100 m constrained.", "worldpop"),
         ref("Microsoft Planetary Computer STAC API (Landsat C2 L2, Sentinel-2 L2A).", "planetary"),
         ref("DLR Earth Observation Center. EnMAP HSI L2A, EOC Geoservice.", "enmap"),
+        ref("NOAA National Centers for Environmental Information. Integrated Surface Database "
+            "(Global Hourly), station 623660 Cairo International Airport.", "isd"),
         ref("Further intervention and cost sources, each with its link:", "interventions",
             "docs/intervention_research.md"),
         ref("CoolCairo Team 46 (2026). The heat model and the hidden-area test, by hand "

@@ -281,6 +281,30 @@ def urban_growth(r, out: Path) -> Path:
     return _save(fig, out / "fig6_growth.png")
 
 
+def air_check(r, out: Path) -> Path:
+    """District surface temperature vs Cairo Airport air temperature, one dot per Landsat morning."""
+    from coolcairo.config import REPO_ROOT
+
+    t = pd.read_csv(REPO_ROOT / "results" / "air_temperature_check.csv")
+    t = t[t.gap_min <= r.cfg["air_check"]["max_gap_min"]]
+    offset = (t.lst_district_c - t.air_c).mean()
+    rr = t.lst_district_c.corr(t.air_c)
+    fig, ax = plt.subplots(figsize=(3.6, 3.2))
+    ax.scatter(t.air_c, t.lst_district_c, s=30, color=BLUE, edgecolor="white", linewidth=0.8,
+               zorder=3)
+    lo, hi = np.floor(t.air_c.min()) - 1, np.ceil(t.air_c.max()) + 1
+    xs = np.array([lo, hi])
+    ax.plot(xs, xs + offset, color=INK, lw=1, ls="--")
+    ax.text(hi - 0.2, hi + offset + 0.5, f"air + {offset:.1f} °C", ha="right", color=MUTED,
+            fontsize=7.5)
+    ax.set_xlim(lo, hi)
+    ax.set_xlabel("Air temperature at Cairo Airport, same time (°C)")
+    ax.set_ylabel("Nasr City median surface temperature (°C)")
+    ax.set_title(f"{len(t)} clear summer mornings, r = {rr:.2f}", fontsize=8.5)
+    ax.grid(color=GRID, lw=0.5), ax.set_axisbelow(True)
+    return _save(fig, out / "fig7_air_check.png")
+
+
 def _save(fig: plt.Figure, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(path)
@@ -290,4 +314,4 @@ def _save(fig: plt.Figure, path: Path) -> Path:
 
 def all_figures(r, out: Path) -> dict[str, Path]:
     return {f.__name__: f(r, out) for f in (study_area, district, model_fit, hyperspectral,
-                                             interventions, urban_growth)}
+                                             interventions, urban_growth, air_check)}

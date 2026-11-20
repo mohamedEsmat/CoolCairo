@@ -43,6 +43,7 @@ The app: at start-up it checks the real satellite archives for the scenes the an
 | Google Open Buildings 2.5D Temporal | Google, public tiles | annual, 2016–2023 | 4 m building presence and height rasters | Building heights, urban growth | CC BY 4.0 |
 | WorldPop Global2 R2025A | WorldPop | 2024 | 100 m constrained population | Residents per block | CC BY 4.0 |
 | GHSL R2023A (GHS-BUILT-H 2018, GHS-BUILT-S 2020, GHS-POP 2025) | European Commission JRC, public tiles | 2018–2025 | 100 m global building height, built-up surface, population | Fallbacks: heights where OSM and Open Buildings have none, footprint check where Open Buildings is missing, residents where WorldPop is missing | CC BY 4.0 |
+| NOAA Integrated Surface Database (Global Hourly), station 623660 Cairo International Airport | NOAA NCEI, public files on the NOAA Open Data bucket (`analysis/air_check.py`) | Jun–Aug 2023–2025, hourly | Station reports (METAR), whole °C | Air-temperature check only | Public (U.S. Government) |
 | NASA Blue Marble | NASA Earth Observatory | July 2004 | True-colour mosaic | App globe only | Public domain |
 
 **Why EnMAP and not Satellite 813:** 813 hyperspectral imagery of a team's own study area is available only in the incubation phase (organizers' answer to our question, 1 Oct 2026), so the PoC uses EnMAP, the closest freely available hyperspectral data; 813 data for Cairo is our first incubation step.
@@ -114,7 +115,8 @@ Run all cells (Kernel › Restart Kernel and Run All Cells). It reads `data/samp
 
 ```bash
 uv run python run_pipeline.py          # stream data, fit model, write export/district.json
-uv run pytest                          # unit tests (24), including the example's numbers
+uv run pytest                          # unit tests (36), including the example's numbers
+uv run python air_check.py             # surface vs air temperature check, results/air_temperature_check.*
 uv run python report/build_report.py   # methodology report PDF in docs/ (needs the EnMAP files)
 ```
 
@@ -169,12 +171,13 @@ The first run streams about 1 GB from the public archives into `analysis/data/` 
 
 - **Heat model:** spatial cross-validation (above), so the score reflects areas the model never saw.
 - **Materials:** a spot check of 20 random points (fixed seed) against Google Maps satellite imagery (milestone M2) agrees at 16 of 18 judgeable points (89%); the misses are dusty asphalt and a dusty roof read as sand. The check was not blind (done by an AI assistant that could see the labels); details per point in [`docs/m2_spot_check.xlsx`](docs/m2_spot_check.xlsx).
+- **Surface vs air temperature:** on 38 clear summer mornings (2023–2025), Nasr City's median Landsat surface was **13.1 °C hotter than the air** at Cairo Airport at the same time (± 1.7 °C), and hotter-surface mornings were hotter-air mornings (**r = 0.75** with air temperature at the overpass, 0.66 with the day's highest). One station cannot test block-to-block air differences. [`results/air_temperature_check.csv`](results/air_temperature_check.csv), report Section 6.1.
 - **Building heights:** Google Open Buildings 2.5D vs 165 OSM-tagged heights: bias −1.4 m, mean error 6.2 m, r = 0.60.
 - **App:** 105 automated checks run inside the built app (11 of them check that the EnMAP view reproduces the analysis figures); the example's numbers are checked by unit tests against the report.
 
 **Where it breaks:**
 
-- **Surface, not air, temperature.** Satellites measure how hot surfaces get. Studies suggest city-wide cool roofs lower air temperature by about 0.1–0.33 °C per +0.1 roof albedo; the effect on air is smaller and spreads beyond the district.
+- **Surface, not air, temperature.** Satellites measure how hot surfaces get, about 13 °C above the air in Nasr City on summer mornings; the only station with hourly data (Cairo Airport, about 10 km away) confirms the day-to-day link but cannot check block-to-block air differences. Studies suggest city-wide cool roofs lower air temperature by about 0.1–0.33 °C per +0.1 roof albedo; the effect on air is smaller and spreads beyond the district.
 - **Block level only (90 m).** Landsat's thermal band is 100 m, so no per-building temperatures are claimed.
 - **Modest model fit** (R² 0.34; 0.42 with EnMAP fractions). Fine for comparing measures, not for predicting one block exactly; cool roofs and cool pavements therefore use published values. The score also depends on which blocks are mapped: with OpenStreetMap footprints alone the model had 2,538 urban blocks and R² 0.25 (v1 results and the first edition of the methodology report), and live OSM on 8 Oct 2026 gave R² 0.30, which is why the results use committed extracts (OSM 23 Sep, Overture 18 Nov 2026).
 - **Dusty roofs vs sand, shadows as dark roofs.** The single-index material rules confuse them (the spot-check misses; the implausible dark-roof coefficient).
@@ -191,4 +194,4 @@ How we would overcome each one (effort and evidence) is on slide 13 of [the slid
 
 **Licence:** code under [MIT](LICENSE). The data keep their own licences and attributions (see [Data used](#3-data-used)); raw EnMAP data is not included.
 
-**Attribution:** Landsat (USGS) · Contains modified Copernicus Sentinel data [2023–2025] · Contains modified EnMAP data © DLR [2025] · © OpenStreetMap contributors (ODbL; the extract in `data/osm/` is shared under the same licence) · Google Open Buildings 2.5D Temporal (CC BY 4.0) · WorldPop 2024 (CC BY 4.0) · GHSL R2023A, European Commission JRC (CC BY 4.0) · NASA Blue Marble · data access via Microsoft Planetary Computer and DLR EOC Geoservice. Cool-roof and cool-pavement effects: Wang, Huang & Li (2020), *Geophysical Research Letters* 47, e2020GL087853, and the sources in `docs/intervention_research.md`. Built with Python (xarray, rioxarray, odc-stac, geopandas, osmnx, scikit-learn) and Unity 6.
+**Attribution:** Landsat (USGS) · Contains modified Copernicus Sentinel data [2023–2025] · Contains modified EnMAP data © DLR [2025] · © OpenStreetMap contributors (ODbL; the extract in `data/osm/` is shared under the same licence) · Google Open Buildings 2.5D Temporal (CC BY 4.0) · WorldPop 2024 (CC BY 4.0) · GHSL R2023A, European Commission JRC (CC BY 4.0) · NOAA NCEI Integrated Surface Database · NASA Blue Marble · data access via Microsoft Planetary Computer and DLR EOC Geoservice. Cool-roof and cool-pavement effects: Wang, Huang & Li (2020), *Geophysical Research Letters* 47, e2020GL087853, and the sources in `docs/intervention_research.md`. Built with Python (xarray, rioxarray, odc-stac, geopandas, osmnx, scikit-learn) and Unity 6.
