@@ -68,8 +68,9 @@ unmixes Nasr City with this library, reads the heat model from `unmixing/coeffic
 exports both to `export/district.json`; the app opens Cairo on these EnMAP materials (Sentinel-2
 one click away). Albedos measured from the library spectra (solar-weighted): pale roof 0.35,
 dusty roof 0.27, asphalt 0.18, sand 0.34. Footprints decide where roofs are, because the roof
-fractions follow footprints only loosely (correlation 0.18). Targeted plan in Nasr City: −55 %
-heat exposure (−74 % with the Sentinel-2 materials).
+fractions follow footprints only loosely (correlation 0.18). With these materials the app's targeted plan
+is cool roofs + street trees + cool pavements on the riskiest third: −86 % heat exposure (the PoC's roofs + parks:
+−55 % with EnMAP, −74 % with the Sentinel-2 materials).
 
 ### Labels used for the checks: source, date, purity
 
