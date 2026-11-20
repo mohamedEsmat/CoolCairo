@@ -520,3 +520,31 @@ def test_isd_temperature_parsing():
     assert np.isnan(out.iloc[2])   # missing
     assert np.isnan(out.iloc[3])   # quality 3 = erroneous
     assert out.iloc[4] == pytest.approx(28.5)
+
+
+def test_noise_covariance_recovers_band_noise():
+    from coolcairo.separability import noise_covariance
+
+    rng = np.random.default_rng(0)
+    sd = np.array([0.01, 0.02, 0.04])
+    cube = np.full((3, 80, 80), 0.3) + rng.normal(0, 1, (3, 80, 80)) * sd[:, None, None]
+    cube[:, :40, :] += np.linspace(0, 0.5, 80)[None, None, :]   # A non-uniform half to avoid.
+    sigma, window = noise_covariance(cube, np.array([1000.0, 1650.0, 2200.0]), window=30)
+    assert window["row"] >= 40
+    assert np.sqrt(np.diag(sigma)) == pytest.approx(sd, rel=0.1)
+
+
+def test_mnf_orders_by_signal_to_noise():
+    from coolcairo.separability import MNF
+
+    rng = np.random.default_rng(1)
+    n = 4000
+    signal = rng.normal(0, 1, n)
+    # Band 0: high variance but pure noise; band 1: low variance, mostly signal.
+    noise_sd = np.array([3.0, 0.1])
+    x = np.column_stack([rng.normal(0, noise_sd[0], n),
+                         0.5 * signal + rng.normal(0, noise_sd[1], n)])
+    m = MNF(np.diag(noise_sd ** 2), n_components=1, ridge=0.0).fit(x)
+    z = m.transform(x)[:, 0]
+    assert abs(np.corrcoef(z, signal)[0, 1]) > 0.95   # PCA would pick the noisy band.
+    assert m.eigenvalues_[0] > 20 and m.eigenvalues_[1] == pytest.approx(1.0, abs=0.1)

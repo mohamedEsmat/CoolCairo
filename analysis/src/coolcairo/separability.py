@@ -2,6 +2,7 @@
 
 1. Separating built surfaces from bare desert (`compare`, `fused_accuracy`).
 2. Explaining block surface temperature (`heat_r2`).
+Plus a robustness check of both with the spectra compressed by PCA or MNF (`compression_check`).
 
 Test 1 detail:
 
@@ -22,6 +23,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy.ndimage import distance_transform_edt
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression, RidgeCV
@@ -183,3 +185,155 @@ def heat_r2(
     result = pd.Series(out, name="r2_spatial_cv")
     result.attrs["n_blocks"] = int(ok.sum())
     return result
+
+
+# --------------------------------------------------------------------------------------------
+# MNF vs PCA (course notebook 13): does a noise-aware compression of the spectra change either
+# test? PCA ranks components by variance, MNF (Green et al. 1988) by signal-to-noise.
+
+def noise_covariance(
+    cube: np.ndarray, wavelengths: np.ndarray, band_nm: float = 1650.0, window: int = 40,
+    step: int = 10,
+) -> tuple[np.ndarray, dict]:
+    """Band noise covariance from shift differences in the most homogeneous window.
+
+    `cube` is (band, y, x). Neighbouring pixels in a uniform area share the same signal, so
+    their difference is noise with covariance 2 * Sigma_N (course notebook 13, section 4).
+    The window is the fully valid `window` x `window` square with the lowest coefficient of
+    variation at `band_nm`.
+    """
+    b = int(np.argmin(np.abs(wavelengths - band_nm)))
+    img = cube[b]
+    best = None
+    for i in range(0, img.shape[0] - window + 1, step):
+        for j in range(0, img.shape[1] - window + 1, step):
+            block = cube[:, i:i + window, j:j + window]
+            if not np.isfinite(block).all():
+                continue
+            w = img[i:i + window, j:j + window]
+            cv = float(w.std() / w.mean())
+            if best is None or cv < best[0]:
+                best = (cv, i, j)
+    if best is None:
+        raise ValueError("No fully valid window for the noise estimate.")
+    cv, i, j = best
+    win = cube[:, i:i + window, j:j + window]
+    diff = (win[:, :, 1:] - win[:, :, :-1]).reshape(cube.shape[0], -1).T
+    diff = diff[np.abs(diff).sum(axis=1) > 0]   # Duplicated pixels from resampling carry no noise.
+    return np.cov(diff, rowvar=False) / 2, {"row": i, "col": j, "cv": cv,
+                                            "band_nm": float(wavelengths[b])}
+
+
+class MNF(BaseEstimator, TransformerMixin):
+    """Minimum Noise Fraction: PCA after whitening the noise (course notebook 13's mnf_fit).
+
+    The noise covariance is given (from `noise_covariance`, label-free); the signal covariance
+    and mean are fitted on the training rows only. `eigenvalues_` are about SNR + 1.
+    """
+
+    def __init__(self, sigma_n: np.ndarray, n_components: int = 20, ridge: float = 1e-3) -> None:
+        self.sigma_n = sigma_n
+        self.n_components = n_components
+        self.ridge = ridge
+
+    def fit(self, x: np.ndarray, y: np.ndarray | None = None) -> MNF:
+        n = len(self.sigma_n)
+        s = self.sigma_n + np.eye(n) * self.ridge * np.trace(self.sigma_n) / n
+        ev_n, v_n = np.linalg.eigh(s)
+        whiten = v_n / np.sqrt(ev_n)
+        self.mean_ = x.mean(axis=0)
+        ev, v = np.linalg.eigh(np.cov((x - self.mean_) @ whiten, rowvar=False))
+        order = np.argsort(ev)[::-1]
+        self.eigenvalues_ = ev[order]
+        self.components_ = (whiten @ v[:, order])[:, : self.n_components]
+        return self
+
+    def transform(self, x: np.ndarray) -> np.ndarray:
+        return (x - self.mean_) @ self.components_
+
+
+class _AppendCompressed(BaseEstimator, TransformerMixin):
+    """Keep the first `n_keep` columns, compress the rest with `compressor` (fitted per fold)."""
+
+    def __init__(self, n_keep: int, compressor: object) -> None:
+        self.n_keep = n_keep
+        self.compressor = compressor
+
+    def fit(self, x: np.ndarray, y: np.ndarray | None = None) -> _AppendCompressed:
+        self.compressor.fit(x[:, self.n_keep:])
+        return self
+
+    def transform(self, x: np.ndarray) -> np.ndarray:
+        return np.hstack([x[:, : self.n_keep], self.compressor.transform(x[:, self.n_keep:])])
+
+
+def _compressor(method: str, k: int, sigma_n: np.ndarray) -> object:
+    if method == "PCA":   # Standardised PCA, as in the built-vs-desert test.
+        return make_pipeline(StandardScaler(), PCA(k, random_state=0))
+    return MNF(sigma_n, k)
+
+
+def compression_check(
+    refl: xr.DataArray,
+    labels: np.ndarray,
+    tile_size: float,
+    folds: int,
+    block_spec: np.ndarray,
+    block_features: np.ndarray,
+    lst_c: np.ndarray,
+    block_groups: np.ndarray,
+    components: tuple[int, ...] = (20, 48),
+) -> dict:
+    """Both hyperspectral tests with EnMAP compressed by standardised PCA or by MNF.
+
+    Same pixels, labels, blocks and spatial folds as `compare` and `heat_r2`; every compression
+    is fitted inside the training folds. Returns the noise estimate, MNF eigenvalue counts and
+    one row per (method, components) with built-vs-desert accuracy and block-heat R².
+    """
+    cube = refl.values
+    sigma_n, window = noise_covariance(cube, refl.wavelength.values)
+    finite = np.isfinite(cube).all(axis=0)
+    eig = MNF(sigma_n, cube.shape[0]).fit(cube[:, finite].T).eigenvalues_
+
+    valid = (labels >= 0) & finite
+    yy, xx = np.nonzero(valid)
+    groups = (np.floor(refl.x.values[xx] / tile_size).astype(int) * 100_000
+              + np.floor(refl.y.values[yy] / tile_size).astype(int))
+    y = labels[valid].astype(int)
+    x = cube[:, valid].T
+
+    ok = np.isfinite(lst_c) & np.isfinite(block_spec).all(axis=1)
+    spec, ours, lst, g = block_spec[ok], block_features[ok], lst_c[ok], block_groups[ok]
+    both = np.hstack([ours, spec])
+
+    def ridge() -> RidgeCV:
+        return RidgeCV(alphas=np.logspace(-3, 3, 13))
+
+    def cv_r2(x_: np.ndarray, make: callable) -> float:
+        pred = np.empty_like(lst)
+        for tr, te in GroupKFold(n_splits=folds).split(x_, lst, g):
+            pred[te] = make().fit(x_[tr], lst[tr]).predict(x_[te])
+        return float(r2_score(lst, pred))
+
+    rows = []
+    for method in ("PCA", "MNF"):
+        for k in components:
+            scores = []
+            for tr, te in GroupKFold(n_splits=folds).split(x, y, groups):
+                m = make_pipeline(_compressor(method, k, sigma_n), StandardScaler(),
+                                  LogisticRegression(class_weight="balanced", max_iter=5000))
+                m.fit(x[tr], y[tr])
+                scores.append(balanced_accuracy_score(y[te], m.predict(x[te])))
+            rows.append({
+                "method": method, "components": k,
+                "built_vs_desert": float(np.mean(scores)),
+                "built_vs_desert_std": float(np.std(scores)),
+                "heat_spectra": cv_r2(spec, lambda m=method, k=k: make_pipeline(
+                    _compressor(m, k, sigma_n), StandardScaler(), ridge())),
+                "heat_with_features": cv_r2(both, lambda m=method, k=k: make_pipeline(
+                    _AppendCompressed(ours.shape[1], _compressor(m, k, sigma_n)),
+                    StandardScaler(), ridge())),
+            })
+    return {"window": window, "n_bands": int(cube.shape[0]),
+            "eig_above_10": int((eig > 10).sum()), "eig_above_3": int((eig > 3).sum()),
+            "rows": rows}
