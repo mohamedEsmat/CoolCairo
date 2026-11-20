@@ -722,6 +722,9 @@ namespace CoolCairo
                           (c < 2 && why >= 0 && why < 3 ? $"  ·  {ConfidenceCause[why]}" : "");
             float fc = b.footprintCompleteness[block];
             string footprints = fc < 0f ? "little built-up area" : $"{fc:P0} of built-up area mapped";
+            float filled = b.footprintFilledShare != null && b.footprintFilledShare.Length == d.BlockCount
+                ? b.footprintFilledShare[block] : 0f;
+            if (filled >= 0.005f) footprints += $" ({filled:P0} from Google / Microsoft outlines)";
             float hm = b.heightMeasuredShare[block], hg = b.heightGhslShare[block];
             string heights;
             if (hm < 0f) heights = "no buildings";
@@ -743,7 +746,9 @@ namespace CoolCairo
             var q = d.dataQuality;
             string reference = string.IsNullOrEmpty(q.footprintReference) ? "satellite built-up area" : q.footprintReference;
             return $"How far each block's numbers can be trusted, from its inputs: OpenStreetMap footprints vs the built-up " +
-                   $"area seen from space ({reference}), measured building heights, and the residents layer. Low means " +
+                   $"area seen from space ({reference}), measured building heights, and the residents layer. " +
+                   (q.footprintsFilled > 0f ? $"{q.footprintsFilled:P0} of buildings fill OpenStreetMap gaps with Google / Microsoft outlines. " : "") +
+                   $"Low means " +
                    $"under {q.footprintMedium:P0} of buildings mapped or heights mostly guessed. In this district: " +
                    $"{q.high:P0} high, {q.medium:P0} medium, {q.low:P0} low.";
         }
@@ -817,6 +822,8 @@ namespace CoolCairo
             if (district.Data.HasHeightSources && hs.ghsl > 0f || district.Data.HasQuality &&
                 (district.Data.dataQuality.footprintReference ?? "").StartsWith("GHSL"))
                 parts.Add("GHSL built-up height and surface R2023A, European Commission JRC (CC BY 4.0)");
+            if (district.Data.HasQuality && district.Data.dataQuality.footprintsFilled > 0f)
+                parts.Add("Footprints where OSM has none: Overture Maps (Google Open Buildings, Microsoft ML Buildings; ODbL)");
             bool openBuildings = !district.Data.HasHeightSources || hs.openBuildings > 0f || district.Data.HasGrowth;
             parts.Add(openBuildings
                 ? "Buildings and growth: © OpenStreetMap contributors, Google Open Buildings 2.5D Temporal (CC BY 4.0)"

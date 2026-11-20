@@ -232,9 +232,10 @@ namespace CoolCairo
             Check("confidence: every block has a label, and the district shares match them", data.HasQuality &&
                   b.confidence.All(c => c >= 0 && c <= 2) && SharesMatch(data), data.HasQuality
                       ? $"{data.dataQuality.high:P1}/{data.dataQuality.medium:P1}/{data.dataQuality.low:P1}" : "no labels");
-            Check("confidence: Cairo keeps its published inputs (WorldPop, no GHSL heights) and checks footprints against Open Buildings",
-                  !data.ResidentsFromGhsl && data.heightSources.ghsl == 0f &&
-                  data.dataQuality.footprintReference.StartsWith("Google Open Buildings"), data.dataQuality.footprintReference);
+            Check("confidence: Cairo uses WorldPop, fills OSM gaps with Google / Microsoft outlines, checks footprints against Open Buildings",
+                  !data.ResidentsFromGhsl && data.dataQuality.footprintsFilled > 0.3f && b.footprintFilledShare.Any(f => f > 0.5f) &&
+                  data.dataQuality.footprintReference.StartsWith("Google Open Buildings"),
+                  $"{data.dataQuality.footprintsFilled:P0} filled, {data.dataQuality.footprintReference}");
 
             Button(HudStyle.ViewButtonPrefix + ViewMode.Confidence).onClick.Invoke();
             yield return null;
@@ -279,9 +280,9 @@ namespace CoolCairo
             // what applying it does.
             Button(PlanDashboard.TabBuild).onClick.Invoke();
             yield return null;
-            Check("plan builder: the default plan previews the report's −74% (1,686 person·°C, 192 blocks)",
-                  Mathf.Abs(panel.LastPreview.exposure - 1686f) < 1f && panel.LastPreview.blocks == 192 &&
-                  Text(PlanDashboard.BuildPreview) == "−74%",
+            Check("plan builder: the default plan previews the analysis's −83% (778 person·°C, 192 blocks)",
+                  Mathf.Abs(panel.LastPreview.exposure - 778f) < 1f && panel.LastPreview.blocks == 192 &&
+                  Text(PlanDashboard.BuildPreview) == "−83%",
                   $"{panel.LastPreview.exposure:N1}, {panel.LastPreview.blocks} blocks, {Text(PlanDashboard.BuildPreview)}");
             Button(PlanDashboard.BuildMeasurePrefix + Intervention.CoolRoof).onClick.Invoke();
             Button(PlanDashboard.BuildMeasurePrefix + Intervention.PocketPark).onClick.Invoke();
@@ -289,7 +290,7 @@ namespace CoolCairo
             Find(PlanDashboard.BuildShare).GetComponent<Slider>().value = 100;
             yield return null;
             float treesEverywhere = model.ExposureIfEverywhere(Intervention.Trees);
-            Check("plan builder: street trees in every block preview the report's one-measure figure (−24%)",
+            Check("plan builder: street trees in every block preview the analysis's one-measure figure (−26%)",
                   Mathf.Abs(panel.LastPreview.exposure - treesEverywhere) < 0.5f,
                   $"{panel.LastPreview.exposure:N1} vs {treesEverywhere:N1}");
             Button(PlanDashboard.BuildApply).onClick.Invoke();
@@ -307,36 +308,36 @@ namespace CoolCairo
             Button(PlanDashboard.TabResults).onClick.Invoke();
             yield return null;
 
-            // One measure in every block, as the report: −41 / −24 / −52 / −60 %.
+            // One measure in every block, as the analysis (results/summary.md): −62 / −26 / −55 / −51 %.
             float before = model.TotalExposure(false);
             var pct = new[] { Intervention.CoolRoof, Intervention.Trees, Intervention.CoolPavement, Intervention.PocketPark }
                 .Select(k => 100f * (before - model.ExposureIfEverywhere(k)) / before).ToArray();
-            Check("plan panel: one measure everywhere matches the report (−41/−24/−52/−60%)",
-                  Mathf.RoundToInt(pct[0]) == 41 && Mathf.RoundToInt(pct[1]) == 24 &&
-                  Mathf.RoundToInt(pct[2]) == 52 && Mathf.RoundToInt(pct[3]) == 60,
+            Check("plan panel: one measure everywhere matches the analysis (−62/−26/−55/−51%)",
+                  Mathf.RoundToInt(pct[0]) == 62 && Mathf.RoundToInt(pct[1]) == 26 &&
+                  Mathf.RoundToInt(pct[2]) == 55 && Mathf.RoundToInt(pct[3]) == 51,
                   string.Join(" / ", pct.Select(p => p.ToString("0.0"))));
 
-            // The targeted plan: the report's −74% (6,460 → 1,686 person·°C, 22,588 residents).
+            // The targeted plan: the analysis's −83% (4,693 → 778 person·°C, 22,618 residents).
             Button(PlanDashboard.TargetedName).onClick.Invoke();
             yield return null;
             float after = model.TotalExposure();
-            Check("plan panel: the targeted plan removes 74% (6,460 → 1,686 person·°C)",
-                  Mathf.Abs(after - 1686f) < 1f && Text(PlanDashboard.HeadlineName) == "−74%",
+            Check("plan panel: the targeted plan removes 83% (4,693 → 778 person·°C)",
+                  Mathf.Abs(after - 778f) < 1f && Text(PlanDashboard.HeadlineName) == "−83%",
                   $"{after:N1}, headline {Text(PlanDashboard.HeadlineName)}");
             int valid = Enumerable.Range(0, d.Data.BlockCount).Count(model.IsValid);
-            Check("plan panel: it treats the riskiest third of blocks, 22,588 residents cooled",
-                  model.TreatedBlocks() == valid / 3 && Mathf.Abs(model.ResidentsInCooledBlocks() - 22588f) < 1f,
+            Check("plan panel: it treats the riskiest third of blocks, 22,618 residents cooled",
+                  model.TreatedBlocks() == valid / 3 && Mathf.Abs(model.ResidentsInCooledBlocks() - 22618f) < 1f,
                   $"{model.TreatedBlocks()} of {valid} blocks, {model.ResidentsInCooledBlocks():N0} residents");
             float aboveBefore = model.ResidentsAboveTypical(false), aboveAfter = model.ResidentsAboveTypical();
             var cooled = model.TreatedCooling();
-            Check("plan panel: residents in above-typical heat 10,517 → 2,503; treated blocks cool 1.33 °C, up to 3.2",
-                  Mathf.Abs(aboveBefore - 10517f) < 1f && Mathf.Abs(aboveAfter - 2503f) < 1f &&
-                  cooled.blocks == 192 && Mathf.Abs(cooled.after - cooled.before + 1.33f) < 0.01f &&
-                  Mathf.Abs(cooled.maxCooling + 3.23f) < 0.01f,
-                  $"{aboveBefore:N0} → {aboveAfter:N0}; {cooled.blocks} blocks {cooled.before:0.00} → {cooled.after:0.00}, max {cooled.maxCooling:0.00}");
+            Check("plan panel: residents in above-typical heat 7,728 → 1,759; treated blocks cool 1.42 °C, up to 3.0",
+                  Mathf.Abs(aboveBefore - 7728f) < 1f && Mathf.Abs(aboveAfter - 1759f) < 1f &&
+                  cooled.blocks == 192 && Mathf.Abs(cooled.after - cooled.before + 1.42f) < 0.01f &&
+                  Mathf.Abs(cooled.maxCooling + 3.03f) < 0.01f,
+                  $"{aboveBefore:N0} → {aboveAfter:N0}; {cooled.blocks} blocks {cooled.before:0.000} → {cooled.after:0.000}, max {cooled.maxCooling:0.000}");
             yield return null;
             Check("readouts: with a plan the temperature card shows the treated blocks",
-                  Find(HudStyle.KpiDelta).transform.Find(HudStyle.KpiSub).GetComponent<TextMeshProUGUI>().text.StartsWith("192 blocks · up to −3.2") &&
+                  Find(HudStyle.KpiDelta).transform.Find(HudStyle.KpiSub).GetComponent<TextMeshProUGUI>().text.StartsWith("192 blocks · up to −3.0") &&
                   Find(HudStyle.KpiDelta).GetComponentsInChildren<TextMeshProUGUI>().Any(t => t.text.Contains("TREATED")),
                   Find(HudStyle.KpiDelta).transform.Find(HudStyle.KpiSub).GetComponent<TextMeshProUGUI>().text);
             var removed = model.ExposureRemovedByMeasure();
@@ -637,9 +638,9 @@ namespace CoolCairo
                   Find("Dusty roof") != null && Find("Shade (shadow, material unseen)") != null &&
                   Text(HudStyle.ViewHint).Contains("EnMAP") && Text(HudStyle.ViewHint).Contains("checked by eye"),
                   Text(HudStyle.ViewHint));
-            Check("enmap: model notes give R² 0.39 vs 0.25 and the 0.53 vs 0.33 spectrum test",
-                  Text(HudStyle.ModelText).Contains("R² 0.39") && Text(HudStyle.ModelText).Contains("0.25") &&
-                  Text(HudStyle.ModelText).Contains("0.53 vs 0.33"), Text(HudStyle.ModelText));
+            Check("enmap: model notes give R² 0.42 vs 0.34 and the 0.62 vs 0.30 spectrum test",
+                  Text(HudStyle.ModelText).Contains("R² 0.42") && Text(HudStyle.ModelText).Contains("0.34") &&
+                  Text(HudStyle.ModelText).Contains("0.62 vs 0.30"), Text(HudStyle.ModelText));
 
             // Same figures as the analysis (enmap_materials.plan_figures).
             float before = model.TotalExposure(false);
@@ -687,7 +688,7 @@ namespace CoolCairo
         {
             d.Model.ResetAll();
             float exposure = d.Model.TotalExposure(false);
-            Check("unchanged: today's heat exposure is still 6,460 person·°C", Mathf.Abs(exposure - 6460f) < 1f, $"{exposure:N0}");
+            Check("unchanged: today's heat exposure is still 4,693 person·°C", Mathf.Abs(exposure - 4693f) < 1f, $"{exposure:N0}");
         }
 
         // ---------- helpers ----------

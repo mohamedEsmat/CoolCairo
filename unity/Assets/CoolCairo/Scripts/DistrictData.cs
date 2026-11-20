@@ -107,6 +107,7 @@ namespace CoolCairo
         public float[] footprintCompleteness;
         public float[] heightMeasuredShare;
         public float[] heightGhslShare;
+        public float[] footprintFilledShare;  // footprint area from Google / Microsoft outlines (Overture)
     }
 
     // How far the district's inputs can be trusted (quality.py summary).
@@ -121,6 +122,8 @@ namespace CoolCairo
         public float footprintMedium;
         public float heightShare;        // measured-height share for "high" heights
         public string footprintReference; // what the OSM footprints were checked against
+        public float footprintsFilled;   // share of buildings from machine-learned outlines (OSM gaps)
+        public float filledMaxHigh;      // above this filled share a block's footprints are at best medium
     }
 
     // EnMAP material model (analysis enmap_materials.py): what the cooling measures do when the

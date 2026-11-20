@@ -8,7 +8,7 @@ namespace CoolCairo
 {
     // "Plan results" panel, opened from the button under the result cards (or the P key).
     // Two pages:
-    //   RESULTS      heat exposure removed so far (targeted plan: −86% with EnMAP, the report's −74% with Sentinel-2),
+    //   RESULTS      heat exposure removed so far (targeted plan: −93% with EnMAP, −83% with Sentinel-2),
     //                a one-click targeted plan, each measure's share of the removal, and the plan
     //                against one measure in every block;
     //   RISKIEST 10  the blocks with the most heat exposure right now; a click flies there.

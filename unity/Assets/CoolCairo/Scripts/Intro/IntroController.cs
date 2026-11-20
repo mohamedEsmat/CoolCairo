@@ -363,7 +363,10 @@ namespace CoolCairo
         void BuildingsRow()
         {
             var hs = _data.heightSources;
-            string detail = $"{_data.buildings.count:N0} OpenStreetMap footprints  ·  heights: ";
+            float filled = _data.HasQuality ? _data.dataQuality.footprintsFilled : 0f;
+            string detail = filled > 0f
+                ? $"{_data.buildings.count:N0} footprints ({1f - filled:P0} OpenStreetMap, {filled:P0} Google / Microsoft via Overture)  ·  heights: "
+                : $"{_data.buildings.count:N0} OpenStreetMap footprints  ·  heights: ";
             if (!_data.HasHeightSources) { detail += "OSM tags and Google Open Buildings 2.5D"; StaticRow("Buildings", "BLD", detail, "✓ Ready", Good); return; }
             var parts = new List<string>();
             if (hs.openBuildings >= 0.005f) parts.Add($"{hs.openBuildings:P0} Google Open Buildings 2.5D");
