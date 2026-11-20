@@ -1,0 +1,11 @@
+{
+  "target": "library candidate #14 (30.014022, 31.386726), 3 x 3 pixels of one roof",
+  "threshold_ace": 0.203,
+  "detected_pixels": 440,
+  "detected_share_on_roofs": 0.47,
+  "sites_total": 82,
+  "sites_in_sheet": 38,
+  "controls_in_sheet": 12,
+  "lst_detected_roofs_c": 50.1,
+  "lst_all_roofs_c": 46.01
+}

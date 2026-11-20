@@ -548,3 +548,21 @@ def test_mnf_orders_by_signal_to_noise():
     z = m.transform(x)[:, 0]
     assert abs(np.corrcoef(z, signal)[0, 1]) > 0.95   # PCA would pick the noisy band.
     assert m.eigenvalues_[0] > 20 and m.eigenvalues_[1] == pytest.approx(1.0, abs=0.1)
+
+
+def test_ace_finds_implanted_target():
+    from coolcairo import detect
+
+    rng = np.random.default_rng(2)
+    bands = 30
+    background = rng.normal(0.3, 0.02, (4000, bands)) + rng.normal(0, 0.05, (4000, 1))
+    target = np.linspace(0.6, 0.2, bands)                 # A distinct spectral shape.
+    mu, ci = detect.background_stats(background)
+    assert detect.ace(target[None], target, mu, ci)[0] == pytest.approx(1.0)
+    mixed = 0.7 * background[:200] + 0.3 * target
+    assert np.median(detect.ace(mixed, target, mu, ci)) > np.percentile(
+        detect.ace(background[200:], target, mu, ci), 99)
+    bench = detect.implantation(background, target, target[None], fractions=(0.3,), n_clean=1000,
+                                n_implanted=200)
+    ace_row = bench[bench.detector == "ACE"].iloc[0]
+    assert ace_row.auc > 0.99
