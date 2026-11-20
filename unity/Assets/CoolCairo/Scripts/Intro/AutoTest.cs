@@ -36,22 +36,23 @@ namespace CoolCairo
         IEnumerator ScreenshotTour(string folder)
         {
             System.IO.Directory.CreateDirectory(folder);
-            // Loading screen: 4.5 s in, or once every row is done if the sync finishes sooner
-            // (the list then holds 1.5 s before fading out).
-            var loading = FindFirstObjectByType<IntroController>();
-            for (float t = 0f; t < 4.5f && loading != null && !loading.LoadingDone; t += Time.deltaTime) yield return null;
-            yield return Shot(folder, "01_loading");
-
+            // Globe first: the loading list only appears once a city is chosen.
             IntroController intro = null;
             while ((intro = FindFirstObjectByType<IntroController>()) == null || !intro.ReadyForInput) yield return null;
             yield return new WaitForSeconds(1f);
             yield return Shot(folder, "02_globe");
 
             intro.ChooseCity(0);
-            yield return new WaitForSeconds(1.6f); // End of the fast approach, ~760 km up.
-            yield return Shot(folder, "02b_approach");
-            yield return new WaitForSeconds(2.8f); // End of the slow descent, before the fade.
-            yield return Shot(folder, "03_flyin");
+            // Archive sync: shoot while the completed list holds still (1.2 s before it fades).
+            while (!intro.LoadingDone) yield return null;
+            yield return new WaitForSeconds(0.3f);
+            yield return ShotNow(folder, "01_loading");
+            // End of the fast approach, ~760 km up.
+            while (intro.FlyInStage < 1) yield return null;
+            yield return ShotNow(folder, "02b_approach");
+            // End of the slow descent, before the fade to black.
+            while (intro.FlyInStage < 2) yield return null;
+            yield return ShotNow(folder, "03_flyin");
 
             DistrictView district = null;
             while ((district = FindFirstObjectByType<DistrictView>()) == null || district.Model == null) yield return null;
@@ -115,6 +116,14 @@ namespace CoolCairo
             yield return new WaitForEndOfFrame();
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, name + ".png"));
             yield return null;
+            yield return null;
+        }
+
+        // Capture on the next frame end, for the intro's moving camera (no view cross-fade to wait for).
+        static IEnumerator ShotNow(string folder, string name)
+        {
+            yield return new WaitForEndOfFrame();
+            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(folder, name + ".png"));
             yield return null;
         }
 

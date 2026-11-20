@@ -143,10 +143,12 @@ namespace CoolCairo
         IEnumerator FlyIntoCity(CityCatalog.City city)
         {
             _phase = Phase.FlyIn;
+            FlyInStage = 0;
             globeCamera.UserControl = false;
             satellites.SetVisible(false);
             // Stage 1: fast approach over the Blue Marble to just above the city.
             yield return globeCamera.FlyTo(city.Lat, city.Lon, ApproachDistance, 2.0f);
+            FlyInStage = 1;
             // Stage 2: slow descent; the Sentinel-2 close-up is fully visible from the start of it.
             // Markers are ~140 km wide at globe scale, so they would cover the close-up: hide them.
             foreach (var t in _markers.Concat(_outlines)) t.gameObject.SetActive(false);
@@ -156,6 +158,7 @@ namespace CoolCairo
             // the whole width (at 11 degrees the soft 500 m Blue Marble still showed at the sides).
             StartCoroutine(ZoomLens(Camera.main, 60f, 5f, 3.0f));
             yield return globeCamera.FlyTo(city.Lat, city.Lon, 1.02f, 3.0f);
+            FlyInStage = 2;
             yield return new WaitForSeconds(0.4f);
             for (float t = 0f; t < 1f; t += Time.deltaTime / 0.6f)
             {
@@ -251,6 +254,8 @@ namespace CoolCairo
         // Globe is shown and accepting clicks (used by AutoTest too).
         // The chosen city's archive rows are done and the list holds still before the fade.
         public bool LoadingDone { get; private set; }
+        // Fly-in progress for AutoTest: 1 = fast approach done (~760 km up), 2 = descent done, before the fade.
+        public int FlyInStage { get; private set; }
         public bool ReadyForInput => _phase == Phase.Globe && _curtain <= 0f && !globeCamera.Busy;
 
         // Index into CityCatalog.All (0 = Cairo).
