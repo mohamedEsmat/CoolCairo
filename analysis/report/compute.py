@@ -182,6 +182,10 @@ def compute() -> Results:
                                         refl.x.values, refl.y.values, cfg["cv_tile_size"],
                                         cfg["cv_folds"])
     heat = heat_r2_table(cfg, train, refl)
+    mnf = separability.compression_check(
+        refl, labels, cfg["cv_tile_size"], cfg["cv_folds"],
+        separability.block_spectra(refl, 3, train), train[FEATURES].to_numpy(),
+        train.lst_c.to_numpy(), spatial_groups(train, cfg["cv_tile_size"]))
 
     # M2 spot check (filled in by a person; may still be empty).
     sheet = REPO_ROOT / "docs" / "m2_spot_check.xlsx"
@@ -199,6 +203,7 @@ def compute() -> Results:
         "s2_scenes": s2.attrs.get("scenes"),
         "labels_built": int((labels == 1).sum()),
         "labels_open": int((labels == 0).sum()),
+        "mnf": mnf,
     }
     return Results(
         cfg=cfg, blocks=blocks, material=material, buildings=buildings, train=train, fit=result,

@@ -100,6 +100,7 @@ LINKS = {
     "acpa2002": "https://trid.trb.org/View/920184",
     "uae2023": "https://www.sciencedirect.com/science/article/pii/S2214509523001195",
     "hendel2024": "https://arxiv.org/abs/2409.12242",
+    "green1988": "https://doi.org/10.1109/36.3001",
     "santamouris2014": "https://doi.org/10.1016/j.solener.2012.07.003",
     "polyu2024": "https://www.polyu.edu.hk/rio/news/2024/20240924---polyu-researchers-unveil-novel-"
                  "carbon-dots-driven-green-radiative-cooling-coating/",
@@ -255,6 +256,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     en_full = sep["EnMAP full spectrum"]["balanced_accuracy"]
     en_bands = sep["EnMAP full spectrum"]["n_features"]
     h = r.heat_r2
+    mn = r.extra["mnf"]
     gr, gcfg = r.growth, cfg["growth"]
     g0, g1 = gr["first"], gr["last"]
     gam, gad = gr["area_model"], gr["area_display"]
@@ -560,10 +562,18 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "<b>Built vs desert.</b> 30 m pixels ≥ 90% inside OSM footprints (built, n = "
               f"{r.extra['labels_built']:,}) versus pixels more than 300 m from any footprint and "
               f"not vegetated (open, n = {r.extra['labels_open']:,}); logistic regression with "
-              "balanced class weights (PCA to 20 components for EnMAP), balanced accuracy.",
+              "balanced class weights (EnMAP compressed to 20 components by standardised PCA: "
+              "every band scaled to unit variance first), balanced accuracy.",
               "<b>Block heat.</b> Mean spectrum per block as predictors of block LST, alone and "
               "added to our model features; ridge regression with the penalty chosen by inner "
               "cross-validation; spatial R² with 1, 2 and 3 km held-out tiles.",
+              "<b>Compression check.</b> Both tests repeated with EnMAP compressed by "
+              "standardised PCA or by Minimum Noise Fraction (MNF; "
+              f"{cite('Green et al. 1988', 'green1988')}, course "
+              "notebook 13), which ranks components by signal-to-noise instead of variance. "
+              "Band noise comes from shift differences in the most uniform 40 × 40 pixel window "
+              "(lowest variation at 1650 nm); each compression is fitted inside the training "
+              "folds.",
           ])]
 
     s += [p("4.9  Urban growth", H2),
@@ -654,6 +664,30 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             f"{r.fused[1]:.3f} (fold spread ±{r.fused[2]:.3f}). A {r.extra['s2_scenes']}-day "
             "Sentinel-2 median beats a single EnMAP date for this task; the remaining confusion is "
             "spatial (mixed pixels), not spectral."),
+          p(f"<b>PCA or MNF: the same answer.</b> Of EnMAP's {mn['n_bands']} bands, "
+            f"{mn['eig_above_3']} MNF components have a signal-to-noise eigenvalue above 3 and "
+            f"{mn['eig_above_10']} above 10. With the same number of components, MNF and PCA give "
+            "the same block-heat R², and both stay below ridge regression on all bands "
+            f"({h.loc['EnMAP full spectrum', 1000]:.2f} alone, "
+            f"{h.loc['Our features + EnMAP', 1000]:.2f} with our features): ridge already copes "
+            "with correlated bands, and the heat signal is spread over many weak components. "
+            "MNF separates built from desert about one point better than PCA, within the spread "
+            "between folds. The EnMAP gain therefore does not depend on how the spectra are "
+            "compressed, and the tests keep their methods (Table 4)."),
+          KeepTogether([table([["Compression", "Components", "Built vs desert", "Heat, spectra only",
+                  "Heat, + our features"]]
+                + [[x["method"], str(x["components"]),
+                    f"{x['built_vs_desert']:.3f} ± {x['built_vs_desert_std']:.3f}",
+                    f"{x['heat_spectra']:.2f}", f"{x['heat_with_features']:.2f}"]
+                   for x in mn["rows"]]
+                + [["All bands (in use)", str(mn["n_bands"]), "–",
+                    f"{h.loc['EnMAP full spectrum', 1000]:.2f}",
+                    f"{h.loc['Our features + EnMAP', 1000]:.2f}"]],
+                [0.24, 0.14, 0.22, 0.2, 0.2]),
+          p("<b>Table 4.</b> EnMAP compressed by standardised PCA or MNF: balanced accuracy "
+            "(± spread over folds) and block-heat R², 1 km held-out tiles, fitted inside the "
+            "training folds. Built vs desert with all bands is not run (PCA to 20 is the "
+            "method in use).", CAPTION)]),
           p("<b>Decision.</b> This report's model stays on Sentinel-2, which covers every summer "
             "and every city. EnMAP's value is in explaining heat, and the same block-heat test in "
             "three more cities gives the same answer (Section 5.6). Since November 2026 the app "
@@ -694,7 +728,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                     f"{row.area_first:.1f} km²", f"{row.area_last:.1f} km²",
                     f"{row.newly_built_blocks:,.0f}"] for t, row in gsens.iterrows()],
                 [0.25, 0.25, 0.25, 0.25]),
-          p("<b>Table 4.</b> Sensitivity to the building-presence cut-off: absolute areas "
+          p("<b>Table 5.</b> Sensitivity to the building-presence cut-off: absolute areas "
             "shift, but growth and the number of newly built blocks stay similar.", CAPTION)]
 
     def enmap_cell(c: dict) -> str:
@@ -725,7 +759,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                     f"{c['residents']:,.0f}", f"{c['exposure']:,.0f}", enmap_cell(c)]
                    for c in tc],
                 [0.19, 0.1, 0.14, 0.12, 0.13, 0.11, 0.21]),
-          p("<b>Table 5.</b> Test cities next to Cairo. Spatial R² with 1 km held-out tiles; "
+          p("<b>Table 6.</b> Test cities next to Cairo. Spatial R² with 1 km held-out tiles; "
             "median LST, residents and heat exposure (person·°C above each city's own urban "
             "median) for the app's display district; last column: block-heat R² with our features "
             "plus Sentinel-2 versus plus EnMAP spectra, same blocks and folds (Section 5.4).",
@@ -765,8 +799,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "<b>Data provenance</b>: the app's start-up screen queries the archives for the exact "
               "scene IDs used here and shows a live preview from each satellite; scene lists are "
               "exported with the data.",
-              "<b>36 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
-              "intervention arithmetic, the export format, the footprint fill, the station-data parsing and the quick example's numbers.",
+              "<b>38 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
+              "intervention arithmetic, the export format, the footprint fill, the station-data parsing, the MNF transform and the quick example's numbers.",
               "<b>Data confidence per block</b> (high / medium / low) in the app: the weakest of "
               "footprint completeness (against Google Open Buildings 2023 presence), the share of "
               "measured heights, and the population source; machine-learned footprints cap a "
@@ -913,6 +947,10 @@ def story(r: Results, figs: dict[str, Path]) -> list:
         ref("Evaluation and thermal performance of cool pavement under desert weather conditions "
             "(2023). <i>Case Studies in Construction Materials</i>.", "uae2023"),
         ref("Hendel, M. (2024). Cool pavements. arXiv:2409.12242.", "hendel2024"),
+        ref("Green, A. A., Berman, M., Switzer, P. &amp; Craig, M. D. (1988). A transformation for "
+            "ordering multispectral data in terms of image quality with implications for noise "
+            "removal. <i>IEEE Transactions on Geoscience and Remote Sensing</i> 26(1), 65–74.",
+            "green1988"),
         ref("Santamouris, M. (2014). Cooling the cities: a review of reflective and green roof "
             "mitigation technologies to fight heat island and improve comfort in urban environments. "
             "<i>Solar Energy</i> 103, 682–703.", "santamouris2014"),
