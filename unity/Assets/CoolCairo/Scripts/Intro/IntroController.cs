@@ -306,7 +306,9 @@ namespace CoolCairo
                           "Not available", Idle);
             BuildingsRow();
             GrowthRow();
-            StaticRow("WorldPop 2024", "POP", $"Residents per block (census counts mapped onto satellite-detected buildings)  ·  " +
+            StaticRow(_data.ResidentsFromGhsl ? "GHS-POP 2025" : "WorldPop 2024", "POP",
+                      (_data.ResidentsFromGhsl ? "Residents per block (fallback: no WorldPop file for this country)  ·  "
+                                               : "Residents per block (census counts mapped onto satellite-detected buildings)  ·  ") +
                       $"{_data.blocks.population.Where(p => p > 0).Sum():N0} residents in the district", "✓ Ready", Good);
             bool ready = _districtLoad.progress >= 0.9f;
             StaticRow($"{_data.name} district", "3D",
@@ -366,10 +368,19 @@ namespace CoolCairo
             var parts = new List<string>();
             if (hs.openBuildings >= 0.005f) parts.Add($"{hs.openBuildings:P0} Google Open Buildings 2.5D");
             if (hs.osmHeight + hs.osmLevels >= 0.005f) parts.Add($"{hs.osmHeight + hs.osmLevels:P0} OSM tags");
+            if (hs.ghsl >= 0.005f) parts.Add($"{hs.ghsl:P0} GHSL 100 m");
             if (hs.@default >= 0.005f) parts.Add($"{hs.@default:P0} default 5 storeys");
             detail += string.Join(", ", parts);
-            bool estimated = hs.@default > 0.5f;
+            // Coarse GHSL heights or the default for most buildings: heights are estimates.
+            bool estimated = hs.@default + hs.ghsl > 0.5f;
             StaticRow("Buildings", "BLD", detail, estimated ? "Heights estimated" : "✓ Ready", estimated ? Warn : Good);
+            if (_data.HasQuality)
+            {
+                var q = _data.dataQuality;
+                StaticRow("Data confidence", "DQ", $"Per block, from footprints mapped, measured heights and residents  ·  " +
+                          $"{q.high:P0} high, {q.medium:P0} medium, {q.low:P0} low", q.low > 0.25f ? "Gaps flagged" : "✓ Checked",
+                          q.low > 0.25f ? Warn : Good);
+            }
         }
 
         void GrowthRow()

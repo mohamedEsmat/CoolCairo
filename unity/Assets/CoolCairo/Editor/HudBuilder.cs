@@ -147,10 +147,11 @@ namespace CoolCairo.EditorTools
             var v = VerticalFit(side.gameObject, new RectOffset(20, 20, 18, 18), 10);
 
             Section(side.transform, "01 // VIEW");
-            // Two rows of two view buttons.
-            var viewRows = new[] { Row(side.transform, "Views1", 38, 6), Row(side.transform, "Views2", 38, 6) };
-            var viewNames = new[] { "Materials", "Surface heat", "Heat risk", "Growth" };
-            var modes = new[] { ViewMode.Materials, ViewMode.Heat, ViewMode.Risk, ViewMode.Growth };
+            // Two rows of two view buttons, then the data-confidence view on its own row.
+            var viewRows = new[] { Row(side.transform, "Views1", 38, 6), Row(side.transform, "Views2", 38, 6),
+                                   Row(side.transform, "Views3", 38, 6) };
+            var viewNames = new[] { "Materials", "Surface heat", "Heat risk", "Growth", "Data confidence" };
+            var modes = new[] { ViewMode.Materials, ViewMode.Heat, ViewMode.Risk, ViewMode.Growth, ViewMode.Confidence };
             for (int k = 0; k < modes.Length; k++)
                 Flexible(Button(viewRows[k / 2], HudStyle.ViewButtonPrefix + modes[k], viewNames[k], 13).gameObject, width: 1);
             Label(side.transform, HudStyle.ViewHint, "", 13, HudStyle.Muted, wrap: true);

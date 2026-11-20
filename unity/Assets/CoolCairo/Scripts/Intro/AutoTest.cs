@@ -135,7 +135,7 @@ namespace CoolCairo
                     int block = Random.Range(0, district.Data.BlockCount);
                     var kind = (Intervention)(i % 4); // All four tools.
                     model.Apply(kind, block, Random.Range(-0.5f, 1f));
-                    if (i % 50 == 0) district.SetMode((ViewMode)(i / 50 % 4)); // Materials, Heat, Risk, Growth.
+                    if (i % 50 == 0) district.SetMode((ViewMode)(i / 50 % 5)); // Materials, Heat, Risk, Growth, Confidence.
                     yield return null;
                 }
                 Log($"painted; mean dT {model.MeanDelta():0.00}; exposure {model.TotalExposure(false):0} -> {model.TotalExposure():0}; back to globe");

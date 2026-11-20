@@ -51,6 +51,7 @@ namespace CoolCairo
             yield return HeatPalettes(district, ui);
             yield return FootprintAndHighlight(district, brush, highlight);
             yield return AnalysisMaps(district, ui);
+            yield return DataConfidence(district);
             yield return EnmapMaterials(district);
             // The report's figures below are the Sentinel-2 proof of concept.
             district.Model.Source = MaterialSource.Sentinel2;
@@ -218,6 +219,47 @@ namespace CoolCairo
                   !Button("FigureNext").gameObject.activeSelf && Text("FigureKeys") == "ESC TO CLOSE", Text("FigureKeys"));
             Button("FigureClose").onClick.Invoke();
             yield return null;
+        }
+
+        // ---------- 3b. data confidence ----------
+
+        // Every block carries a confidence label from its inputs (analysis quality.py); the
+        // Data confidence view colours blocks by it and the block card names it.
+        IEnumerator DataConfidence(DistrictView d)
+        {
+            var data = d.Data;
+            var b = data.blocks;
+            Check("confidence: every block has a label, and the district shares match them", data.HasQuality &&
+                  b.confidence.All(c => c >= 0 && c <= 2) && SharesMatch(data), data.HasQuality
+                      ? $"{data.dataQuality.high:P1}/{data.dataQuality.medium:P1}/{data.dataQuality.low:P1}" : "no labels");
+            Check("confidence: Cairo keeps its published inputs (WorldPop, no GHSL heights) and checks footprints against Open Buildings",
+                  !data.ResidentsFromGhsl && data.heightSources.ghsl == 0f &&
+                  data.dataQuality.footprintReference.StartsWith("Google Open Buildings"), data.dataQuality.footprintReference);
+
+            Button(HudStyle.ViewButtonPrefix + ViewMode.Confidence).onClick.Invoke();
+            yield return null;
+            int low = System.Array.FindIndex(b.confidence, c => c == 0);
+            int high = System.Array.FindIndex(b.confidence, c => c == 2);
+            Check("confidence view: the button shows it, with its key, and colours blocks by label",
+                  d.Mode == ViewMode.Confidence && Find("ConfidenceKeys").activeSelf && Text(HudStyle.LegendTitle).StartsWith("Data confidence") &&
+                  low >= 0 && high >= 0 && d.BlockConfidenceColor(low) == DistrictView.ConfidenceLow &&
+                  d.BlockConfidenceColor(high) == DistrictView.ConfidenceHigh, $"mode {d.Mode}, low {low}, high {high}");
+
+            string lowCard = DistrictUI.ConfidenceText(data, low), highCard = DistrictUI.ConfidenceText(data, high);
+            Check("confidence card: names the label, why, and where footprints, heights and residents come from",
+                  lowCard.Contains("LOW") && lowCard.Contains("footprints missing") && lowCard.Contains("of built-up area mapped") &&
+                  lowCard.Contains("residents WorldPop") && highCard.Contains("HIGH") && !highCard.Contains("missing"), lowCard);
+            d.SetMode(ViewMode.Heat);
+            yield return null;
+        }
+
+        static bool SharesMatch(DistrictData d)
+        {
+            var labels = d.blocks.confidence.Where((c, i) => d.blocks.valid[i] == 1).ToArray();
+            float n = Mathf.Max(1, labels.Length);
+            return Mathf.Abs(labels.Count(c => c == 2) / n - d.dataQuality.high) < 0.001f &&
+                   Mathf.Abs(labels.Count(c => c == 1) / n - d.dataQuality.medium) < 0.001f &&
+                   Mathf.Abs(labels.Count(c => c == 0) / n - d.dataQuality.low) < 0.001f;
         }
 
         // ---------- 4. plan results panel ----------
@@ -515,12 +557,12 @@ namespace CoolCairo
                 int valid = d.blocks.valid.Count(v => v == 1);
                 int maps = DistrictUI.CityFigures(city, d).Length;
                 if (d.CityName != city.Name || d.name != city.District || valid < 100 || d.buildings.count < 100 ||
-                    d.model.r2SpatialCv <= 0f || d.sources == null || d.sources.Length == 0 || !d.HasHeightSources ||
+                    d.model.r2SpatialCv <= 0f || d.sources == null || d.sources.Length == 0 || !d.HasHeightSources || !d.HasQuality ||
                     maps != 5 + (d.HasGrowth ? 1 : 0) + (d.hyperspectral != null && d.hyperspectral.available == 1 ? 1 : 0))
                     bad.Add($"{city.Name} ({d.CityName}/{d.name}, {valid} blocks, {d.buildings.count} buildings, " +
                             $"R² {d.model.r2SpatialCv:0.00}, {maps} analysis maps)");
             }
-            Check("cities: every live city's district file and analysis maps load (blocks, buildings, model, sources, heights, maps)",
+            Check("cities: every live city's district file and analysis maps load (blocks, buildings, model, sources, heights, confidence, maps)",
                   bad.Count == 0, string.Join("; ", bad));
         }
 

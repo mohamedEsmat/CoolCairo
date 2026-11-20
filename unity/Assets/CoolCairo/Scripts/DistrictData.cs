@@ -29,10 +29,19 @@ namespace CoolCairo
         public GrowthInfo growth;        // Urban growth summary (Growth view).
         public string city;              // e.g. "Casablanca" (empty in older exports: Cairo)
         public HeightSources heightSources;   // where the buildings' heights come from
+        public string populationSource;  // "worldpop", or "ghs_pop" where WorldPop has no file
+        public DataQualityInfo dataQuality;  // confidence label shares and thresholds (quality.py)
 
         public string CityName => string.IsNullOrEmpty(city) ? "Cairo" : city;
         public bool HasHeightSources => heightSources != null &&
-            heightSources.osmHeight + heightSources.osmLevels + heightSources.openBuildings + heightSources.@default > 0.5f;
+            heightSources.osmHeight + heightSources.osmLevels + heightSources.openBuildings + heightSources.ghsl +
+            heightSources.@default > 0.5f;
+
+        // A data-confidence label for every block (analysis quality.py).
+        public bool HasQuality => dataQuality != null && dataQuality.available == 1 &&
+                                  blocks.confidence != null && blocks.confidence.Length == BlockCount;
+
+        public bool ResidentsFromGhsl => populationSource == "ghs_pop";
 
         // EnMAP fractions for every block and the heat model built on them (a confirmed library).
         public bool HasEnmap => enmap != null && enmap.available == 1 && blocks.enmapSand != null
@@ -89,6 +98,29 @@ namespace CoolCairo
         public float[] enmapAsphalt;
         public float[] enmapVegetation;
         public float[] enmapShade;
+        // Data confidence per block (quality.py): 0 low, 1 medium, 2 high; the check that set
+        // it (0 footprints, 1 heights, 2 residents, -1 all high); footprint area mapped as a
+        // share of the built-up area seen from space (-999 where almost nothing is built); and the
+        // footprint-area shares with a measured height and with a coarse GHSL height (-999: no buildings).
+        public int[] confidence;
+        public int[] confidenceReason;
+        public float[] footprintCompleteness;
+        public float[] heightMeasuredShare;
+        public float[] heightGhslShare;
+    }
+
+    // How far the district's inputs can be trusted (quality.py summary).
+    [Serializable]
+    public class DataQualityInfo
+    {
+        public int available;
+        public float high;               // shares of measured blocks per label
+        public float medium;
+        public float low;
+        public float footprintHigh;      // mapped share for "high" / "medium" footprints
+        public float footprintMedium;
+        public float heightShare;        // measured-height share for "high" heights
+        public string footprintReference; // what the OSM footprints were checked against
     }
 
     // EnMAP material model (analysis enmap_materials.py): what the cooling measures do when the
@@ -157,6 +189,7 @@ namespace CoolCairo
         public float osmHeight;      // OSM height tag
         public float osmLevels;      // OSM storeys x storey height
         public float openBuildings;  // Google Open Buildings 2.5D estimate
+        public float ghsl;           // GHSL GHS-BUILT-H 2018, 100 m average (fallback)
         public float @default;       // the config default (5 storeys): no height data
     }
 

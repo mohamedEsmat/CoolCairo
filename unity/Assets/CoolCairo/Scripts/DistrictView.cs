@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace CoolCairo
 {
-    public enum ViewMode { Materials, Heat, Risk, Growth }
+    public enum ViewMode { Materials, Heat, Risk, Growth, Confidence }
 
     // Colour schemes for the Surface heat view, chosen with the buttons in the colour key.
     //   Report:  blue -> light grey -> orange, centred on the typical urban block (heatReferenceC),
@@ -43,6 +43,12 @@ namespace CoolCairo
         public static readonly Color GrowthDenser = new Color(0.95f, 0.76f, 0.31f);  // #F2C14E
         public static readonly Color GrowthStable = new Color(0.45f, 0.48f, 0.54f);  // #737A8A
         public static readonly Color GrowthOpen = new Color(0.63f, 0.56f, 0.42f);    // #A08F6C
+
+        // Data-confidence view (analysis quality.py): blue / amber / red, so "high" is never read
+        // as the green the app uses for cooling.
+        public static readonly Color ConfidenceHigh = new Color(0.37f, 0.65f, 0.86f);   // #5EA6DB
+        public static readonly Color ConfidenceMedium = new Color(0.95f, 0.72f, 0.29f); // #F2B84A
+        public static readonly Color ConfidenceLow = new Color(0.90f, 0.33f, 0.29f);    // #E6544A
 
         // Built in code, not serialized: a serialized Gradient is initialised by Unity to plain
         // white, which silently turned the whole heat view white.
@@ -148,6 +154,24 @@ namespace CoolCairo
             yield return ($"Denser since {first} (+{(g?.denserMin ?? 0.05f) * 100f:0} pts building cover)", GrowthDenser);
             yield return ($"Built up before {first}, little change", GrowthStable);
             yield return ($"Still open land in {last}", GrowthOpen);
+        }
+
+        public System.Collections.Generic.IEnumerable<(string label, Color color)> ConfidenceLegend()
+        {
+            yield return ("High: footprints, heights and residents measured", ConfidenceHigh);
+            yield return ("Medium: some inputs estimated", ConfidenceMedium);
+            yield return ("Low: footprints missing or heights guessed", ConfidenceLow);
+        }
+
+        public Color BlockConfidenceColor(int block)
+        {
+            if (!Data.HasQuality) return noData;
+            return Data.blocks.confidence[block] switch
+            {
+                2 => ConfidenceHigh,
+                1 => ConfidenceMedium,
+                _ => ConfidenceLow,
+            };
         }
 
         public Color BlockGrowthColor(int block)
@@ -272,6 +296,11 @@ namespace CoolCairo
                     roof = BlockGrowthColor(block);
                     walls = roof * 0.85f;
                 }
+                else if (Mode == ViewMode.Confidence)
+                {
+                    roof = BlockConfidenceColor(block);
+                    walls = roof * 0.85f;
+                }
                 else
                 {
                     // Block-level statement: roofs in this block are X% dark (Sentinel-2) or dusty
@@ -312,6 +341,8 @@ namespace CoolCairo
         {
             // Growth comes from building data, not temperature, so it ignores the LST mask.
             if (Mode == ViewMode.Growth) return BlockGrowthColor(i);
+            // Confidence is about the inputs, so it also covers blocks without a temperature.
+            if (Mode == ViewMode.Confidence) return BlockConfidenceColor(i);
             if (!Model.IsValid(i)) return noData;
             if (Mode == ViewMode.Heat) return HeatColor(Model.Lst(i));
             if (Mode == ViewMode.Risk) return BlockRiskColor(i);

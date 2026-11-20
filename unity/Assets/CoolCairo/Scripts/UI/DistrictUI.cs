@@ -41,7 +41,7 @@ namespace CoolCairo
         float _beforeLst;
         bool _kpisReady;
         RawImage _legendRamp;
-        GameObject _legendScale, _legendSwatches, _riskKeys, _growthKeys, _legendPalettes, _treatmentKeys;
+        GameObject _legendScale, _legendSwatches, _riskKeys, _growthKeys, _confidenceKeys, _legendPalettes, _treatmentKeys;
         RectTransform _tooltip, _canvas;
         Texture2D _rampTex;
         ViewMode _shownMode = (ViewMode)(-1);
@@ -77,6 +77,8 @@ namespace CoolCairo
             }
             // A district exported without growth data has no Growth view.
             _viewButtons[ViewMode.Growth].gameObject.SetActive(district.Data.HasGrowth);
+            // An export without data-confidence labels has no Data confidence view (its row goes too).
+            _viewButtons[ViewMode.Confidence].transform.parent.gameObject.SetActive(district.Data.HasQuality);
             foreach (Intervention tool in System.Enum.GetValues(typeof(Intervention)))
             {
                 var b = Find<Button>(HudStyle.ToolButtonPrefix + tool);
@@ -156,6 +158,8 @@ namespace CoolCairo
                                   ("No residents", DistrictView.NoResidents));
             _growthKeys = BuildKeys("GrowthKeys", _legendScale.transform.GetSiblingIndex() + 1,
                                     district.GrowthLegend().ToArray());
+            _confidenceKeys = BuildKeys("ConfidenceKeys", _legendScale.transform.GetSiblingIndex() + 1,
+                                        district.ConfidenceLegend().ToArray());
             // Key to the rings around painted blocks, in every view once something is painted.
             _treatmentKeys = BuildKeys(HudStyle.TreatmentKeys, _legendPalettes.transform.GetSiblingIndex(),
                 TreatmentOverlay.Measures.Select(m => ("Ring: " + m.label.ToLowerInvariant(), m.color)).ToArray());
@@ -266,8 +270,9 @@ namespace CoolCairo
                     : "What surfaces are made of, per 90 m block (Sentinel-2, summer 2023–25): dark vs pale roofs, asphalt, sand and greenery.",
                 ViewMode.Heat => "Land surface temperature per 90 m block: median of summer 2023–25 Landsat 8/9 scenes. Surface, not air, temperature.",
                 ViewMode.Growth => GrowthHint(),
+                ViewMode.Confidence => ConfidenceHint(district.Data),
                 _ => $"Heat exposure = residents × °C above {m.heatReferenceC:0.0} °C, the typical " +
-                     $"{(CityCatalog.CairoSelected ? "east-Cairo" : district.Data.CityName)} block. Residents: WorldPop 2024.",
+                     $"{(CityCatalog.CairoSelected ? "east-Cairo" : district.Data.CityName)} block. Residents: {(district.Data.ResidentsFromGhsl ? "GHS-POP 2025" : "WorldPop 2024")}.",
             };
             ShowLegend(mode);
 
@@ -523,10 +528,16 @@ namespace CoolCairo
             _legendSwatches.SetActive(mode == ViewMode.Materials);
             _riskKeys.SetActive(mode == ViewMode.Risk);
             _growthKeys.SetActive(mode == ViewMode.Growth);
+            _confidenceKeys.SetActive(mode == ViewMode.Confidence);
             _legendPalettes.SetActive(mode == ViewMode.Heat);
             if (mode == ViewMode.Materials)
             {
                 _legendTitle.text = "Surface materials (share per block)";
+                return;
+            }
+            if (mode == ViewMode.Confidence)
+            {
+                _legendTitle.text = "Data confidence (inputs per block)";
                 return;
             }
             if (mode == ViewMode.Growth)
@@ -659,6 +670,8 @@ namespace CoolCairo
             if (district.Data.HasGrowth && b.builtFirst[h] >= 0f && b.builtLast[h] >= 0f)
                 _tooltipBody.text += $"\nBuilding cover {district.Data.growth.firstYear} → {district.Data.growth.lastYear}: " +
                                      $"{b.builtFirst[h]:P0} → {b.builtLast[h]:P0}";
+            string trust = ConfidenceText(district.Data, h);
+            if (trust.Length > 0) _tooltipBody.text += "\n" + trust;
             string note = TreatNote(model, district.Data, h);
             if (note.Length > 0) _tooltipBody.text += "\n" + note;
 
@@ -690,6 +703,49 @@ namespace CoolCairo
                 ? "No roofs mapped, though residents live here (likely an OpenStreetMap gap). "
                 : "Mostly pale paving and greenery, which these measures do not change. ";
             return $"<color=#FFB84D>Little to treat: {cause}The measures can change at most {treatable:P0} of this block.</color>";
+        }
+
+        // ---------- data confidence ----------
+
+        public static readonly string[] ConfidenceNames = { "LOW", "MEDIUM", "HIGH" };
+        static readonly string[] ConfidenceHex = { "#E6544A", "#F2B84A", "#5EA6DB" };
+        static readonly string[] ConfidenceCause = { "footprints missing", "heights estimated", "residents estimated" };
+
+        // Two card lines: the block's label (and the check that set it), then where each input
+        // comes from. Empty for an export without labels.
+        public static string ConfidenceText(DistrictData d, int block)
+        {
+            if (!d.HasQuality || block < 0 || block >= d.BlockCount) return "";
+            var b = d.blocks;
+            int c = Mathf.Clamp(b.confidence[block], 0, 2), why = b.confidenceReason[block];
+            string head = $"Data confidence  <color={ConfidenceHex[c]}>{ConfidenceNames[c]}</color>" +
+                          (c < 2 && why >= 0 && why < 3 ? $"  ·  {ConfidenceCause[why]}" : "");
+            float fc = b.footprintCompleteness[block];
+            string footprints = fc < 0f ? "little built-up area" : $"{fc:P0} of built-up area mapped";
+            float hm = b.heightMeasuredShare[block], hg = b.heightGhslShare[block];
+            string heights;
+            if (hm < 0f) heights = "no buildings";
+            else
+            {
+                var parts = new List<string> { $"{hm:P0} measured" };
+                if (hg >= 0.005f) parts.Add($"{hg:P0} GHSL 100 m");
+                float guessed = 1f - hm - Mathf.Max(0f, hg);
+                if (guessed >= 0.005f) parts.Add($"{guessed:P0} default");
+                heights = string.Join(", ", parts);
+            }
+            string residents = d.ResidentsFromGhsl ? "GHS-POP" : "WorldPop";
+            return head + $"\n<size=90%>Footprints {footprints} · heights {heights} · residents {residents}</size>";
+        }
+
+        public static string ConfidenceHint(DistrictData d)
+        {
+            if (!d.HasQuality) return "";
+            var q = d.dataQuality;
+            string reference = string.IsNullOrEmpty(q.footprintReference) ? "satellite built-up area" : q.footprintReference;
+            return $"How far each block's numbers can be trusted, from its inputs: OpenStreetMap footprints vs the built-up " +
+                   $"area seen from space ({reference}), measured building heights, and the residents layer. Low means " +
+                   $"under {q.footprintMedium:P0} of buildings mapped or heights mostly guessed. In this district: " +
+                   $"{q.high:P0} high, {q.medium:P0} medium, {q.low:P0} low.";
         }
 
         // ---------- texts from district.json ----------
@@ -738,7 +794,9 @@ namespace CoolCairo
                 parts.Add($"<color=#4FD6FF>></color> HEAT MODEL · ENMAP MATERIAL FRACTIONS · R² {d.enmap.r2Enmap:0.00} SPATIAL CV (SENTINEL-2 {d.enmap.r2Sentinel2:0.00}) · ±{d.enmap.maeEnmap:0.0} °C · {m.nBlocks:N0} BLOCKS");
             else
                 parts.Add($"<color=#4FD6FF>></color> HEAT MODEL · R² {m.r2SpatialCv:0.00} SPATIAL CV · ±{m.maeSpatialCv:0.0} °C · {m.nBlocks:N0} BLOCKS");
-            parts.Add($"<color=#4FD6FF>></color> WORLDPOP 2024 · {district.Model.TotalResidents():N0} RESIDENTS IN THIS DISTRICT");
+            parts.Add($"<color=#4FD6FF>></color> {(d.ResidentsFromGhsl ? "GHS-POP 2025" : "WORLDPOP 2024")} · {district.Model.TotalResidents():N0} RESIDENTS IN THIS DISTRICT");
+            if (d.HasQuality)
+                parts.Add($"<color=#4FD6FF>></color> DATA CONFIDENCE · {d.dataQuality.high:P0} HIGH · {d.dataQuality.medium:P0} MEDIUM · {d.dataQuality.low:P0} LOW");
             parts.Add($"<color=#4FD6FF>></color> CREDITS · {Credits()}");
             return string.Join("      ", parts);
         }
@@ -752,8 +810,13 @@ namespace CoolCairo
             };
             var h = district.Data.hyperspectral;
             if (h != null && h.available == 1) parts.Add(h.attribution);
-            parts.Add("Residents: WorldPop 2024 (CC BY 4.0)");
+            parts.Add(district.Data.ResidentsFromGhsl
+                ? "Residents: GHSL GHS-POP 2025, European Commission JRC (CC BY 4.0)"
+                : "Residents: WorldPop 2024 (CC BY 4.0)");
             var hs = district.Data.heightSources;
+            if (district.Data.HasHeightSources && hs.ghsl > 0f || district.Data.HasQuality &&
+                (district.Data.dataQuality.footprintReference ?? "").StartsWith("GHSL"))
+                parts.Add("GHSL built-up height and surface R2023A, European Commission JRC (CC BY 4.0)");
             bool openBuildings = !district.Data.HasHeightSources || hs.openBuildings > 0f || district.Data.HasGrowth;
             parts.Add(openBuildings
                 ? "Buildings and growth: © OpenStreetMap contributors, Google Open Buildings 2.5D Temporal (CC BY 4.0)"
