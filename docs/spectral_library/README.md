@@ -57,6 +57,12 @@ the EnMAP date counts, and in sharpness or colour, the sharper one.
 
 - **The heat result does not depend on unchecked picks:** R² 0.25 → 0.39 over the PoC with the
   confirmed library (0.40–0.41 with the provisional and an intermediate 45-pixel library).
+- **With OSM gaps filled (20 Nov 2026):** Google / Microsoft outlines (Overture snapshot, see the main
+  README) fill the footprints, so the model sees 12,451 urban blocks instead of 2,538. Same library
+  and folds: EnMAP fractions + buildings R² **0.415 / 0.411 / 0.415** (MAE 1.09 °C) vs the PoC's
+  0.336 / 0.333 / 0.339 (1.18 °C). The gain over Sentinel-2 holds but is smaller (+0.08 instead of
+  +0.14), because better footprints also help the PoC. `unmixing/` now holds this run; the table
+  above is the 19 Nov run on OSM footprints only.
 - **Checking by eye fixed the sand / pale-roof confusion:** open ground is now 86 % sand (was 71 %),
   because mixed "sand" and "pale roof" candidates were removed.
 - **Still open:** pale roof +0.2 °C vs sand, dusty roof −2.3 °C: pale roofs are still not cooler
@@ -69,8 +75,9 @@ exports both to `export/district.json`; the app opens Cairo on these EnMAP mater
 one click away). Albedos measured from the library spectra (solar-weighted): pale roof 0.35,
 dusty roof 0.27, asphalt 0.18, sand 0.34. Footprints decide where roofs are, because the roof
 fractions follow footprints only loosely (correlation 0.18). With these materials the app's targeted plan
-is cool roofs + street trees + cool pavements on the riskiest third: −86 % heat exposure (the PoC's roofs + parks:
-−55 % with EnMAP, −74 % with the Sentinel-2 materials).
+is cool roofs + street trees + cool pavements on the riskiest third: −93 % heat exposure with the filled
+footprints (−86 % with OSM footprints only); the PoC's roofs + parks: −69 % with EnMAP, −83 % with the
+Sentinel-2 materials (−55 % and −74 % with OSM only).
 
 ### Labels used for the checks: source, date, purity
 
