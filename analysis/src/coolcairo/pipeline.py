@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from coolcairo import enmap, growth, openbuildings, population, separability, stac
+from coolcairo import enmap, ghsl, growth, openbuildings, population, separability, stac
 from coolcairo.blocks import block_features, height_raster
 from coolcairo.buildings import fetch_buildings, footprint_mask
 from coolcairo.classify import classify_sentinel2
@@ -118,12 +118,60 @@ def growth_summary(cfg: Config, blocks: pd.DataFrame) -> dict:
     }
 
 
+def population_source(cfg: Config) -> str:
+    """"worldpop", or "ghs_pop" when the city has no WorldPop file (config `worldpop` absent,
+    `population_source: ghs_pop`, or the download fails)."""
+    if cfg.raw.get("population_source") == "ghs_pop" or not cfg.raw.get("worldpop"):
+        return "ghs_pop"
+    if (DATA_DIR / "population_30m.nc").exists():
+        return "worldpop"
+    try:
+        population.worldpop_path(cfg)
+    except OSError as err:  # HTTPError and URLError are OSErrors.
+        print(f"WARNING: no WorldPop file ({err}); residents from GHS-POP 2025 instead.")
+        return "ghs_pop"
+    return "worldpop"
+
+
 def load_population(cfg: Config) -> xr.DataArray:
-    """Residents per 30 m pixel over the model area (WorldPop)."""
-    return _cached_array(
-        DATA_DIR / "population_30m.nc",
-        lambda: population.population_on_grid(cfg, geobox_for(cfg, "model_aoi")),
-    )
+    """Residents per 30 m pixel over the model area: WorldPop, else GHS-POP (see population_source)."""
+    geobox = geobox_for(cfg, "model_aoi")
+    if population_source(cfg) == "worldpop":
+        return _cached_array(
+            DATA_DIR / "population_30m.nc", lambda: population.population_on_grid(cfg, geobox)
+        )
+
+    def build() -> xr.DataArray:
+        people = ghsl.share_on_grid(
+            ghsl.read("population", cfg["model_aoi"]["bbox_wgs84"]), geobox, ghsl.CELL_M ** 2
+        ) * abs(geobox.resolution.x * geobox.resolution.y)
+        people.name = "population"
+        return people
+
+    return _cached_array(DATA_DIR / "population_ghs_30m.nc", build)
+
+
+def load_ghsl_built(cfg: Config) -> xr.DataArray:
+    """Built-up share of each 30 m pixel (GHS-BUILT-S 2020): the check on OSM footprint gaps."""
+    def build() -> xr.DataArray:
+        share = ghsl.share_on_grid(
+            ghsl.read("built", cfg["model_aoi"]["bbox_wgs84"]), geobox_for(cfg, "model_aoi"),
+            ghsl.CELL_M ** 2,
+        )
+        share.name = "ghsl_built_frac"
+        return share
+
+    return _cached_array(DATA_DIR / "ghsl_built_30m.nc", build)
+
+
+def load_ghsl_heights(cfg: Config) -> xr.DataArray:
+    """GHS-BUILT-H 2018 average building height (m) per 100 m cell, World Mollweide."""
+    def build() -> xr.DataArray:
+        da = ghsl.read("height", cfg["model_aoi"]["bbox_wgs84"])
+        da.name = "ghsl_height_m"
+        return da
+
+    return _cached_array(DATA_DIR / "ghsl_height_100m.nc", build)
 
 
 def load_enmap(cfg: Config) -> xr.DataArray:
@@ -146,15 +194,24 @@ def load_enmap(cfg: Config) -> xr.DataArray:
 
 
 def load_buildings(cfg: Config) -> gpd.GeoDataFrame:
-    """Footprints with heights: OSM tags, then Open Buildings 2.5D, then the config default."""
+    """Footprints with heights: OSM tags, then Open Buildings 2.5D, then GHSL 100 m (when
+    `ghsl_heights` is on), then the config default. The source is kept per building."""
     osm = load_osm_buildings(cfg)
     default = cfg["default_levels"] * cfg["storey_height_m"]
-    if not cfg.raw.get("open_buildings", True):  # No Open Buildings 2.5D coverage (e.g. UAE).
-        return openbuildings.apply_heights(osm, pd.Series(np.nan, index=osm.index), default)
-    ob = openbuildings.footprint_heights(
-        osm, load_open_buildings_heights(cfg), cfg["open_buildings_min_pixels"]
-    )
-    return openbuildings.apply_heights(osm, ob, default)
+    if cfg.raw.get("open_buildings", True):
+        ob = openbuildings.footprint_heights(
+            osm, load_open_buildings_heights(cfg), cfg["open_buildings_min_pixels"]
+        )
+    else:  # No Open Buildings 2.5D coverage (e.g. UAE).
+        ob = pd.Series(np.nan, index=osm.index)
+    gh = None
+    if cfg.raw.get("ghsl_heights", True):
+        c = osm.geometry.centroid
+        gh = pd.Series(
+            ghsl.sample_points(load_ghsl_heights(cfg), c.x.to_numpy(), c.y.to_numpy(), cfg.crs),
+            index=osm.index,
+        )
+    return openbuildings.apply_heights(osm, ob, default, gh)
 
 
 def build_blocks(cfg: Config) -> tuple[pd.DataFrame, xr.DataArray, gpd.GeoDataFrame]:
@@ -176,6 +233,7 @@ def build_blocks(cfg: Config) -> tuple[pd.DataFrame, xr.DataArray, gpd.GeoDataFr
         fine_factor=cfg.block_size // FINE_RESOLUTION,
         lst_factor=cfg.block_factor,
         population=load_population(cfg).assign_coords(x=lst.x, y=lst.y),
+        built_share=load_ghsl_built(cfg).assign_coords(x=lst.x, y=lst.y),
     )
     return blocks, material, buildings
 

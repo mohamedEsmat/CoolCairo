@@ -151,13 +151,19 @@ def validate_against_osm(buildings: gpd.GeoDataFrame, ob_heights: pd.Series) -> 
 
 
 def apply_heights(
-    buildings: gpd.GeoDataFrame, ob_heights: pd.Series, default_height: float
+    buildings: gpd.GeoDataFrame, ob_heights: pd.Series, default_height: float,
+    ghsl_heights: pd.Series | None = None,
 ) -> gpd.GeoDataFrame:
-    """Fill buildings without an OSM height from Open Buildings; the config default stays last."""
+    """Fill buildings without an OSM height from Open Buildings, then from the coarse GHSL
+    100 m height (ghsl.py) where given; the config default stays last."""
     out = buildings.copy()
     fill = (out.height_source == "default") & ob_heights.notna()
     out.loc[fill, "height_m"] = ob_heights[fill]
     out.loc[fill, "height_source"] = "open_buildings"
+    if ghsl_heights is not None:
+        fill = (out.height_source == "default") & ghsl_heights.notna() & (ghsl_heights > 0)
+        out.loc[fill, "height_m"] = ghsl_heights[fill]
+        out.loc[fill, "height_source"] = "ghsl"
     still_default = out.height_source == "default"
     out.loc[still_default, "height_m"] = default_height
     return out

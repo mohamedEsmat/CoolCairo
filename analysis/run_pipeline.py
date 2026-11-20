@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import time
 
-from coolcairo import enmap
+from coolcairo import enmap, quality
 from coolcairo.config import EXPORT_DIR, REPO_ROOT, load_config
 from coolcairo.enmap_materials import app_materials, plan_figures
 from coolcairo.export import grid_origin, grid_shape, write_district
@@ -29,6 +29,7 @@ from coolcairo.pipeline import (
     growth_summary,
     hyperspectral_summary,
     load_enmap,
+    population_source,
 )
 from coolcairo.stac import fly_in_image, scene_inventory
 
@@ -63,6 +64,13 @@ def main() -> None:
         materials.update(plan_figures(cfg, disp_blocks, materials, reference))
         print("EnMAP materials:", {k: round(v, 3) if isinstance(v, float) else v
                                    for k, v in materials.items()})
+    # Where each block's inputs come from and the confidence label the app shows (quality.py).
+    pop_source = population_source(cfg)
+    checks = quality.block_quality(disp_blocks, disp_buildings, cfg.block_size, pop_source)
+    disp_blocks = disp_blocks.join(checks)
+    dq = {"available": 1, **quality.summary(checks, disp_blocks.lst_c.notna()),
+          "footprintReference": quality.built_reference_name(disp_blocks)}
+    print("Data confidence, display district:", dq)
     grown = growth_summary(cfg, disp_blocks)
     print("Growth, display district:", grown)
     print("Heat exposure, display district:")
@@ -90,10 +98,13 @@ def main() -> None:
             "materials": "Sentinel-2 L2A 4-class rules"
             + ("; EnMAP FCLS fractions, confirmed spectral library" if materials else ""),
             "cool_roof": "Wang, Huang & Li 2020, GRL 47, e2020GL087853 (see aoi.yaml)",
-            "buildings": "OpenStreetMap footprints, Google Open Buildings 2.5D heights"
-            if cfg.raw.get("open_buildings", True)
-            else "OpenStreetMap footprints and height tags, default storeys elsewhere",
-            "population": "WorldPop Global2 R2025A 100 m constrained, 2024 (CC BY 4.0)",
+            "buildings": "OpenStreetMap footprints; heights from OSM tags"
+            + (", Google Open Buildings 2.5D" if cfg.raw.get("open_buildings", True) else "")
+            + (", GHSL GHS-BUILT-H 2018" if cfg.raw.get("ghsl_heights", True) else "")
+            + ", else default storeys",
+            "population": "WorldPop Global2 R2025A 100 m constrained, 2024 (CC BY 4.0)"
+            if pop_source == "worldpop" else "GHSL GHS-POP 2025, 100 m (CC BY 4.0)",
+            "footprint_check": dq["footprintReference"],
             "hyperspectral": hyper["attribution"] if hyper else "not processed",
         },
         sources=scene_inventory(cfg, cfg["model_aoi"]["bbox_wgs84"])
@@ -104,6 +115,8 @@ def main() -> None:
         growth=grown,
         preview_bbox_wgs84=cfg["model_aoi"]["bbox_wgs84"],
         city=cfg["display_aoi"].get("city", "Cairo"),
+        population_source=pop_source,
+        data_quality=dq,
     )
     print(f"[{time.time() - t0:.0f}s] display: {rows}x{cols} blocks, "
           f"{len(disp_buildings)} buildings -> export/district.json")

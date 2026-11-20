@@ -163,6 +163,61 @@ def test_open_buildings_fill_only_default_heights():
     assert out.height_source.tolist() == ["open_buildings", "osm_height", "default"]
     assert out.height_m.tolist() == [12.0, 30.0, 16.0]  # OSM tag is never overridden.
 
+    # GHSL fills only what is still at the default; a zero GHSL height (unbuilt cell) does not.
+    ghsl = pd.Series([40.0, 40.0, 9.0], index=buildings.index)
+    out = apply_heights(buildings, ob, default_height=16.0, ghsl_heights=ghsl)
+    assert out.height_source.tolist() == ["open_buildings", "osm_height", "ghsl"]
+    assert out.height_m.tolist() == [12.0, 30.0, 9.0]
+    out = apply_heights(buildings, ob, 16.0, pd.Series([np.nan, np.nan, 0.0], index=buildings.index))
+    assert out.height_source.tolist()[2] == "default"
+
+
+def test_ghsl_tiles_match_the_jrc_file_names():
+    from coolcairo import ghsl
+
+    # Tiles read for the five cities on 20 Nov 2026 (the files exist under these names).
+    for lon, lat, tile in [(31.335, 30.06, (6, 21)), (55.305, 25.248, (6, 24)),
+                           (46.728, 24.656, (6, 23)), (-7.557, 33.584, (5, 18))]:
+        box_m = ghsl.mollweide_bbox([lon, lat, lon, lat])
+        assert ghsl.tiles_for(box_m) == [tile]
+    assert ghsl.tile_path("height", 6, 21).endswith(
+        "GHS_BUILT_H_ANBH_E2018_GLOBE_R2023A_54009_100_V1_0_R6_C21.zip/"
+        "GHS_BUILT_H_ANBH_E2018_GLOBE_R2023A_54009_100_V1_0_R6_C21.tif")
+
+
+def test_block_confidence_is_the_weakest_check():
+    from coolcairo import quality
+
+    # Four 90 m blocks in a row (centres x = 45 .. 315, y = 45).
+    blocks = pd.DataFrame({
+        "x": [45.0, 135.0, 225.0, 315.0], "y": [45.0] * 4,
+        "roof_frac": [0.30, 0.10, 0.30, 0.0],
+        "built_last": [0.35, 0.35, 0.35, 0.01],       # Open Buildings: preferred reference
+        "ghsl_built_frac": [0.9, 0.9, 0.9, 0.9],        # ignored where Open Buildings exists
+    })
+    buildings = gpd.GeoDataFrame(
+        {"height_source": ["open_buildings", "osm_levels", "ghsl", "default", "default"]},
+        geometry=[box(10, 10, 40, 40), box(100, 10, 130, 40), box(190, 10, 230, 40),
+                  box(240, 10, 250, 20), box(140, 50, 150, 60)],
+    )
+    q = quality.block_quality(blocks, buildings, 90.0, "worldpop")
+    # Block 0: mapped 86 %, heights measured -> high. Block 1: 29 % mapped -> low (footprints).
+    # Block 2: mapped, heights mostly GHSL -> medium (heights). Block 3: nothing built, no
+    # buildings -> high.
+    assert q.confidence.tolist() == [2, 0, 1, 2]
+    assert q.confidence_reason.tolist() == [-1, 0, 1, -1]
+    assert q.footprint_completeness.round(2).tolist()[:3] == [0.86, 0.29, 0.86]
+    assert np.isnan(q.footprint_completeness[3])
+    assert q.height_ghsl_share.round(2)[2] == round(1200 / 1300, 2)
+    # Block 1 holds one measured building and one default one of a quarter its area.
+    assert q.height_measured_share.round(2)[1] == 0.9
+    # GHS-POP residents cap every block at medium.
+    assert quality.block_quality(blocks, buildings, 90.0, "ghs_pop").confidence.tolist() == [1, 0, 1, 1]
+    # Without Open Buildings the GHSL share is the reference.
+    no_ob = blocks.drop(columns="built_last")
+    assert quality.built_reference_name(no_ob).startswith("GHSL")
+    assert quality.block_quality(no_ob, buildings, 90.0, "worldpop").confidence.tolist()[0] == 0
+
 
 def test_heat_exposure_counts_only_degrees_above_reference():
     from coolcairo.population import heat_exposure

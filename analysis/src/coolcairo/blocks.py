@@ -42,6 +42,7 @@ def block_features(
     fine_factor: int,
     lst_factor: int,
     population: xr.DataArray | None = None,
+    built_share: xr.DataArray | None = None,
 ) -> pd.DataFrame:
     """One row per block.
 
@@ -82,6 +83,9 @@ def block_features(
         # Residents are counts, so blocks sum them (every other layer is a mean or share).
         people = population.coarsen(x=lst_factor, y=lst_factor, boundary="trim").sum()
         ds["population"] = people.assign_coords(x=ds.x, y=ds.y)
+    if built_share is not None:
+        # GHSL built-up share (30 m grid): only checks how complete the OSM footprints are.
+        ds["ghsl_built_frac"] = block_mean(built_share, lst_factor).assign_coords(x=ds.x, y=ds.y)
 
     df = ds.to_dataframe().reset_index()
     # Derive grid indices from coordinates, not row order (to_dataframe does not promise one).

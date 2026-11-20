@@ -100,6 +100,11 @@ storey_height_m: 3.2
 default_levels: 5
 # Minimum Open Buildings pixels (4 m) with height inside a footprint to trust its median.
 open_buildings_min_pixels: 3
+# Next height fallback: GHSL GHS-BUILT-H 2018 (global, 100 m average building height), for
+# footprints left without a height. Off for Cairo so the published numbers stay as they are:
+# here it would fill 25 % of the model area's buildings and move the Sentinel-2 model from
+# R² 0.25 to 0.26 (checked 20 Nov 2026); on (the default) for every other city.
+ghsl_heights: false
 
 # Heat risk = heat exposure = residents x degrees C above a reference surface temperature.
 worldpop:

@@ -45,6 +45,7 @@ for key, (city, district, epsg, iso, display, model, tiles) in CITIES.items():
              f'  name: "{district}"\n  city: "{city}"\n  bbox_wgs84: {display}')
     t = swap(t, "  bbox_wgs84: [31.26, 30.00, 31.40, 30.12]", f"  bbox_wgs84: {model}")
     t = swap(t, "osm_refresh: false", "osm_refresh: true  # no committed extract for this city: live OSM, cached")
+    t = swap(t, "ghsl_heights: false", "ghsl_heights: true  # no published numbers to keep")
     t = swap(t, "/2024/EGY/v1/100m/constrained/egy_pop_2024", f"/2024/{iso}/v1/100m/constrained/{iso.lower()}_pop_2024")
     switches = "\n# Data available for this city (checked 24 Oct 2026).\n"
     switches += "# EnMAP needs a DLR login and a manual download: not processed for this city.\nenmap: false\n"

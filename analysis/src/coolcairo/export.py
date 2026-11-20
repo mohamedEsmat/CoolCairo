@@ -47,9 +47,21 @@ def _block_arrays(blocks: pd.DataFrame, rows: int, cols: int) -> dict[str, list]
     from coolcairo.enmap_materials import COLUMNS
 
     materials = {key: column(col) for col, key in COLUMNS.values() if col in south_first}
+    quality = {}
+    if "confidence" in south_first:
+        # Data confidence per block (quality.py): 0 low, 1 medium, 2 high; the check that set
+        # it (0 footprints, 1 heights, 2 residents, -1 none); and the numbers behind it.
+        quality = {
+            "confidence": south_first.confidence.astype(int).tolist(),
+            "confidenceReason": south_first.confidence_reason.astype(int).tolist(),
+            "footprintCompleteness": column("footprint_completeness"),
+            "heightMeasuredShare": column("height_measured_share"),
+            "heightGhslShare": column("height_ghsl_share"),
+        }
     return {
         **growth,
         **materials,
+        **quality,
         "valid": valid.astype(int).tolist(),
         "lstC": column("lst_c"),
         "vegFrac": column("veg_frac"),
@@ -98,12 +110,12 @@ def _building_arrays(
 
 
 def _height_shares(buildings: gpd.GeoDataFrame) -> dict[str, float]:
-    """Share of buildings per height source: OSM height tag, OSM storeys, Open Buildings, default."""
+    """Share of buildings per height source: OSM height tag, OSM storeys, Open Buildings, GHSL, default."""
     if "height_source" not in buildings or len(buildings) == 0:
         return {}
     shares = buildings.height_source.value_counts(normalize=True)
     keys = {"osm_height": "osmHeight", "osm_levels": "osmLevels",
-            "open_buildings": "openBuildings", "default": "default"}
+            "open_buildings": "openBuildings", "ghsl": "ghsl", "default": "default"}
     return {out: round(float(shares.get(src, 0.0)), 4) for src, out in keys.items()}
 
 
@@ -132,6 +144,8 @@ def write_district(
     fly_in: dict | None = None,
     growth: dict | None = None,
     city: str = "",
+    population_source: str = "worldpop",
+    data_quality: dict | None = None,
 ) -> dict:
     c = fit.coefficients
     payload = {
@@ -185,6 +199,11 @@ def write_district(
         # so the app can say what data each city has.
         "city": city,
         "heightSources": _height_shares(buildings),
+        # "worldpop", or "ghs_pop" where the country has no WorldPop file (pipeline.population_source).
+        "populationSource": population_source,
+        # Shares of measured blocks per confidence label, the thresholds, and what the
+        # footprints were checked against (quality.py); "available": 0 when not computed.
+        "dataQuality": data_quality or {"available": 0},
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
