@@ -32,7 +32,8 @@ the EnMAP date counts, and in sharpness or colour, the sharper one.
   #63, #66, #67, #70: OSM draws one polygon over a whole compound). The 10 extra candidates
   (#61–70, no AI pre-check) required the 8 neighbours to be ≥ 2/3 roof; 2 passed.
 - Three roofs in the library classes look like **metal** (#14, #19 pale; #34 rejected), noted
-  for the metal-roof / ACE test.
+  for the metal-roof / ACE test. Only #14 works as a target: #34 is about 1° from dusty roof and
+  sand, #19 2.8° from pale roof, and a signature from all three fails (see below).
 
 **Material map** (angle + brightness + depths; `sam/comparison.csv`):
 
@@ -68,6 +69,15 @@ the EnMAP date counts, and in sharpness or colour, the sharper one.
 - **Still open:** pale roof +0.2 °C vs sand, dusty roof −2.3 °C: pale roofs are still not cooler
   (criterion c). The residual is still highest in the bright south-east desert and construction
   areas.
+- **Metal-roof test (ACE, 20 Nov 2026; [`../ace/`](../ace/), `analysis/make_ace_map.py`).** Are
+  metal warehouse roofs hiding in the pale-roof class? Target: #14's 3 × 3 roof. Implanted into real
+  background pixels, it is found at 1 % false alarms by ACE 73 % of the time at 10 % of a pixel,
+  against 3 % for the spectral angle (matched filter 24 %, CEM 5 %), as in the course's blue-roof
+  test; an upper bound (linear mixing, same-roof targets). On the scene ACE flags 440 pixels in 82
+  sites, 47 % of them on footprints; flagged roofs average 50.1 °C against 46.0 °C for all roofs,
+  but brightness and location differ too, so this is not yet an answer. **Next:** 38 sites plus 12
+  hidden control roofs, checked blind in VHR imagery (`../ace/ace_check.xlsx`); if they are metal,
+  a metal-roof class may explain criterion (c).
 
 **Used in the app (19 Nov 2026).** The pipeline (`analysis/src/coolcairo/enmap_materials.py`)
 unmixes Nasr City with this library, reads the heat model from `unmixing/coefficients.csv`, and
@@ -208,7 +218,8 @@ shares replaced by EnMAP fractions averaged per 90 m block; roof cover and heigh
 footprints +4.2 and dusty roof on footprints −4.7. So pale roofs are *not* cooler than dusty ones,
 and the cool-roof effect cannot yet come from our own data. Both roof classes contain warehouses
 and factories, so "pale = bare metal" does not explain it on its own. Open; to revisit with the
-confirmed library, more varied sand spectra and a metal-roof class.
+confirmed library, more varied sand spectra and a metal-roof class (ACE test started 20 Nov, see
+"Confirmed library" above).
 
 *Contains modified EnMAP data © DLR [2025] · © OpenStreetMap contributors (ODbL) · Google Open
 Buildings 2.5D Temporal (CC BY 4.0).*
