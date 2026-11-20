@@ -69,7 +69,9 @@ def main() -> None:
     checks = quality.block_quality(disp_blocks, disp_buildings, cfg.block_size, pop_source)
     disp_blocks = disp_blocks.join(checks)
     dq = {"available": 1, **quality.summary(checks, disp_blocks.lst_c.notna()),
-          "footprintReference": quality.built_reference_name(disp_blocks)}
+          "footprintReference": quality.built_reference_name(disp_blocks),
+          # Share of the district's buildings drawn from machine-learned outlines (footprint_fill).
+          "footprintsFilled": round(float((disp_buildings.footprint_source != "osm").mean()), 4)}
     print("Data confidence, display district:", dq)
     grown = growth_summary(cfg, disp_blocks)
     print("Growth, display district:", grown)

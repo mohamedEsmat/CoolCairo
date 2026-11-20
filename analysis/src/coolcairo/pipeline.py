@@ -15,7 +15,7 @@ import xarray as xr
 
 from coolcairo import enmap, ghsl, growth, openbuildings, population, separability, stac
 from coolcairo.blocks import block_features, height_raster
-from coolcairo.buildings import fetch_buildings, footprint_mask
+from coolcairo.buildings import fetch_buildings, fill_footprints, footprint_mask, read_overture
 from coolcairo.classify import classify_sentinel2
 from coolcairo.config import DATA_DIR, REPO_ROOT, Config, geobox_for, projected_bbox
 
@@ -194,9 +194,15 @@ def load_enmap(cfg: Config) -> xr.DataArray:
 
 
 def load_buildings(cfg: Config) -> gpd.GeoDataFrame:
-    """Footprints with heights: OSM tags, then Open Buildings 2.5D, then GHSL 100 m (when
-    `ghsl_heights` is on), then the config default. The source is kept per building."""
+    """Footprints with heights. Footprints: OSM, plus machine-learned outlines where OSM has
+    none (`footprint_fill`). Heights: OSM tags, then Open Buildings 2.5D, then GHSL 100 m (when
+    `ghsl_heights` is on), then the config default. Both sources are kept per building."""
     osm = load_osm_buildings(cfg)
+    fill = cfg.raw.get("footprint_fill")
+    if fill:  # Machine-learned outlines (Overture snapshot) where OSM has none.
+        osm = fill_footprints(osm, read_overture(REPO_ROOT / fill, cfg.crs))
+    else:
+        osm = osm.assign(footprint_source="osm")
     default = cfg["default_levels"] * cfg["storey_height_m"]
     if cfg.raw.get("open_buildings", True):
         ob = openbuildings.footprint_heights(

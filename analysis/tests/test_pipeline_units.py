@@ -493,3 +493,19 @@ def test_enmap_treatable_areas_put_roofs_on_footprints_and_cap_ground():
     # Asphalt and sand never exceed the ground share.
     assert area.asphalt.tolist() == pytest.approx([0.6, 0.2, 0.3])
     assert area.sand.tolist() == pytest.approx([0.1, 0.6, 0.2])
+
+
+def test_filled_footprints_never_replace_osm():
+    from coolcairo.buildings import fill_footprints
+
+    osm = gpd.GeoDataFrame({"height_m": [20.0], "height_source": ["osm_levels"]},
+                           geometry=[box(0, 0, 20, 20)], crs="EPSG:32636")
+    extra = gpd.GeoDataFrame(
+        {"footprint_source": ["google", "microsoft", "google"]},
+        # Same building as OSM; 5 % inside OSM (kept); a separate building (kept).
+        geometry=[box(1, 1, 19, 19), box(19, 0, 39, 20), box(50, 50, 60, 60)], crs="EPSG:32636",
+    )
+    out = fill_footprints(osm, extra)
+    assert out.footprint_source.tolist() == ["osm", "microsoft", "google"]
+    assert out.height_source.tolist() == ["osm_levels", "default", "default"]
+    assert out.height_m.iloc[0] == 20.0 and out.height_m.iloc[1:].isna().all()

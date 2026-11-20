@@ -57,6 +57,7 @@ def _block_arrays(blocks: pd.DataFrame, rows: int, cols: int) -> dict[str, list]
             "footprintCompleteness": column("footprint_completeness"),
             "heightMeasuredShare": column("height_measured_share"),
             "heightGhslShare": column("height_ghsl_share"),
+            "footprintFilledShare": column("footprint_filled_share"),
         }
     return {
         **growth,

@@ -6,7 +6,10 @@ Every block gets a confidence label from three checks; the label is the weakest 
               building presence (4 m) where the city has it, else GHSL built-up surface 2020
               (100 m, global; it reads ~40 % higher than Open Buildings in Nasr City, so it is
               only the fallback). Under 40 % mapped = low, under 70 % = medium. Blocks seen as
-              almost unbuilt (< 5 % of the block) have nothing to miss and pass.
+              almost unbuilt (< 5 % of the block) have nothing to miss and pass. Footprints
+              filled from machine-learned outlines (Google / Microsoft, via Overture) count as
+              mapped, but a block where they are most of the footprint area is at best medium:
+              they are detections, not surveyed outlines.
   heights     share of the block's footprint area with a measured height (OSM tag or storeys,
               Google Open Buildings 2.5D at 4 m). At least 70 % = high; at least 70 % once the
               coarse GHSL 100 m height is added = medium; otherwise mostly the default = low.
@@ -30,6 +33,7 @@ MEASURED_HEIGHTS = ("osm_height", "osm_levels", "open_buildings")
 HEIGHT_CODES = ("osm_height", "osm_levels", "open_buildings", "ghsl", "default")
 
 FOOTPRINT_HIGH, FOOTPRINT_MEDIUM = 0.7, 0.4
+FILLED_MAX_HIGH = 0.5  # Above this share of machine-learned footprint area: at best medium.
 BUILT_MIN = 0.05
 HEIGHT_SHARE = 0.7
 POPULATION_SCORE = {"worldpop": HIGH, "ghs_pop": MEDIUM}
@@ -59,10 +63,12 @@ def built_reference_name(blocks: pd.DataFrame) -> str:
     return ""
 
 
-def footprint_score(completeness: pd.Series) -> pd.Series:
+def footprint_score(completeness: pd.Series, filled: pd.Series | None = None) -> pd.Series:
+    filled = pd.Series(0.0, index=completeness.index) if filled is None else filled.fillna(0.0)
     score = np.select(
-        [completeness.isna(), completeness >= FOOTPRINT_HIGH, completeness >= FOOTPRINT_MEDIUM],
-        [HIGH, HIGH, MEDIUM], LOW,
+        [completeness.isna(), completeness >= FOOTPRINT_MEDIUM],
+        [HIGH, np.where((completeness >= FOOTPRINT_HIGH) & (filled <= FILLED_MAX_HIGH), HIGH, MEDIUM)],
+        LOW,
     )
     return pd.Series(score, index=completeness.index, dtype=int)
 
@@ -70,7 +76,8 @@ def footprint_score(completeness: pd.Series) -> pd.Series:
 def height_shares(
     blocks: pd.DataFrame, buildings: gpd.GeoDataFrame, block_size: float
 ) -> pd.DataFrame:
-    """Per block: footprint-area shares with a measured height and with a GHSL height.
+    """Per block: footprint-area shares with a measured height, with a GHSL height, and
+    filled from machine-learned outlines.
 
     Buildings belong to the block holding their centroid; `blocks` has centre x/y columns.
     Blocks without buildings get NaN (nothing to be wrong about).
@@ -85,10 +92,13 @@ def height_shares(
         "area": buildings.geometry.area.to_numpy(),
         "measured": buildings.height_source.isin(MEASURED_HEIGHTS).to_numpy(),
         "ghsl": (buildings.height_source == "ghsl").to_numpy(),
+        "filled": (buildings.get("footprint_source", pd.Series("osm", index=buildings.index))
+                   != "osm").to_numpy(),
     })
     table["measured_area"] = table.area * table.measured
     table["ghsl_area"] = table.area * table.ghsl
-    sums = table.groupby("key")[["area", "measured_area", "ghsl_area"]].sum()
+    table["filled_area"] = table.area * table.filled
+    sums = table.groupby("key")[["area", "measured_area", "ghsl_area", "filled_area"]].sum()
     keys = list(zip(
         np.rint((max_y - block_size / 2 - blocks.y) / block_size).astype(int),
         np.rint((blocks.x - min_x - block_size / 2) / block_size).astype(int),
@@ -97,6 +107,7 @@ def height_shares(
     return pd.DataFrame({
         "height_measured_share": (sums.measured_area / sums.area).to_numpy(),
         "height_ghsl_share": (sums.ghsl_area / sums.area).to_numpy(),
+        "footprint_filled_share": (sums.filled_area / sums.area).to_numpy(),
     }, index=blocks.index)
 
 
@@ -119,7 +130,7 @@ def block_quality(
     shares = height_shares(blocks, buildings, block_size)
     completeness = footprint_completeness(blocks.roof_frac, built_reference(blocks))
     scores = pd.DataFrame({
-        "footprint": footprint_score(completeness),
+        "footprint": footprint_score(completeness, shares.footprint_filled_share),
         "height": height_score(shares.height_measured_share, shares.height_ghsl_share),
         "population": POPULATION_SCORE[population_source],
     })
@@ -143,6 +154,7 @@ def summary(quality: pd.DataFrame, valid: pd.Series) -> dict:
         "medium": round(float((labels == MEDIUM).sum() / n), 4),
         "low": round(float((labels == LOW).sum() / n), 4),
         "footprintHigh": FOOTPRINT_HIGH,
+        "filledMaxHigh": FILLED_MAX_HIGH,
         "footprintMedium": FOOTPRINT_MEDIUM,
         "heightShare": HEIGHT_SHARE,
     }

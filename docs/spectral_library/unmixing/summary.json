@@ -55,89 +55,89 @@
     "residual_rmse_median": 0.0053,
     "residual_rmse_p95": 0.031
   },
-  "heat_model_blocks": 2538,
+  "heat_model_blocks": 12451,
   "heat_model": [
     {
       "features": "PoC (Sentinel-2 shares + buildings)",
       "tile_m": 1000,
-      "r2_spatial_cv": 0.2501,
-      "mae_c": 1.1987
+      "r2_spatial_cv": 0.3364,
+      "mae_c": 1.1823
     },
     {
       "features": "PoC (Sentinel-2 shares + buildings)",
       "tile_m": 2000,
-      "r2_spatial_cv": 0.3415,
-      "mae_c": 1.1636
+      "r2_spatial_cv": 0.3332,
+      "mae_c": 1.1877
     },
     {
       "features": "PoC (Sentinel-2 shares + buildings)",
       "tile_m": 3000,
-      "r2_spatial_cv": 0.259,
-      "mae_c": 1.2101
+      "r2_spatial_cv": 0.3388,
+      "mae_c": 1.1806
     },
     {
       "features": "EnMAP fractions + buildings",
       "tile_m": 1000,
-      "r2_spatial_cv": 0.3937,
-      "mae_c": 1.0784
+      "r2_spatial_cv": 0.4153,
+      "mae_c": 1.0898
     },
     {
       "features": "EnMAP fractions + buildings",
       "tile_m": 2000,
-      "r2_spatial_cv": 0.4456,
-      "mae_c": 1.0585
+      "r2_spatial_cv": 0.4111,
+      "mae_c": 1.093
     },
     {
       "features": "EnMAP fractions + buildings",
       "tile_m": 3000,
-      "r2_spatial_cv": 0.3847,
-      "mae_c": 1.1095
+      "r2_spatial_cv": 0.4152,
+      "mae_c": 1.0884
     },
     {
       "features": "EnMAP fractions only",
       "tile_m": 1000,
-      "r2_spatial_cv": 0.3449,
-      "mae_c": 1.1169
+      "r2_spatial_cv": 0.2999,
+      "mae_c": 1.2013
     },
     {
       "features": "EnMAP fractions only",
       "tile_m": 2000,
-      "r2_spatial_cv": 0.3629,
-      "mae_c": 1.1181
+      "r2_spatial_cv": 0.2973,
+      "mae_c": 1.2022
     },
     {
       "features": "EnMAP fractions only",
       "tile_m": 3000,
-      "r2_spatial_cv": 0.3451,
-      "mae_c": 1.1461
+      "r2_spatial_cv": 0.2982,
+      "mae_c": 1.2025
     },
     {
       "features": "PoC + EnMAP fractions",
       "tile_m": 1000,
-      "r2_spatial_cv": 0.3903,
-      "mae_c": 1.0795
+      "r2_spatial_cv": 0.4315,
+      "mae_c": 1.0785
     },
     {
       "features": "PoC + EnMAP fractions",
       "tile_m": 2000,
-      "r2_spatial_cv": 0.444,
-      "mae_c": 1.0659
+      "r2_spatial_cv": 0.427,
+      "mae_c": 1.0818
     },
     {
       "features": "PoC + EnMAP fractions",
       "tile_m": 3000,
-      "r2_spatial_cv": 0.3884,
-      "mae_c": 1.1062
+      "r2_spatial_cv": 0.4306,
+      "mae_c": 1.0778
     }
   ],
   "coefficients_vs_sand": {
-    "Pale roof": 0.192,
-    "Dusty roof": -2.315,
-    "Asphalt / paved": -2.719,
-    "Vegetation": -8.867,
-    "Shade": -9.062,
-    "roof_frac": 0.771,
-    "mean_height_m": -0.057
+    "Pale roof": 0.411,
+    "Dusty roof": -2.098,
+    "Asphalt / paved": -2.752,
+    "Vegetation": -7.773,
+    "Shade": -6.582,
+    "roof_frac": -0.616,
+    "mean_height_m": -0.099
   },
   "attribution": "Contains modified EnMAP data \u00a9 DLR [2025] \u00b7 Google Open Buildings 2.5D (CC BY 4.0) \u00b7 \u00a9 OpenStreetMap contributors (ODbL)"
 }

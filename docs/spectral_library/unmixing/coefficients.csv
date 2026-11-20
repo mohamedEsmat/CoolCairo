@@ -1,8 +1,8 @@
 ,degC_per_unit_fraction_vs_sand
-Pale roof,0.192
-Dusty roof,-2.315
-Asphalt / paved,-2.719
-Vegetation,-8.867
-Shade,-9.062
-roof_frac,0.771
-mean_height_m,-0.057
+Pale roof,0.411
+Dusty roof,-2.098
+Asphalt / paved,-2.752
+Vegetation,-7.773
+Shade,-6.582
+roof_frac,-0.616
+mean_height_m,-0.099

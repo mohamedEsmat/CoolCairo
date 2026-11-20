@@ -17,18 +17,18 @@ def out():
 
 
 def test_heat_model_matches_report(out):
-    assert out["model"]["n_blocks"] == 2538
-    assert out["model"]["r2_spatial_cv"] == pytest.approx(0.25, abs=0.005)
+    assert out["model"]["n_blocks"] == 12451
+    assert out["model"]["r2_spatial_cv"] == pytest.approx(0.34, abs=0.005)
     assert out["model"]["mae_spatial_cv"] == pytest.approx(1.2, abs=0.05)
 
 
 def test_heat_risk_matches_report_and_app(out):
     r = out["heat_risk"]
     assert r["residents"] == pytest.approx(95141, abs=1)
-    assert r["exposure_person_degC"] == pytest.approx(6460, abs=1)  # app self-test checks 6,460 too
-    assert round(r["cool_roofs_pct"]) == -41
-    assert round(r["pocket_parks_pct"]) == -60
-    assert r["targeted_plan"]["exposure_after"] == pytest.approx(1686, abs=1)  # app screenshot
+    assert r["exposure_person_degC"] == pytest.approx(4693, abs=1)  # app self-test checks 4,693 too
+    assert round(r["cool_roofs_pct"]) == -62
+    assert round(r["pocket_parks_pct"]) == -51
+    assert r["targeted_plan"]["exposure_after"] == pytest.approx(778, abs=1)  # app screenshot
 
 
 def test_growth_matches_report(out):

@@ -94,6 +94,12 @@ interventions:
   # Pocket parks can green at most this share of a block's bare sand (paths, facilities).
   park_max_share_of_sand: 0.5
 
+# Footprints where OSM has none: machine-learned outlines (Google Open Buildings, Microsoft ML
+# Buildings) from an Overture Maps snapshot (fetch_footprints.py, release 2026-11-18, ODbL).
+# Only outlines less than 10 % inside an OSM footprint are added. OSM alone maps 3.4 % of east
+# Cairo as roof; 157 of Nasr City's 576 blocks had no footprint at all. Remove to use OSM only.
+footprint_fill: data/footprints/overture_buildings_2026-11-18.0_cairo.csv.gz
+
 # Building heights: OSM `height` -> OSM `building:levels` x storey height
 #   -> Google Open Buildings 2.5D Temporal 2023 (median inside footprint) -> default.
 storey_height_m: 3.2
@@ -101,10 +107,9 @@ default_levels: 5
 # Minimum Open Buildings pixels (4 m) with height inside a footprint to trust its median.
 open_buildings_min_pixels: 3
 # Next height fallback: GHSL GHS-BUILT-H 2018 (global, 100 m average building height), for
-# footprints left without a height. Off for Cairo so the published numbers stay as they are:
-# here it would fill 25 % of the model area's buildings and move the Sentinel-2 model from
-# R² 0.25 to 0.26 (checked 20 Nov 2026); on (the default) for every other city.
-ghsl_heights: false
+# footprints left without a height (mostly small outlines added by footprint_fill, too small
+# for Open Buildings' 4 m height raster). On for every city since 20 Nov 2026.
+ghsl_heights: true
 
 # Heat risk = heat exposure = residents x degrees C above a reference surface temperature.
 worldpop:
