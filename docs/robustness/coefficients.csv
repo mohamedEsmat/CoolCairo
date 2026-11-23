@@ -1,0 +1,7 @@
+feature,Cairo,Algiers,Casablanca,Dubai,Riyadh
+veg_frac,-2.384,-2.284,-3.448,-3.537,-3.379
+dark_roof_frac,-2.29,6.681,4.006,-14.423,-5.269
+dark_ground_frac,1.088,2.851,1.338,-1.217,4.638
+soil_frac,2.82,2.839,2.912,5.113,2.911
+roof_frac,1.034,-0.617,2.097,0.655,-0.318
+mean_height_m,-0.111,-0.013,-0.052,-0.016,0.005

@@ -1,0 +1,119 @@
+{
+  "blocks": 12451,
+  "folds": 5,
+  "tile_m": 1000,
+  "buffer_r2": {
+    "Sentinel-2 materials + buildings": {
+      "0": 0.3364,
+      "100": 0.3338,
+      "200": 0.3309,
+      "300": 0.3256,
+      "500": 0.3167
+    },
+    "EnMAP materials + buildings": {
+      "0": 0.4153,
+      "100": 0.4128,
+      "200": 0.41,
+      "300": 0.4059,
+      "500": 0.3928
+    },
+    "Our features + EnMAP spectra": {
+      "0": 0.6676,
+      "100": 0.6623,
+      "200": 0.6576,
+      "300": 0.6495,
+      "500": 0.6323
+    }
+  },
+  "max_r2_drop_at_200m": 0.01,
+  "random_forest_r2_200m": {
+    "Sentinel-2 materials + buildings": 0.4824,
+    "EnMAP materials + buildings": 0.5259,
+    "Our features + EnMAP spectra": 0.5759
+  },
+  "our_model_r2_200m": {
+    "Sentinel-2 materials + buildings": 0.3309,
+    "EnMAP materials + buildings": 0.41,
+    "Our features + EnMAP spectra": 0.6576
+  },
+  "transfer": {
+    "Algiers": {
+      "own_r2": 0.163,
+      "cairo_r2": -5.296,
+      "cairo_bias_c": 4.38,
+      "cairo_r2_bias_removed": 0.042,
+      "own_spearman": 0.402,
+      "cairo_spearman": 0.322,
+      "own_r2_300_local_blocks": 0.144
+    },
+    "Casablanca": {
+      "own_r2": 0.209,
+      "cairo_r2": -4.276,
+      "cairo_bias_c": 3.721,
+      "cairo_r2_bias_removed": 0.095,
+      "own_spearman": 0.406,
+      "cairo_spearman": 0.321,
+      "own_r2_300_local_blocks": 0.191
+    },
+    "Dubai": {
+      "own_r2": 0.168,
+      "cairo_r2": -5.92,
+      "cairo_bias_c": -4.79,
+      "cairo_r2_bias_removed": -0.824,
+      "own_spearman": 0.346,
+      "cairo_spearman": 0.29,
+      "own_r2_300_local_blocks": 0.133
+    },
+    "Riyadh": {
+      "own_r2": 0.241,
+      "cairo_r2": -19.806,
+      "cairo_bias_c": -5.169,
+      "cairo_r2_bias_removed": -0.329,
+      "own_spearman": 0.494,
+      "cairo_spearman": 0.124,
+      "own_r2_300_local_blocks": 0.216
+    }
+  },
+  "coefficients": {
+    "Cairo": {
+      "veg_frac": -2.38,
+      "dark_roof_frac": -2.29,
+      "dark_ground_frac": 1.09,
+      "soil_frac": 2.82,
+      "roof_frac": 1.03,
+      "mean_height_m": -0.11
+    },
+    "Algiers": {
+      "veg_frac": -2.28,
+      "dark_roof_frac": 6.68,
+      "dark_ground_frac": 2.85,
+      "soil_frac": 2.84,
+      "roof_frac": -0.62,
+      "mean_height_m": -0.01
+    },
+    "Casablanca": {
+      "veg_frac": -3.45,
+      "dark_roof_frac": 4.01,
+      "dark_ground_frac": 1.34,
+      "soil_frac": 2.91,
+      "roof_frac": 2.1,
+      "mean_height_m": -0.05
+    },
+    "Dubai": {
+      "veg_frac": -3.54,
+      "dark_roof_frac": -14.42,
+      "dark_ground_frac": -1.22,
+      "soil_frac": 5.11,
+      "roof_frac": 0.66,
+      "mean_height_m": -0.02
+    },
+    "Riyadh": {
+      "veg_frac": -3.38,
+      "dark_roof_frac": -5.27,
+      "dark_ground_frac": 4.64,
+      "soil_frac": 2.91,
+      "roof_frac": -0.32,
+      "mean_height_m": 0.0
+    }
+  }
+}

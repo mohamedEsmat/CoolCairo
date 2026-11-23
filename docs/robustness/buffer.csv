@@ -1,0 +1,16 @@
+features,model,buffer_m,train_blocks_per_fold,r2,mae_c,bias_c,spearman
+Sentinel-2 materials + buildings,linear,0,9961,0.3364,1.1823,-0.0029,0.5905
+Sentinel-2 materials + buildings,linear,100,9449,0.3338,1.1857,0.0037,0.589
+Sentinel-2 materials + buildings,linear,200,8857,0.3309,1.1893,0.0065,0.5878
+Sentinel-2 materials + buildings,linear,300,8006,0.3256,1.1948,0.0052,0.5853
+Sentinel-2 materials + buildings,linear,500,6440,0.3167,1.2051,0.0159,0.5797
+EnMAP materials + buildings,linear,0,9961,0.4153,1.0898,0.0016,0.6657
+EnMAP materials + buildings,linear,100,9449,0.4128,1.0925,0.0086,0.6646
+EnMAP materials + buildings,linear,200,8857,0.41,1.0958,0.0114,0.6638
+EnMAP materials + buildings,linear,300,8006,0.4059,1.1002,0.0107,0.6625
+EnMAP materials + buildings,linear,500,6440,0.3928,1.1136,0.0263,0.6563
+Our features + EnMAP spectra,ridge,0,9961,0.6676,0.8152,-0.003,0.8147
+Our features + EnMAP spectra,ridge,100,9449,0.6623,0.822,0.0039,0.8115
+Our features + EnMAP spectra,ridge,200,8857,0.6576,0.8289,0.0093,0.8082
+Our features + EnMAP spectra,ridge,300,8006,0.6495,0.839,0.0133,0.8037
+Our features + EnMAP spectra,ridge,500,6440,0.6323,0.8619,0.0304,0.7945

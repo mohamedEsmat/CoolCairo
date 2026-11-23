@@ -566,3 +566,25 @@ def test_ace_finds_implanted_target():
                                 n_implanted=200)
     ace_row = bench[bench.detector == "ACE"].iloc[0]
     assert ace_row.auc > 0.99
+
+
+def test_buffered_cv_drops_training_blocks_near_test_tiles():
+    from sklearn.linear_model import LinearRegression
+
+    from coolcairo import robustness as rb
+
+    rng = np.random.default_rng(3)
+    xs, ys = np.meshgrid(np.arange(40) * 90.0 + 45, np.arange(40) * 90.0 + 45)
+    xy = np.column_stack([xs.ravel(), ys.ravel()])
+    x = rng.normal(size=(len(xy), 2))
+    y = 2 * x[:, 0] - x[:, 1] + rng.normal(0, 0.1, len(xy))
+    groups = spatial_groups(pd.DataFrame({"x": xy[:, 0], "y": xy[:, 1]}), 900)
+    pred0, n0 = rb.buffered_cv_predict(x, y, xy, groups, 4, 0, LinearRegression)
+    pred2, n2 = rb.buffered_cv_predict(x, y, xy, groups, 4, 200, LinearRegression)
+    assert n0 == pytest.approx(len(y) * 3 / 4) and n2 < n0   # Buffer removes training blocks.
+    assert rb.scores(y, pred2)["r2"] > 0.99                   # Test blocks are unchanged.
+    _, n_few = rb.buffered_cv_predict(x, y, xy, groups, 4, 0, LinearRegression, n_train=50)
+    assert n_few == 50
+    shifted = rb.transfer_scores(y, y + 5.0)                  # A pure climate offset.
+    assert shifted["bias_c"] == pytest.approx(5.0)
+    assert shifted["r2_bias_removed"] == pytest.approx(1.0) and shifted["r2"] < 0

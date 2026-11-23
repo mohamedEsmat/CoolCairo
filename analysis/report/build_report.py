@@ -103,6 +103,7 @@ LINKS = {
     "hendel2024": "https://arxiv.org/abs/2409.12242",
     "green1988": "https://doi.org/10.1109/36.3001",
     "kraut1999": "https://doi.org/10.1109/78.782198",
+    "roberts2017": "https://doi.org/10.1111/ecog.02881",
     "santamouris2014": "https://doi.org/10.1016/j.solener.2012.07.003",
     "polyu2024": "https://www.polyu.edu.hk/rio/news/2024/20240924---polyu-researchers-unveil-novel-"
                  "carbon-dots-driven-green-radiative-cooling-coating/",
@@ -264,6 +265,10 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     ace_tab = pd.read_csv(ace_dir / "implantation.csv")
     ace_pd = ace_tab.pivot(index="fraction", columns="detector", values="detected_at_1pct_false_alarms")
     ace_auc = ace_tab.pivot(index="fraction", columns="detector", values="auc")
+    rob_dir = REPO_ROOT / "docs" / "robustness"
+    rob = json.loads((rob_dir / "summary.json").read_text(encoding="utf-8"))
+    rob_tr = pd.read_csv(rob_dir / "transfer.csv").set_index("city")
+    rob_co = pd.read_csv(rob_dir / "coefficients.csv", index_col="feature")
     gr, gcfg = r.growth, cfg["growth"]
     g0, g1 = gr["first"], gr["last"]
     gam, gad = gr["area_model"], gr["area_display"]
@@ -804,7 +809,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
           p(f"<b>The model transfers at a similar, modest level.</b> Spatial R² ranges from "
             f"{min(c['r2'] for c in tc):.2f} to {max(c['r2'] for c in tc):.2f}, against "
             f"{f.r2_spatial_cv:.2f} in Cairo: enough to rank blocks, as in Cairo, not to predict "
-            "one block. As in Cairo, every city uses the literature value for cool roofs."),
+            "one block. As in Cairo, every city uses the literature value for cool roofs. What "
+            "transfers is the method, refitted on each city's own data: Cairo's fitted model "
+            "applied unchanged fails elsewhere (Section 6.2)."),
           p(f"<b>Hyperspectral data helps in every city tested.</b> In all {len(tch)} test cities "
             "with a usable EnMAP scene, EnMAP spectra explain block heat better than Sentinel-2 "
             "with the same features, blocks and folds: "
@@ -836,8 +843,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "<b>Data provenance</b>: the app's start-up screen queries the archives for the exact "
               "scene IDs used here and shows a live preview from each satellite; scene lists are "
               "exported with the data.",
-              "<b>39 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
-              "intervention arithmetic, the export format, the footprint fill, the station-data parsing, the MNF transform, the target detectors and the quick example's numbers.",
+              "<b>40 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
+              "intervention arithmetic, the export format, the footprint fill, the station-data parsing, the MNF transform, the target detectors, the buffered cross-validation and the quick example's numbers.",
               "<b>Data confidence per block</b> (high / medium / low) in the app: the weakest of "
               "footprint completeness (against Google Open Buildings 2023 presence), the share of "
               "measured heights, and the population source; machine-learned footprints cap a "
@@ -870,6 +877,57 @@ def story(r: Results, figs: dict[str, Path]) -> list:
                  f"temperature at {air['station']} at the same time (NOAA ISD), one dot per clear "
                  "summer morning. Dashed: air plus the mean difference.")]
 
+    s2f, enf, spf = ("Sentinel-2 materials + buildings", "EnMAP materials + buildings",
+                     "Our features + EnMAP spectra")
+    br, rfr, tr = rob["buffer_r2"], rob["random_forest_r2_200m"], rob_tr
+    s += [p("6.2  Robustness of the heat model", H2),
+          p("Three checks from the course's GeoAI session (week 3), run on the same blocks and "
+            f"1 km tiles as every R² above ({rob['blocks']:,} blocks, {rob['folds']} folds; "
+            "<i>analysis/make_robustness.py</i>, outputs in <i>docs/robustness/</i>)."),
+          p("<b>Buffer between training and test.</b> Landsat's thermal pixel is about 100 m, so "
+            "blocks on either side of a tile edge share part of their temperature. Dropping "
+            "training blocks within 200 m of each held-out tile "
+            f"({cite('Roberts et al. 2017', 'roberts2017')}) lowers R² by at most "
+            f"{rob['max_r2_drop_at_200m']:.3f}: {br[s2f]['0']:.2f} → {br[s2f]['200']:.2f} for "
+            f"this report's model, {br[enf]['0']:.2f} → {br[enf]['200']:.2f} for the app's EnMAP "
+            f"fractions, {br[spf]['0']:.2f} → {br[spf]['200']:.2f} with the full EnMAP spectra "
+            f"(at 500 m: {br[s2f]['500']:.2f}, {br[enf]['500']:.2f}, {br[spf]['500']:.2f}). The "
+            "scores in this report are not inflated by leakage across tile edges."),
+          p("<b>A random forest next to our models.</b> With the 200 m buffer, a random forest "
+            f"on the same features reaches R² {rfr[s2f]:.2f} (Sentinel-2 shares) and "
+            f"{rfr[enf]:.2f} (EnMAP fractions), against {br[s2f]['200']:.2f} and "
+            f"{br[enf]['200']:.2f} for the linear model, so part of the effect is not linear; on "
+            f"the full spectra, ridge regression stays ahead ({br[spf]['200']:.2f} against "
+            f"{rfr[spf]:.2f}). EnMAP beats Sentinel-2 with either model. The app keeps the linear "
+            "model on purpose: each measure's effect is one visible coefficient, and effects add "
+            "up across measures, which a forest does not offer."),
+          p("<b>Domain shift.</b> Cairo's model applied unchanged to the test cities misses "
+            "their level by "
+            + ", ".join(f"{tr.loc[c, 'cairo_bias_c']:+.1f} °C ({c})" for c in tr.index)
+            + "; even after removing that offset it explains almost none of the block-to-block "
+            f"pattern (R² {tr.cairo_r2_bias_removed.min():.2f} to "
+            f"{tr.cairo_r2_bias_removed.max():.2f}) and ranks blocks worse than each city's own "
+            f"model (Spearman {tr.cairo_spearman.min():.2f}–{tr.cairo_spearman.max():.2f} against "
+            f"{tr.own_spearman.min():.2f}–{tr.own_spearman.max():.2f}). A model refitted on 300 "
+            "local blocks recovers most of the full local score (Table 8), and Landsat gives "
+            "every block a label, so the pipeline refits in each city. The vegetation "
+            f"({rob_co.loc['veg_frac'].min():.1f} to {rob_co.loc['veg_frac'].max():.1f} °C) and "
+            f"sand (+{rob_co.loc['soil_frac'].min():.1f} to +{rob_co.loc['soil_frac'].max():.1f} °C) "
+            "effects are similar in all five cities; the dark-roof coefficient changes sign "
+            f"({rob_co.loc['dark_roof_frac'].min():+.1f} to "
+            f"{rob_co.loc['dark_roof_frac'].max():+.1f} °C), "
+            "so no city's roof effect should be reused elsewhere."),
+          KeepTogether([table([["City", "Own model R²", "Cairo model R²", "Cairo bias",
+                                "Cairo, bias removed", "Own model, 300 blocks"]]
+                + [[c, f"{row.own_r2:.2f}", f"{row.cairo_r2:.1f}", f"{row.cairo_bias_c:+.1f} °C",
+                    f"{row.cairo_r2_bias_removed:.2f}", f"{row.own_r2_300_local_blocks:.2f}"]
+                   for c, row in tr.iterrows()],
+                [0.16, 0.16, 0.17, 0.15, 0.18, 0.18]),
+          p("<b>Table 8.</b> Cairo's heat model (Sentinel-2 shares + buildings) applied unchanged "
+            "to the test cities, against each city's own model, spatial R² with 1 km held-out "
+            "tiles. Last column: own model trained on 300 random blocks per fold (mean of 10 "
+            "draws).", CAPTION)])]
+
     # ---------------------------------------------------------------- 7 limitations
     s += [p("7  Limitations and other measures considered", H1),
           bullets([
@@ -900,7 +958,8 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "hyperspectral result is a strong, repeated signal, not yet a production model.",
               "<b>Test cities use Cairo's settings unchanged</b> (material thresholds, cut-offs, "
               "measures) and have no local validation; they show that the method transfers, not "
-              "that their numbers are final.",
+              "that their numbers are final. A fitted model does not travel: each city needs its own "
+              "fit (Section 6.2).",
               "<b>Heat risk is a screening indicator</b> (heat × residents). It leaves out "
               "vulnerability such as age, housing quality and access to cooling, and WorldPop "
               "counts are modelled, not census.",
@@ -991,6 +1050,9 @@ def story(r: Results, figs: dict[str, Path]) -> list:
         ref("Kraut, S. &amp; Scharf, L. L. (1999). The CFAR adaptive subspace detector is a "
             "scale-invariant GLRT. <i>IEEE Transactions on Signal Processing</i> 47(9), 2538–2541.",
             "kraut1999"),
+        ref("Roberts, D. R. et al. (2017). Cross-validation strategies for data with temporal, "
+            "spatial, hierarchical, or phylogenetic structure. <i>Ecography</i> 40(8), 913–929.",
+            "roberts2017"),
         ref("Santamouris, M. (2014). Cooling the cities: a review of reflective and green roof "
             "mitigation technologies to fight heat island and improve comfort in urban environments. "
             "<i>Solar Energy</i> 103, 682–703.", "santamouris2014"),

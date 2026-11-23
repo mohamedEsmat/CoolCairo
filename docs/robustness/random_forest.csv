@@ -1,0 +1,13 @@
+features,model,buffer_m,r2,mae_c,bias_c,spearman
+Sentinel-2 materials + buildings,linear,0,0.3364,1.1823,-0.0029,0.5905
+Sentinel-2 materials + buildings,linear,200,0.3309,1.1893,0.0065,0.5878
+Sentinel-2 materials + buildings,random forest,0,0.4906,1.0098,0.0001,0.6902
+Sentinel-2 materials + buildings,random forest,200,0.4824,1.0198,0.0115,0.6852
+EnMAP materials + buildings,linear,0,0.4153,1.0898,0.0016,0.6657
+EnMAP materials + buildings,linear,200,0.41,1.0958,0.0114,0.6638
+EnMAP materials + buildings,random forest,0,0.5355,0.9469,0.0059,0.732
+EnMAP materials + buildings,random forest,200,0.5259,0.9596,0.0188,0.7275
+Our features + EnMAP spectra,ridge,0,0.6676,0.8152,-0.003,0.8147
+Our features + EnMAP spectra,ridge,200,0.6576,0.8289,0.0093,0.8082
+Our features + EnMAP spectra,random forest,0,0.5895,0.8904,-0.0008,0.7657
+Our features + EnMAP spectra,random forest,200,0.5759,0.9088,0.0149,0.7587
