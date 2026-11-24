@@ -272,6 +272,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     rob_tr = pd.read_csv(rob_dir / "transfer.csv").set_index("city")
     rob_co = pd.read_csv(rob_dir / "coefficients.csv", index_col="feature")
     val = json.loads((REPO_ROOT / "docs" / "validity" / "summary.json").read_text(encoding="utf-8"))
+    fail = json.loads((REPO_ROOT / "docs" / "validity" / "failures.json").read_text(encoding="utf-8"))
     gr, gcfg = r.growth, cfg["growth"]
     g0, g1 = gr["first"], gr["last"]
     gam, gad = gr["area_model"], gr["area_display"]
@@ -1010,6 +1011,49 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "of treated blocks can show a smaller average change. Construction after 2023 is "
             "not excluded, so the threshold is slightly conservative."),
           ]
+
+    fa, fb, fc, fd = fail["cases"]
+    ef = "enmap_fractions"
+    s += [p("<b>Failure cases.</b> The three blocks the EnMAP-spectra model gets most wrong on "
+            f"held-out tiles (errors above {min(abs(c['residual_c']) for c in (fa, fb, fc)):.1f} °C, "
+            f"against a typical error of {fail['residual_sd_c']:.2f} °C), and one spot-check point "
+            "the Sentinel-2 rule got wrong (Figure 9; <i>analysis/make_failures.py</i>). The "
+            "explanations are our reading of the image, spectrum and block numbers, not a proof."),
+          bullets([
+              f"<b>A, {m(fa['residual_c'], 1)} °C (model too cool).</b> A road along the edge of a "
+              f"bare open lot. The block's own spectrum is dark ({fa[ef]['Asphalt / paved']:.0%} "
+              f"asphalt and {fa[ef]['Shade']:.0%} shade fractions), so the model expects paved "
+              f"ground, but the measured {fa['measured_c']:.1f} °C is that of the hot lot around "
+              "it: Landsat's 100 m thermal pixel is wider than the 90 m block. Lesson: blocks at "
+              "the edge of large open land inherit its heat.",
+              f"<b>B, {m(fb['residual_c'], 1)} °C (model too hot).</b> Al-Azhar Park: "
+              f"{fb[ef]['Vegetation']:.0%} vegetation and a clear red edge in the spectrum, "
+              f"measured {fb['measured_c']:.1f} °C. A large irrigated park cools more than the "
+              "model's average vegetation effect, which is learnt mostly from street trees and "
+              "gardens. Lesson: the app's pocket-park cooling is, if anything, an underestimate "
+              "for big parks.",
+              f"<b>C, {m(fc['residual_c'], 1)} °C (model too cool).</b> A strip of low, fully "
+              f"roofed sheds (mean height {fc['mean_height_m']:.1f} m) between large pale-roofed "
+              f"halls, measured {fc['measured_c']:.1f} °C. Its spectrum is as close to pale roof, "
+              f"dusty roof and sand ({min(fc['sam_deg'][k] for k in ('Pale roof', 'Dusty roof', 'Sand / bare ground')):.1f}–"
+              f"{max(fc['sam_deg'][k] for k in ('Pale roof', 'Dusty roof', 'Sand / bare ground')):.1f}° "
+              "spectral angle), so the spectrum cannot say what makes these roofs so hot (thin "
+              "or light roofing is likely; a site visit or very-high-resolution image would "
+              "tell). Lesson: roof build-up matters, not only roof colour.",
+              f"<b>D, spot-check point {fd['point']}.</b> The Sentinel-2 rule called it "
+              f"{fd['predicted_class'].lower()}; the image shows dusty asphalt (Ibrahim Shawqi "
+              "St, beside parked buses). The EnMAP pixel lies within "
+              f"{min(fd['sam_deg'][k] for k in ('Dusty roof', 'Sand / bare ground', 'Asphalt / paved')):.1f}–"
+              f"{max(fd['sam_deg'][k] for k in ('Dusty roof', 'Sand / bare ground', 'Asphalt / paved')):.1f}° "
+              "of dusty roof, sand and asphalt: dust makes the three nearly the same shape, so "
+              "spectral shape alone cannot separate them; brightness and short-wave-infrared "
+              "absorption depths are needed as well.",
+          ]),
+          figure(REPO_ROOT / "docs" / "validity" / "failures.png", TEXT_W,
+                 "<b>Figure 9.</b> Failure cases. Top: Sentinel-2 true colour, 600 m across, red "
+                 "square = the 90 m block (A–C) or the 30 m EnMAP pixel (D). Bottom: its EnMAP "
+                 "spectrum (red) against the checked library's class means. Titles: measured "
+                 "Landsat temperature, the model's held-out prediction and the difference.")]
 
     # ---------------------------------------------------------------- 7 limitations
     s += [p("7  Limitations and other measures considered", H1),

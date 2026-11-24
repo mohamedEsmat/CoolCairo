@@ -1,0 +1,122 @@
+{
+  "model": "Our features + EnMAP spectra",
+  "tile_m": 1000,
+  "blocks": 12451,
+  "residual_sd_c": 1.051732026531869,
+  "cases": [
+    {
+      "kind": "block",
+      "x": 345735.0,
+      "y": 3328515.0,
+      "lat": 30.078058269083417,
+      "lon": 31.399382024550988,
+      "measured_c": 53.54527282714844,
+      "predicted_c": 47.99117582703332,
+      "residual_c": -5.554097000115121,
+      "residual_rank_pct": 99.99196851658502,
+      "veg_frac": 0.0,
+      "roof_frac": 0.1728395061728395,
+      "soil_frac": 0.0,
+      "dark_ground_frac": 0.6049382716049383,
+      "mean_height_m": 0.9765625,
+      "growth": "open",
+      "enmap_fractions": {
+        "Sand / bare ground": 0.052,
+        "Pale roof": 0.015,
+        "Dusty roof": 0.0,
+        "Asphalt / paved": 0.429,
+        "Vegetation": 0.21,
+        "Shade": 0.295
+      },
+      "sam_deg": {
+        "Sand / bare ground": 7.41,
+        "Pale roof": 9.82,
+        "Dusty roof": 8.4,
+        "Asphalt / paved": 6.99,
+        "Vegetation": 15.42
+      }
+    },
+    {
+      "kind": "block",
+      "x": 332505.0,
+      "y": 3324285.0,
+      "lat": 30.038159114378292,
+      "lon": 31.262827778162,
+      "measured_c": 40.32113265991211,
+      "predicted_c": 45.760317644454624,
+      "residual_c": 5.439184984542514,
+      "residual_rank_pct": 99.98393703317002,
+      "veg_frac": 0.3333333333333333,
+      "roof_frac": 0.18518518518518517,
+      "soil_frac": 0.0,
+      "dark_ground_frac": 0.4444444444444444,
+      "mean_height_m": 2.823958396911621,
+      "growth": "open",
+      "enmap_fractions": {
+        "Sand / bare ground": 0.023,
+        "Pale roof": 0.058,
+        "Dusty roof": 0.022,
+        "Asphalt / paved": 0.073,
+        "Vegetation": 0.497,
+        "Shade": 0.326
+      },
+      "sam_deg": {
+        "Sand / bare ground": 15.2,
+        "Pale roof": 16.88,
+        "Dusty roof": 16.06,
+        "Asphalt / paved": 15.44,
+        "Vegetation": 6.96
+      }
+    },
+    {
+      "kind": "block",
+      "x": 344115.0,
+      "y": 3321405.0,
+      "lat": 30.013713640160155,
+      "lon": 31.38362081436607,
+      "measured_c": 51.297157287597656,
+      "predicted_c": 45.945070392994026,
+      "residual_c": -5.35208689460363,
+      "residual_rank_pct": 99.97590554975504,
+      "veg_frac": 0.14814814814814814,
+      "roof_frac": 1.0,
+      "soil_frac": 0.0,
+      "dark_ground_frac": 0.0,
+      "mean_height_m": 2.7692902088165283,
+      "growth": "open",
+      "enmap_fractions": {
+        "Sand / bare ground": 0.0,
+        "Pale roof": 0.422,
+        "Dusty roof": 0.026,
+        "Asphalt / paved": 0.0,
+        "Vegetation": 0.288,
+        "Shade": 0.264
+      },
+      "sam_deg": {
+        "Sand / bare ground": 7.73,
+        "Pale roof": 7.74,
+        "Dusty roof": 7.6,
+        "Asphalt / paved": 7.98,
+        "Vegetation": 17.22
+      }
+    },
+    {
+      "kind": "point",
+      "x": 339334.9564136865,
+      "y": 3326615.0371184675,
+      "lat": 30.060094,
+      "lon": 31.333287,
+      "point": 3,
+      "predicted_class": "Bare soil / sand",
+      "observed_class": "Dark surface",
+      "note": "Carriageway of Ibrahim Shawqi St: dusty grey asphalt next to parked buses.",
+      "sam_deg": {
+        "Sand / bare ground": 2.23,
+        "Pale roof": 2.72,
+        "Dusty roof": 1.69,
+        "Asphalt / paved": 2.32,
+        "Vegetation": 21.21
+      }
+    }
+  ]
+}
