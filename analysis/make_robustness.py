@@ -50,6 +50,31 @@ def ridge() -> object:
     return make_pipeline(StandardScaler(), RidgeCV(alphas=np.logspace(-3, 3, 13)))
 
 
+def feature_sets(cfg: object, train: pd.DataFrame) -> tuple[dict, np.ndarray]:
+    """The three feature sets compared in the report, and the mask of blocks valid in all of
+    them (all 12,451 in Cairo). Values: (features, model factory, model name)."""
+    refl = load_enmap(cfg)
+    picks = pd.read_csv(LIB_DIR / "candidates.csv", index_col="id")
+    checked = lib.read_sheet(LIB_DIR / "candidates.xlsx", picks, column=lib.PERSON_COLUMN)
+    frac, _ = lib.fcls(refl, lib.library_from_sheet(refl, checked))
+    names = list(frac.endmember.values)
+    fr = sep.block_spectra(frac.rename(endmember="feature"), 3, train)
+    enmap_fr = fr[:, [i for i, n in enumerate(names) if n != lib.SAND]]
+    ours = train[FEATURES].to_numpy()
+    sets = {
+        "Sentinel-2 materials + buildings": (ours, LinearRegression, "linear"),
+        "EnMAP materials + buildings": (
+            np.hstack([enmap_fr, train[["roof_frac", "mean_height_m"]].to_numpy()]),
+            LinearRegression, "linear"),
+        "Our features + EnMAP spectra": (np.hstack([ours, sep.block_spectra(refl, 3, train)]),
+                                         ridge, "ridge"),
+    }
+    ok = np.isfinite(train[TARGET].to_numpy())
+    for x, _, _ in sets.values():
+        ok &= np.isfinite(x).all(axis=1)
+    return sets, ok
+
+
 def city_rows(city: str) -> pd.DataFrame:
     """A test city's training rows, built in a subprocess with that city's config and cache."""
     with tempfile.TemporaryDirectory() as tmp:
@@ -73,27 +98,8 @@ def main() -> None:
     blocks, _, _ = build_blocks(cfg)
     train = training_rows(blocks, cfg["min_building_coverage"]).reset_index(drop=True)
 
-    # Feature sets, on the blocks valid in all of them (all 12,451 in Cairo).
-    refl = load_enmap(cfg)
-    picks = pd.read_csv(LIB_DIR / "candidates.csv", index_col="id")
-    checked = lib.read_sheet(LIB_DIR / "candidates.xlsx", picks, column=lib.PERSON_COLUMN)
-    frac, _ = lib.fcls(refl, lib.library_from_sheet(refl, checked))
-    names = list(frac.endmember.values)
-    fr = sep.block_spectra(frac.rename(endmember="feature"), 3, train)
-    enmap_fr = fr[:, [i for i, n in enumerate(names) if n != lib.SAND]]
-    ours = train[FEATURES].to_numpy()
-    sets = {
-        "Sentinel-2 materials + buildings": (ours, LinearRegression, "linear"),
-        "EnMAP materials + buildings": (
-            np.hstack([enmap_fr, train[["roof_frac", "mean_height_m"]].to_numpy()]),
-            LinearRegression, "linear"),
-        "Our features + EnMAP spectra": (np.hstack([ours, sep.block_spectra(refl, 3, train)]),
-                                         ridge, "ridge"),
-    }
+    sets, ok = feature_sets(cfg, train)
     y = train[TARGET].to_numpy()
-    ok = np.isfinite(y)
-    for x, _, _ in sets.values():
-        ok &= np.isfinite(x).all(axis=1)
     y, xy, groups = y[ok], train[["x", "y"]].to_numpy()[ok], spatial_groups(train[ok], tile)
 
     buffer_rows, rf_rows = [], []
