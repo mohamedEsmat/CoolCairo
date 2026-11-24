@@ -104,6 +104,8 @@ LINKS = {
     "green1988": "https://doi.org/10.1109/36.3001",
     "kraut1999": "https://doi.org/10.1109/78.782198",
     "roberts2017": "https://doi.org/10.1111/ecog.02881",
+    "stehman2019": "https://doi.org/10.1016/j.rse.2019.05.018",
+    "bland1986": "https://doi.org/10.1016/S0140-6736(86)90837-8",
     "santamouris2014": "https://doi.org/10.1016/j.solener.2012.07.003",
     "polyu2024": "https://www.polyu.edu.hk/rio/news/2024/20240924---polyu-researchers-unveil-novel-"
                  "carbon-dots-driven-green-radiative-cooling-coating/",
@@ -269,6 +271,7 @@ def story(r: Results, figs: dict[str, Path]) -> list:
     rob = json.loads((rob_dir / "summary.json").read_text(encoding="utf-8"))
     rob_tr = pd.read_csv(rob_dir / "transfer.csv").set_index("city")
     rob_co = pd.read_csv(rob_dir / "coefficients.csv", index_col="feature")
+    val = json.loads((REPO_ROOT / "docs" / "validity" / "summary.json").read_text(encoding="utf-8"))
     gr, gcfg = r.growth, cfg["growth"]
     g0, g1 = gr["first"], gr["last"]
     gam, gad = gr["area_model"], gr["area_display"]
@@ -839,12 +842,14 @@ def story(r: Results, figs: dict[str, Path]) -> list:
               "switches the measure to literature values (the case for cool roofs today).",
               f"<b>Building heights</b> checked against OSM-tagged heights (n = {hv['n']}): bias "
               f"{m(hv['bias_m'], 1)} m, mean absolute error {hv['mae_m']:.1f} m, median "
-              f"{hv['median_abs_err_m']:.1f} m, correlation r = {hv['correlation']:.2f}.",
+              f"{hv['median_abs_err_m']:.1f} m, RMSE {hv['rmse_m']:.1f} m, R² about the 1:1 line "
+              f"{hv['r2_1to1']:.2f} (Pearson r = {hv['correlation']:.2f}); Bland–Altman in "
+              "Section 6.3.",
               "<b>Data provenance</b>: the app's start-up screen queries the archives for the exact "
               "scene IDs used here and shows a live preview from each satellite; scene lists are "
               "exported with the data.",
-              "<b>40 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
-              "intervention arithmetic, the export format, the footprint fill, the station-data parsing, the MNF transform, the target detectors, the buffered cross-validation and the quick example's numbers.",
+              "<b>42 unit tests</b> (pytest) cover classification rules, block aggregation, the model, "
+              "intervention arithmetic, the export format, the footprint fill, the station-data parsing, the MNF transform, the target detectors, the buffered cross-validation, the agreement metrics and the quick example's numbers.",
               "<b>Data confidence per block</b> (high / medium / low) in the app: the weakest of "
               "footprint completeness (against Google Open Buildings 2023 presence), the share of "
               "measured heights, and the population source; machine-learned footprints cap a "
@@ -927,6 +932,84 @@ def story(r: Results, figs: dict[str, Path]) -> list:
             "to the test cities, against each city's own model, spatial R² with 1 km held-out "
             "tiles. Last column: own model trained on 300 random blocks per fold (mean of 10 "
             "draws).", CAPTION)])]
+
+    # ---------------------------------------------------------------- 6.3 validity
+    sr, opt, vc, st = val["split_r2"], val["optimism_r2"], val["continuous"], val["stable"]
+    tiles = [k for k in sr[spf] if k != "random 5-fold"]
+    hm, hs = vc[f"Heat model: {spf}"], vc[f"Heat model: {s2f}"]
+    he = vc[f"Heat model: {enf}"]
+    bh = vc["Building heights: Open Buildings vs OSM tags"]
+    hot_word = "too cool" if hm["hot_bias"] < 0 else "too hot"
+    pairs, yrs = st["pairs"], st["years"]
+    s += [p("6.3  Validation design and agreement", H2),
+          p("Checks from the course's accuracy-assessment session (week 3), following "
+            f"{cite('Stehman &amp; Foody 2019', 'stehman2019')}: state how the test was designed, "
+            "show what a weaker design would have claimed, and report agreement with more than "
+            "one number (<i>analysis/make_validity.py</i>, outputs in <i>docs/validity/</i>)."),
+          p("<b>Random versus spatial split.</b> With random 5-fold cross-validation, "
+            "neighbouring blocks that share heat fall on both sides of the split. The same "
+            f"models then score R² {sr[s2f]['random 5-fold']:.2f}, {sr[enf]['random 5-fold']:.2f} "
+            f"and {sr[spf]['random 5-fold']:.2f} (Sentinel-2 shares, EnMAP fractions, EnMAP "
+            f"spectra), against {sr[s2f]['1 km tiles']:.2f}, {sr[enf]['1 km tiles']:.2f} and "
+            f"{sr[spf]['1 km tiles']:.2f} with held-out 1 km tiles: a random split would "
+            f"overstate R² by {min(opt.values()):.2f}–{max(opt.values()):.2f}. The gap is small "
+            "because blocks are 90 m and the features are block averages, but it grows with "
+            f"the size of the held-out area for the spectra model ({sr[spf][tiles[0]]:.2f} at "
+            f"{tiles[0][:-6]} to {sr[spf][tiles[-1]]:.2f} at {tiles[-1][:-6]}), while the "
+            "material models stay flat (Table 9). Every R² in this report uses held-out 1 km "
+            "tiles."),
+          KeepTogether([table([["Features", "Random 5-fold"] + tiles]
+                + [[f, f"{sr[f]['random 5-fold']:.2f}"] + [f"{sr[f][k]:.2f}" for k in tiles]
+                   for f in (s2f, enf, spf)],
+                [0.32, 0.14, 0.135, 0.135, 0.135, 0.135]),
+          p("<b>Table 9.</b> Heat-model R² by validation design: same blocks and models "
+            f"({val['blocks']:,} blocks, {val['folds']} folds); columns after the second: "
+            "held-out square tiles of that size.", CAPTION)]),
+          p("<b>Agreement, not only R².</b> R² cannot see a constant offset, so each continuous "
+            "product also gets bias, RMSE, R² about the 1:1 line and Bland–Altman limits of "
+            f"agreement ({cite('Bland &amp; Altman 1986', 'bland1986')}). On held-out 1 km tiles "
+            f"the EnMAP-spectra heat model has bias {m(round(hm['bias'], 2) + 0.0, 2)} °C, MAE {hm['mae']:.2f} °C, "
+            f"RMSE {hm['rmse']:.2f} °C, and 95 % of blocks fall within {m(hm['loa_low'], 1)} to "
+            f"{m(hm['loa_high'], 1)} °C of the measurement (Sentinel-2 model: RMSE "
+            f"{hs['rmse']:.2f} °C, limits {m(hs['loa_low'], 1)} to {m(hs['loa_high'], 1)} °C). "
+            f"The error depends on the level (Bland–Altman slope {m(hm['ba_slope'], 2)}; "
+            f"Sentinel-2 model {m(hs['ba_slope'], 2)}): like any regression, the models pull "
+            f"extremes towards the average, so they are {hot_word} for the hottest "
+            f"{val['hot_share']:.0%} of blocks (above {hm['hot_threshold']:.1f} °C) by "
+            f"{abs(hm['hot_bias']):.1f} °C on average with EnMAP spectra, "
+            f"{abs(he['hot_bias']):.1f} °C with EnMAP fractions and {abs(hs['hot_bias']):.1f} °C "
+            "with Sentinel-2 shares. The app ranks blocks by measured Landsat temperature, not "
+            "by the model, so the hottest blocks are still found; but a modelled cooling for "
+            "those blocks is an average effect, not a forecast of their exact temperature."),
+          p(f"Building heights from Open Buildings against OSM tags (n = {bh['n']:,}) show why R² "
+            f"about 1:1 matters: Pearson r² is {bh['pearson_r2']:.2f}, but R² about the 1:1 line "
+            f"is only {bh['r2_1to1']:.2f} (bias {m(bh['bias'], 1)} m, RMSE {bh['rmse']:.1f} m, "
+            f"limits {m(bh['loa_low'], 0)} to {m(bh['loa_high'], 0)} m). Heights enter the heat "
+            "model only as a block average, and OSM tags are used wherever they exist (Figure 8)."),
+          figure(REPO_ROOT / "docs" / "validity" / "bland_altman.png", TEXT_W,
+                 "<b>Figure 8.</b> Bland–Altman plots: estimate minus reference against their "
+                 "mean (left, shading: number of blocks, log scale; right, one dot per building). "
+                 "Blue: mean bias and "
+                 "95 % limits of agreement; red: trend of the error with the level. Left: heat "
+                 "model with EnMAP spectra, out-of-fold predictions on held-out 1 km tiles. Right: "
+                 "Open Buildings heights against OSM-tagged heights."),
+          p("<b>What change Landsat can see.</b> Blocks already built-up in 2016 with little "
+            f"change by 2023 ({st['blocks']:,} blocks) should keep their temperature pattern "
+            f"from one summer to the next. Comparing the summer medians of {yrs[0]}–{yrs[-1]} ("
+            + ", ".join(f"{n} scenes in {y}" for y, n in st["scenes_per_year"].items())
+            + "), the whole area shifts with the weather ("
+            + "; ".join(f"{q['from']} → {q['to']}: {m(q['offset'], 1)} °C" for q in pairs)
+            + "). After removing that shift, a stable block still moves by "
+            f"{st['resid_sd_mean']:.2f} °C (standard deviation), and 95 % of stable blocks move "
+            f"by less than <b>{st['threshold_95_mean']:.1f} °C</b> (mean over the three pairs of "
+            f"summers, {min(q['threshold_95'] for q in pairs):.1f}–"
+            f"{max(q['threshold_95'] for q in pairs):.1f} °C). This is the detection threshold "
+            "for monitoring a pilot with Landsat: a treated block must cool by more than about "
+            f"{st['threshold_95_mean']:.1f} °C, compared with similar untreated blocks in the "
+            "same summer, before the change can be told apart from year-to-year noise; a group "
+            "of treated blocks can show a smaller average change. Construction after 2023 is "
+            "not excluded, so the threshold is slightly conservative."),
+          ]
 
     # ---------------------------------------------------------------- 7 limitations
     s += [p("7  Limitations and other measures considered", H1),
@@ -1053,6 +1136,12 @@ def story(r: Results, figs: dict[str, Path]) -> list:
         ref("Roberts, D. R. et al. (2017). Cross-validation strategies for data with temporal, "
             "spatial, hierarchical, or phylogenetic structure. <i>Ecography</i> 40(8), 913–929.",
             "roberts2017"),
+        ref("Stehman, S. V. &amp; Foody, G. M. (2019). Key issues in rigorous accuracy assessment "
+            "of land cover products. <i>Remote Sensing of Environment</i> 231, 111199.",
+            "stehman2019"),
+        ref("Bland, J. M. &amp; Altman, D. G. (1986). Statistical methods for assessing agreement "
+            "between two methods of clinical measurement. <i>The Lancet</i> 327(8476), 307–310.",
+            "bland1986"),
         ref("Santamouris, M. (2014). Cooling the cities: a review of reflective and green roof "
             "mitigation technologies to fight heat island and improve comfort in urban environments. "
             "<i>Solar Energy</i> 103, 682–703.", "santamouris2014"),
