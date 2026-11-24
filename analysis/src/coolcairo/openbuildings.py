@@ -24,6 +24,7 @@ from rasterio.errors import NotGeoreferencedWarning
 from rasterio.features import rasterize
 from rioxarray.merge import merge_arrays
 
+from coolcairo.agreement import agreement
 from coolcairo.config import ANALYSIS_ROOT, Config, projected_bbox
 
 TILE_LIST = ANALYSIS_ROOT / "config" / "open_buildings_tiles.txt"
@@ -136,17 +137,28 @@ def footprint_heights(
     return median.reindex(range(len(buildings))).set_axis(buildings.index)
 
 
+def height_pairs(buildings: gpd.GeoDataFrame, ob_heights: pd.Series) -> pd.DataFrame:
+    """OSM-tagged height (`osm`) and Open Buildings estimate (`ob`) for each tagged building."""
+    tagged = buildings.height_source.isin(["osm_height", "osm_levels"])
+    return pd.DataFrame({"osm": buildings.height_m[tagged], "ob": ob_heights[tagged]}).dropna()
+
+
 def validate_against_osm(buildings: gpd.GeoDataFrame, ob_heights: pd.Series) -> dict[str, float]:
     """Compare Open Buildings estimates with OSM-tagged heights (the only ground truth we have)."""
-    tagged = buildings.height_source.isin(["osm_height", "osm_levels"])
-    pairs = pd.DataFrame({"osm": buildings.height_m[tagged], "ob": ob_heights[tagged]}).dropna()
+    pairs = height_pairs(buildings, ob_heights)
     err = pairs.ob - pairs.osm
+    a = agreement(pairs.osm.to_numpy(), pairs.ob.to_numpy())
     return {
         "n": len(pairs),
         "bias_m": float(err.mean()),
         "mae_m": float(err.abs().mean()),
         "median_abs_err_m": float(err.abs().median()),
         "correlation": float(pairs.osm.corr(pairs.ob)),
+        "rmse_m": a["rmse"],
+        "r2_1to1": a["r2_1to1"],
+        "loa_low_m": a["loa_low"],
+        "loa_high_m": a["loa_high"],
+        "ba_slope": a["ba_slope"],
     }
 
 

@@ -1,0 +1,137 @@
+{
+  "blocks": 12451,
+  "folds": 5,
+  "tile_m": 1000,
+  "split_r2": {
+    "Sentinel-2 materials + buildings": {
+      "random 5-fold": 0.351,
+      "0.5 km tiles": 0.3418,
+      "1 km tiles": 0.3364,
+      "2 km tiles": 0.3332,
+      "3 km tiles": 0.3388
+    },
+    "EnMAP materials + buildings": {
+      "random 5-fold": 0.4311,
+      "0.5 km tiles": 0.4218,
+      "1 km tiles": 0.4153,
+      "2 km tiles": 0.4111,
+      "3 km tiles": 0.4152
+    },
+    "Our features + EnMAP spectra": {
+      "random 5-fold": 0.7007,
+      "0.5 km tiles": 0.6824,
+      "1 km tiles": 0.6676,
+      "2 km tiles": 0.6461,
+      "3 km tiles": 0.6271
+    }
+  },
+  "optimism_r2": {
+    "Sentinel-2 materials + buildings": 0.0146,
+    "EnMAP materials + buildings": 0.0158,
+    "Our features + EnMAP spectra": 0.0331
+  },
+  "continuous": {
+    "Heat model: Sentinel-2 materials + buildings": {
+      "unit": "°C",
+      "n": 12451,
+      "bias": -0.0029,
+      "mae": 1.1823,
+      "rmse": 1.4861,
+      "r2_1to1": 0.3364,
+      "pearson_r2": 0.3365,
+      "loa_low": -2.9158,
+      "loa_high": 2.91,
+      "ba_slope": -0.6374,
+      "hot_bias": -2.4986,
+      "hot_threshold": 48.6283
+    },
+    "Heat model: EnMAP materials + buildings": {
+      "unit": "°C",
+      "n": 12451,
+      "bias": 0.0016,
+      "mae": 1.0898,
+      "rmse": 1.395,
+      "r2_1to1": 0.4153,
+      "pearson_r2": 0.4155,
+      "loa_low": -2.7328,
+      "loa_high": 2.7359,
+      "ba_slope": -0.4959,
+      "hot_bias": -2.2546,
+      "hot_threshold": 48.6283
+    },
+    "Heat model: Our features + EnMAP spectra": {
+      "unit": "°C",
+      "n": 12451,
+      "bias": -0.003,
+      "mae": 0.8152,
+      "rmse": 1.0517,
+      "r2_1to1": 0.6676,
+      "pearson_r2": 0.6679,
+      "loa_low": -2.0645,
+      "loa_high": 2.0585,
+      "ba_slope": -0.202,
+      "hot_bias": -1.1578,
+      "hot_threshold": 48.6283
+    },
+    "Building heights: Open Buildings vs OSM tags": {
+      "unit": "m",
+      "n": 165,
+      "bias": -1.4291,
+      "mae": 6.1588,
+      "rmse": 8.8925,
+      "r2_1to1": 0.1715,
+      "pearson_r2": 0.3544,
+      "loa_low": -18.6842,
+      "loa_high": 15.826,
+      "ba_slope": -0.0035
+    }
+  },
+  "hot_share": 0.1,
+  "stable": {
+    "blocks": 9597,
+    "years": [
+      2023,
+      2024,
+      2025
+    ],
+    "scenes_per_year": {
+      "2023": 21,
+      "2024": 21,
+      "2025": 23
+    },
+    "pairs": [
+      {
+        "from": 2023,
+        "to": 2024,
+        "n": 9597,
+        "offset": 1.305,
+        "resid_sd": 0.699,
+        "resid_rmse": 0.699,
+        "threshold_95": 1.386,
+        "pearson_r": 0.938
+      },
+      {
+        "from": 2023,
+        "to": 2025,
+        "n": 9597,
+        "offset": -0.532,
+        "resid_sd": 0.497,
+        "resid_rmse": 0.497,
+        "threshold_95": 0.961,
+        "pearson_r": 0.959
+      },
+      {
+        "from": 2024,
+        "to": 2025,
+        "n": 9597,
+        "offset": -1.812,
+        "resid_sd": 0.625,
+        "resid_rmse": 0.625,
+        "threshold_95": 1.248,
+        "pearson_r": 0.955
+      }
+    ],
+    "threshold_95_mean": 1.198,
+    "resid_sd_mean": 0.607
+  }
+}

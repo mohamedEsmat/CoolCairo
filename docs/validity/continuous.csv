@@ -1,0 +1,5 @@
+product,unit,n,bias,mae,rmse,r2_1to1,pearson_r2,loa_low,loa_high,ba_slope,hot_bias,hot_threshold
+Heat model: Sentinel-2 materials + buildings,°C,12451,-0.0029,1.1823,1.4861,0.3364,0.3365,-2.9158,2.91,-0.6374,-2.4986,48.6283
+Heat model: EnMAP materials + buildings,°C,12451,0.0016,1.0898,1.395,0.4153,0.4155,-2.7328,2.7359,-0.4959,-2.2546,48.6283
+Heat model: Our features + EnMAP spectra,°C,12451,-0.003,0.8152,1.0517,0.6676,0.6679,-2.0645,2.0585,-0.202,-1.1578,48.6283
+Building heights: Open Buildings vs OSM tags,m,165,-1.4291,6.1588,8.8925,0.1715,0.3544,-18.6842,15.826,-0.0035,,

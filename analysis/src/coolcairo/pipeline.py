@@ -44,6 +44,13 @@ def load_lst(cfg: Config) -> xr.DataArray:
     return _cached_array(DATA_DIR / "lst_30m.nc", lambda: stac.landsat_lst(cfg, geobox, bbox))
 
 
+def load_lst_by_year(cfg: Config) -> xr.DataArray:
+    geobox = geobox_for(cfg, "model_aoi")
+    bbox = cfg["model_aoi"]["bbox_wgs84"]
+    return _cached_array(DATA_DIR / "lst_30m_by_year.nc",
+                         lambda: stac.landsat_lst_by_year(cfg, geobox, bbox))
+
+
 def load_sentinel2(cfg: Config) -> xr.Dataset:
     geobox = geobox_for(cfg, "model_aoi", FINE_RESOLUTION)
     bbox = cfg["model_aoi"]["bbox_wgs84"]

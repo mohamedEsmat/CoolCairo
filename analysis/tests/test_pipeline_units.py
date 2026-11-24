@@ -588,3 +588,29 @@ def test_buffered_cv_drops_training_blocks_near_test_tiles():
     shifted = rb.transfer_scores(y, y + 5.0)                  # A pure climate offset.
     assert shifted["bias_c"] == pytest.approx(5.0)
     assert shifted["r2_bias_removed"] == pytest.approx(1.0) and shifted["r2"] < 0
+
+
+def test_agreement_separates_offset_from_fit():
+    from coolcairo.agreement import agreement
+
+    ref = np.array([40.0, 42.0, 44.0, 46.0, 48.0])
+    a = agreement(ref, ref + 2.0)  # perfect correlation, constant offset
+    assert a["bias"] == pytest.approx(2.0)
+    assert a["rmse"] == pytest.approx(2.0)
+    assert a["pearson_r2"] == pytest.approx(1.0)
+    assert a["r2_1to1"] == pytest.approx(1 - 5 * 4 / 40)  # 1 - SSE/SST = 0.5
+    assert a["ba_slope"] == pytest.approx(0.0, abs=1e-9)
+    shrunk = agreement(ref, 44.0 + 0.5 * (ref - 44.0))  # regression to the mean
+    assert shrunk["ba_slope"] < 0 and shrunk["bias"] == pytest.approx(0.0)
+
+
+def test_stable_target_noise_removes_weather_offset():
+    from coolcairo.agreement import stable_target_noise
+
+    rng = np.random.default_rng(0)
+    first = rng.normal(45, 2, 5000)
+    second = first + 3.0 + rng.normal(0, 0.5, 5000)  # hotter summer + noise
+    s = stable_target_noise(first, second)
+    assert s["offset"] == pytest.approx(3.0, abs=0.05)
+    assert s["resid_sd"] == pytest.approx(0.5, abs=0.03)
+    assert s["threshold_95"] == pytest.approx(1.96 * 0.5, abs=0.06)

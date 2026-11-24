@@ -103,6 +103,34 @@ def landsat_lst(cfg: Config, geobox: GeoBox, bbox_wgs84: list[float]) -> xr.Data
     return lst
 
 
+def landsat_lst_by_year(cfg: Config, geobox: GeoBox, bbox_wgs84: list[float]) -> xr.DataArray:
+    """Median land surface temperature (deg C) per summer, same scenes and masks as
+    `landsat_lst`: used to measure year-to-year noise on stable blocks (make_validity.py)."""
+    items = search(cfg, LANDSAT_COLLECTION, bbox_wgs84, LANDSAT_QUERY)
+    ds = odc.stac.load(
+        items,
+        bands=["lwir11", "qa_pixel"],
+        geobox=geobox,
+        groupby="solar_day",
+        resampling={"qa_pixel": "nearest", "*": "bilinear"},
+        chunks={"time": 1, "x": 2048, "y": 2048},
+    )
+    clear = (ds.qa_pixel & LANDSAT_QA_REJECT_MASK) == 0
+    kelvin = ds.lwir11.where((ds.lwir11 > 0) & clear) * LANDSAT_ST_SCALE + LANDSAT_ST_OFFSET
+    celsius = kelvin - 273.15
+    years = celsius.time.dt.year
+    out = xr.concat(
+        [celsius.sel(time=years == y).chunk({"time": -1}).median("time", skipna=True).compute()
+         for y in np.unique(years.values)],
+        dim=xr.DataArray(np.unique(years.values), dims="year", name="year"),
+    )
+    out.name = "lst_c"
+    out.attrs.update(units="degC", scenes_per_year=[int((years == y).sum())
+                                                     for y in np.unique(years.values)],
+                     source="Landsat C2 L2 ST_B10")
+    return out
+
+
 def _s2_offsets(items: list[pystac.Item], times: np.ndarray) -> xr.DataArray:
     """Per-date DN offset: processing baseline 04.00+ (Jan 2022 on) adds +1000 to reflectance."""
     by_day: dict[np.datetime64, float] = {}
