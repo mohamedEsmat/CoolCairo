@@ -1,0 +1,368 @@
+{
+ "session": "Course 3 week 4, advanced hyperspectral analytics (25 Nov 2026)",
+ "threshold_sensitivity": {
+  "plan_share": 0.3333,
+  "plan_blocks": 192,
+  "plan_hectares": 97.4,
+  "plan_targeted_pct": -92.8,
+  "blocks_hotter_than_reference": 81,
+  "reference_c": 45.85,
+  "note": "heat exposure counts only degrees above the reference, so it all sits in the blocks hotter than it; treating more blocks cools them but removes no more exposure as defined",
+  "curve": [
+   {
+    "share": 0.05,
+    "blocks": 29,
+    "hectares": 13.75,
+    "residents": 3191.68,
+    "targeted_pct": -64.83,
+    "no_water_pct": -59.63,
+    "pct_per_extra_ha": -4.71
+   },
+   {
+    "share": 0.1,
+    "blocks": 58,
+    "hectares": 27.2,
+    "residents": 5358.05,
+    "targeted_pct": -87.84,
+    "no_water_pct": -82.09,
+    "pct_per_extra_ha": 1.71
+   },
+   {
+    "share": 0.15,
+    "blocks": 86,
+    "hectares": 40.49,
+    "residents": 8211.02,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": 0.37
+   },
+   {
+    "share": 0.2,
+    "blocks": 115,
+    "hectares": 54.73,
+    "residents": 11760.96,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.25,
+    "blocks": 144,
+    "hectares": 70.56,
+    "residents": 15817.52,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.3,
+    "blocks": 173,
+    "hectares": 86.76,
+    "residents": 20009.37,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.35,
+    "blocks": 202,
+    "hectares": 103.14,
+    "residents": 23991.65,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.4,
+    "blocks": 230,
+    "hectares": 116.87,
+    "residents": 28232.42,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.45,
+    "blocks": 259,
+    "hectares": 133.36,
+    "residents": 32974.41,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.5,
+    "blocks": 288,
+    "hectares": 148.55,
+    "residents": 37679.45,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.55,
+    "blocks": 317,
+    "hectares": 164.2,
+    "residents": 42476.47,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.6,
+    "blocks": 346,
+    "hectares": 177.85,
+    "residents": 47811.54,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.65,
+    "blocks": 374,
+    "hectares": 193.09,
+    "residents": 52661.51,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.7,
+    "blocks": 403,
+    "hectares": 208.8,
+    "residents": 58217.03,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.75,
+    "blocks": 432,
+    "hectares": 225.23,
+    "residents": 64573.41,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.8,
+    "blocks": 461,
+    "hectares": 239.51,
+    "residents": 70870.83,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.85,
+    "blocks": 490,
+    "hectares": 254.62,
+    "residents": 77178.63,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.9,
+    "blocks": 518,
+    "hectares": 268.43,
+    "residents": 83249.81,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 0.95,
+    "blocks": 547,
+    "hectares": 282.9,
+    "residents": 90378.0,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   },
+   {
+    "share": 1.0,
+    "blocks": 576,
+    "hectares": 293.43,
+    "residents": 95140.61,
+    "targeted_pct": -92.8,
+    "no_water_pct": -87.05,
+    "pct_per_extra_ha": -0.0
+   }
+  ]
+ },
+ "monte_carlo": {
+  "draws": 2000,
+  "published_targeted_pct": -92.79818839125139,
+  "sources": {
+   "heat model": "coefficients refitted on 1 km tiles resampled with replacement (194 tiles, 12,451 blocks)",
+   "albedo": "library pixels resampled with replacement (pale roof 10, dusty roof 6, asphalt 9)",
+   "temperature": "block noise SD 0.25 °C (3-summer composite)",
+   "cool-roof range": "dTs per unit albedo uniform -4.0 to -8.0 K (published range; the app uses -8)"
+  },
+  "coefficient_sd": {
+   "Vegetation": 0.557,
+   "Asphalt / paved": 0.395
+  },
+  "trees_delta_p5_p95": [
+   -5.73,
+   -4.21
+  ],
+  "albedo_p5_p95": {
+   "Pale roof": [
+    0.322,
+    0.384
+   ],
+   "Dusty roof": [
+    0.263,
+    0.284
+   ],
+   "Asphalt / paved": [
+    0.176,
+    0.184
+   ]
+  },
+  "pct_removed": {
+   "all data sources": {
+    "targeted": {
+     "median": 92.5,
+     "p5": 90.1,
+     "p95": 94.7
+    },
+    "no_water": {
+     "median": 86.7,
+     "p5": 84.1,
+     "p95": 89.2
+    }
+   },
+   "heat model only": {
+    "targeted": {
+     "median": 92.7,
+     "p5": 91.8,
+     "p95": 93.5
+    },
+    "no_water": {
+     "median": 87.0,
+     "p5": 87.0,
+     "p95": 87.0
+    }
+   },
+   "albedo only": {
+    "targeted": {
+     "median": 92.8,
+     "p5": 92.5,
+     "p95": 93.0
+    },
+    "no_water": {
+     "median": 87.0,
+     "p5": 86.3,
+     "p95": 87.7
+    }
+   },
+   "temperature only": {
+    "targeted": {
+     "median": 92.5,
+     "p5": 90.5,
+     "p95": 94.5
+    },
+    "no_water": {
+     "median": 86.7,
+     "p5": 84.3,
+     "p95": 89.1
+    }
+   },
+   "all + cool-roof range": {
+    "targeted": {
+     "median": 88.4,
+     "p5": 81.7,
+     "p95": 93.0
+    },
+    "no_water": {
+     "median": 77.9,
+     "p5": 66.2,
+     "p95": 86.7
+    }
+   }
+  },
+  "not_included": "block material fractions (held fixed) and the population grid"
+ },
+ "masks": {
+  "scene_cover_pct_from_metadata": {
+   "cloudCover": 0.0,
+   "cloudShadow": 0.0,
+   "hazeCover": 0.0,
+   "cirrusCover": 0.0,
+   "snowCover": 0.0
+  },
+  "pixels_on_grid": 207927,
+  "removed_as_water": 28,
+  "removed_as_background": 0,
+  "removed_no_data": 0,
+  "removed_pct": 0.013,
+  "reflectance_above_1": 0,
+  "masks_used": "QL_QUALITY_CLASSES only (land / water / background); no cloud, haze or snow mask is applied, because the scene metadata report 0 % of each"
+ },
+ "coregistration": {
+  "reference": "Sentinel-2 L2A summer composite (median 2023-25), 10 m averaged to 30 m",
+  "moving": "EnMAP 22 Apr 2025 averaged into Sentinel-2 passbands",
+  "sign": "the shift that moves EnMAP onto Sentinel-2 (rows down, columns right)",
+  "whole_area": {
+   "B04": {
+    "dy_px": 0.654,
+    "dx_px": 0.935,
+    "peak": 0.452
+   },
+   "B08": {
+    "dy_px": 0.677,
+    "dx_px": 0.926,
+    "peak": 0.433
+   },
+   "B11": {
+    "dy_px": 0.388,
+    "dx_px": 0.798,
+    "peak": 0.402
+   }
+  },
+  "tiles": 9,
+  "tile_px": 128,
+  "tile_shift_m_median": 34.1,
+  "tile_shift_m_max": 36.6,
+  "tile_peak_median": 0.443,
+  "heat_model_shift_test": {
+   "shift_px": [
+    0.665,
+    0.931
+   ],
+   "as delivered": {
+    "blocks": 12451,
+    "r2_spatial_cv": 0.4153,
+    "mae_c": 1.0898,
+    "coefficients": {
+     "Pale roof": 0.411,
+     "Dusty roof": -2.098,
+     "Asphalt / paved": -2.752,
+     "Vegetation": -7.773,
+     "Shade": -6.582,
+     "roof_frac": -0.616,
+     "mean_height_m": -0.099
+    }
+   },
+   "moved onto Sentinel-2": {
+    "blocks": 12451,
+    "r2_spatial_cv": 0.4327,
+    "mae_c": 1.0742,
+    "coefficients": {
+     "Pale roof": 1.019,
+     "Dusty roof": -2.917,
+     "Asphalt / paved": -2.672,
+     "Vegetation": -7.546,
+     "Shade": -5.429,
+     "roof_frac": -0.701,
+     "mean_height_m": -0.1
+    }
+   }
+  }
+ },
+ "two_date_check": "refinement.two_date_check (shift by phase correlation, then the mean spectrum offset on unchanged control pixels) is ready for a second scene; tested on a known synthetic shift and offset",
+ "attribution": "Contains modified EnMAP data © DLR [2025] · Contains modified Copernicus Sentinel data [2023-2025] · Landsat 8/9 (USGS) · WorldPop (CC BY 4.0)"
+}
