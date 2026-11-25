@@ -347,7 +347,7 @@
      "mean_height_m": -0.099
     }
    },
-   "moved onto Sentinel-2": {
+   "measured shift (interpolated)": {
     "blocks": 12451,
     "r2_spatial_cv": 0.4327,
     "mae_c": 1.0742,
@@ -358,6 +358,90 @@
      "Vegetation": -7.546,
      "Shade": -5.429,
      "roof_frac": -0.701,
+     "mean_height_m": -0.1
+    }
+   },
+   "opposite shift (same smoothing)": {
+    "blocks": 12451,
+    "r2_spatial_cv": 0.3934,
+    "mae_c": 1.1126,
+    "coefficients": {
+     "Pale roof": -0.28,
+     "Dusty roof": -2.255,
+     "Asphalt / paved": -2.635,
+     "Vegetation": -6.952,
+     "Shade": -6.19,
+     "roof_frac": -0.3,
+     "mean_height_m": -0.101
+    }
+   },
+   "smoothing only (no net shift)": {
+    "blocks": 12451,
+    "r2_spatial_cv": 0.4412,
+    "mae_c": 1.0631,
+    "coefficients": {
+     "Pale roof": 0.898,
+     "Dusty roof": -2.629,
+     "Asphalt / paved": -2.604,
+     "Vegetation": -7.843,
+     "Shade": -6.203,
+     "roof_frac": -0.514,
+     "mean_height_m": -0.1
+    }
+   },
+   "smoothing, then measured shift": {
+    "blocks": 12451,
+    "r2_spatial_cv": 0.446,
+    "mae_c": 1.0606,
+    "coefficients": {
+     "Pale roof": 0.933,
+     "Dusty roof": -1.883,
+     "Asphalt / paved": -2.673,
+     "Vegetation": -7.614,
+     "Shade": -6.975,
+     "roof_frac": -0.648,
+     "mean_height_m": -0.1
+    }
+   },
+   "whole pixel: 1 east": {
+    "blocks": 12451,
+    "r2_spatial_cv": 0.4262,
+    "mae_c": 1.0818,
+    "coefficients": {
+     "Pale roof": 0.932,
+     "Dusty roof": -2.894,
+     "Asphalt / paved": -2.589,
+     "Vegetation": -7.668,
+     "Shade": -5.999,
+     "roof_frac": -0.672,
+     "mean_height_m": -0.1
+    }
+   },
+   "whole pixel: 1 south": {
+    "blocks": 12451,
+    "r2_spatial_cv": 0.4069,
+    "mae_c": 1.0953,
+    "coefficients": {
+     "Pale roof": 0.851,
+     "Dusty roof": -2.378,
+     "Asphalt / paved": -2.643,
+     "Vegetation": -7.259,
+     "Shade": -6.067,
+     "roof_frac": -0.739,
+     "mean_height_m": -0.1
+    }
+   },
+   "whole pixel: 1 south, 1 east": {
+    "blocks": 12451,
+    "r2_spatial_cv": 0.4163,
+    "mae_c": 1.0906,
+    "coefficients": {
+     "Pale roof": 0.856,
+     "Dusty roof": -2.66,
+     "Asphalt / paved": -2.808,
+     "Vegetation": -7.233,
+     "Shade": -5.425,
+     "roof_frac": -0.79,
      "mean_height_m": -0.1
     }
    }

@@ -204,12 +204,31 @@ def coregistration(cfg: object, refl: object) -> tuple[dict, pd.DataFrame]:
 
 def shift_test(cfg: object, refl: object, checked: pd.DataFrame, dy: float, dx: float) -> dict:
     """Does moving EnMAP onto Sentinel-2 improve the heat model? Same library rows/columns
-    (the ground a person checked), same blocks and folds, cube shifted by (dy, dx)."""
+    (the ground a person checked), same blocks and folds.
+
+    A fractional shift interpolates, which also smooths, and smoothing alone can raise a
+    block-level R². So the measured shift is scored next to controls: the opposite shift (same
+    smoothing, worse alignment), the same smoothing with no net shift, and whole-pixel shifts
+    (exact moves, no smoothing), which is what nearest-neighbour preprocessing can apply.
+    """
     from make_unmixing import ols_cv
 
+    v = refl.values
+    blur = 0.5 * (shift_image(v, dy, dx) + shift_image(v, -dy, -dx))
+    variants = {
+        "as delivered": v,
+        "measured shift (interpolated)": shift_image(v, dy, dx),
+        "opposite shift (same smoothing)": shift_image(v, -dy, -dx),
+        "smoothing only (no net shift)": blur,
+        "smoothing, then measured shift": shift_image(blur, dy, dx),
+        f"whole pixel: {round(dx):.0f} east": shift_image(v, 0.0, float(round(dx))),
+        f"whole pixel: {round(dy):.0f} south": shift_image(v, float(round(dy)), 0.0),
+        f"whole pixel: {round(dy):.0f} south, {round(dx):.0f} east":
+            shift_image(v, float(round(dy)), float(round(dx))),
+    }
     out = {}
-    for name, (sy, sx) in {"as delivered": (0.0, 0.0), "moved onto Sentinel-2": (dy, dx)}.items():
-        cube = refl.copy(data=shift_image(refl.values, sy, sx)) if (sy or sx) else refl
+    for name, data in variants.items():
+        cube = refl if data is v else refl.copy(data=data)
         feats, cols = heat_features(cfg, cube, lib.library_from_sheet(cube, checked))
         r2, mae = ols_cv(feats[cols].to_numpy(), feats.lst_c.to_numpy(),
                          spatial_groups(feats, 1000), cfg["cv_folds"])
